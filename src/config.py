@@ -60,11 +60,57 @@ def dry_run() -> bool:
 
 
 def data_dir() -> Path:
-    """本机运行数据目录（营养台账、订单审计）。含个人信息，已被 .gitignore 排除。"""
+    """本机运行数据目录（营养台账、订单审计、用量台账）。含个人信息，已被 .gitignore 排除。"""
     override = os.environ.get("MAIMAI_DATA_DIR")
     path = Path(override) if override else Path.home() / ".maimai-monster"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+# ---------------------------------------------------------------- Agent 桥接
+# 这一组配置决定「从哪读别的 Agent 的用量与进度」。默认值只是候选，
+# 详见 src/agentbridge/paths.py —— 目录不存在就跳过，不会报错。
+
+
+def agent_config_path() -> Path:
+    """agentbridge 的配置文件路径（可覆盖根目录、计价表等）。"""
+    override = os.environ.get("MAIMAI_CONFIG_PATH")
+    return Path(override) if override else Path.home() / ".maimai-monster" / "config.json"
+
+
+def usage_window_hours() -> float:
+    """滚动窗口长度（小时）。默认 5，对齐 Claude 的限流主窗口。
+
+    注意：这是**我们自己划的观测窗口**，不是从厂商读来的配额。
+    """
+    raw = os.environ.get("MAIMAI_USAGE_WINDOW_HOURS", "").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        return 5.0
+    return value if value > 0 else 5.0
+
+
+def progress_stale_minutes() -> int:
+    """会话多久没更新就算「不活跃」。用于进度汇报里区分在跑的和挂着的。"""
+    raw = os.environ.get("MAIMAI_PROGRESS_STALE_MINUTES", "").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return 30
+    return value if value > 0 else 30
+
+
+def watch_processes() -> bool:
+    """是否采样本机进程表来识别「真的在跑」的 Agent。
+
+    默认关。原因：进程表采样要读系统信息、各平台口径不一，而且一个纯日志
+    驱动的桌宠不需要它也能工作。开了会更准，但要在文档里说清它读了什么。
+    """
+    return os.environ.get("MAIMAI_WATCH_PROCESSES", "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
+
 
 
 _TOKEN_PATTERNS = (

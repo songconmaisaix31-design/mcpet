@@ -9,6 +9,10 @@
     python -m src.cli models       # 阶跃星辰可用模型
     python -m src.cli ask "..."    # 让大模型调度 MCP 工具回答
 
+    python -m src.cli agents       # 这台机器上接了哪些 Agent 数据源
+    python -m src.cli usage        # 账号余额提醒（token 用量台账）
+    python -m src.cli progress     # 项目进度汇报（各 Agent 会话快照）
+
 所有输出都过一遍 redact()，直接贴进 README 也不会漏 Token / 手机号。
 """
 
@@ -171,6 +175,116 @@ def cmd_order(args: argparse.Namespace) -> int:
     return 0 if outcome.status != "rejected" else 1
 
 
+def cmd_agents(args: argparse.Namespace) -> int:
+    """如实汇报：支持几种 provider、这台机器上配了几种、各自目录在哪。"""
+    from .agentbridge import available_providers, resolve_roots
+
+    roots = resolve_roots(config_path=config.agent_config_path())
+    print(f"代码里实现的 provider：{', '.join(available_providers())}")
+    print(f"配置文件：{config.agent_config_path()}")
+    print("")
+    print("根目录解析（环境变量 > 配置文件 > 平台默认候选）：")
+    lines = roots.describe()
+    if not lines:
+        print("    一个都没有。")
+    for line in lines:
+        print("   ", line)
+    print("")
+    active = roots.active_ids()
+    if active:
+        print(f"本机可用：{', '.join(active)}")
+    else:
+        print("本机一个数据源都没有。")
+        print("    要么装一个受支持的 Agent，要么把任何 Agent 的日志按")
+        print("    docs/AGENT_BRIDGE.md 的规范写进通用收件箱。")
+    return 0
+
+
+def cmd_usage(args: argparse.Namespace) -> int:
+    """账号余额提醒：扫台账 → 出报告。"""
+    from pathlib import Path
+
+    from .metering import build_meter, bubble, format_tokens, reminder_level, report
+
+    state_path = Path(args.state) if args.state else None
+    meter = build_meter(state_path=state_path)
+    if not meter.providers:
+        print("没有可用的数据源，先跑 `python -m src.cli agents` 看看。")
+        return 1
+
+    if args.no_scan:
+        snapshot = meter.snapshot()
+    else:
+        if state_path is None and not meter.state_path.exists():
+            print("首次回填，需要扫一遍历史日志，可能要几十秒…", file=sys.stderr)
+        result = meter.scan()
+        print(result.describe(), file=sys.stderr)
+        snapshot = meter.snapshot()
+
+    projected, remaining, sample_ok = meter.window_projection(snapshot)
+    if args.json:
+        payload = {
+            "sources": snapshot.sources,
+            "windowHours": snapshot.window_hours,
+            "window": snapshot.window.to_dict(),
+            "today": snapshot.today.to_dict(),
+            "lifetime": snapshot.lifetime.to_dict(),
+            "projectedTokens": round(projected),
+            "sampleOk": sample_ok,
+            "level": reminder_level(snapshot, projected),
+            "estimatedModels": snapshot.estimated_models,
+            "unknownModels": snapshot.unknown_models,
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+
+    print(config.redact(report(snapshot, projected, remaining, sample_ok, days=args.days)))
+    print("")
+    print(f"气泡文案：{config.redact(bubble(snapshot, projected, sample_ok))}")
+    print(f"提醒档位：{reminder_level(snapshot, projected)}")
+    return 0
+
+
+def cmd_progress(args: argparse.Namespace) -> int:
+    """项目进度汇报：读各 Agent 的会话快照。"""
+    from .progress import build_tracker, bubble, report
+
+    tracker = build_tracker(stale_minutes=args.stale, max_sessions=args.limit)
+    if not tracker.providers:
+        print("没有可用的数据源，先跑 `python -m src.cli agents` 看看。")
+        return 1
+
+    snapshot = tracker.snapshot()
+    if args.json:
+        payload = {
+            "sources": snapshot.sources,
+            "staleMinutes": snapshot.stale_minutes,
+            "processSampling": snapshot.process_sampling,
+            "sessions": [
+                {
+                    "source": item.record.source,
+                    "sessionId": item.record.session_id,
+                    "state": item.record.state,
+                    "project": item.record.project,
+                    "title": item.record.title,
+                    "model": item.record.model,
+                    "contextPercent": item.context_percent,
+                    "backgroundTasks": item.record.background_tasks,
+                    "stale": item.stale,
+                    "ageSeconds": round(item.age_seconds, 1),
+                }
+                for item in snapshot.sessions
+            ],
+        }
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+        return 0
+
+    print(config.redact(report(snapshot, show_stale=not args.active_only)))
+    print("")
+    print(f"气泡文案：{config.redact(bubble(snapshot))}")
+    return 0
+
+
 def cmd_models(args: argparse.Namespace) -> int:
     """列出阶跃星辰可用对话模型（真实调用 /v1/models）。"""
     config.load_env()
@@ -297,6 +411,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_ask.add_argument("--allow-write", action="store_true",
                        help="允许大模型直接执行领券/下单等写操作（默认需人工确认）")
     p_ask.set_defaults(func=cmd_ask)
+
+    p_agents = sub.add_parser("agents", help="看看这台机器上接了哪些 Agent 数据源")
+    p_agents.set_defaults(func=cmd_agents)
+
+    p_usage = sub.add_parser("usage", help="账号余额提醒（token 用量台账）")
+    p_usage.add_argument("--days", type=int, default=7, help="趋势展示最近几天")
+    p_usage.add_argument("--state", default=None, help="台账文件路径（默认在数据目录下）")
+    p_usage.add_argument("--no-scan", action="store_true", help="只读现有台账，不重新扫描")
+    p_usage.add_argument("--json", action="store_true", help="输出 JSON")
+    p_usage.set_defaults(func=cmd_usage)
+
+    p_progress = sub.add_parser("progress", help="项目进度汇报（各 Agent 会话快照）")
+    p_progress.add_argument("--stale", type=int, default=None, help="多少分钟没更新算「停了」")
+    p_progress.add_argument("--limit", type=int, default=12, help="最多显示几个会话")
+    p_progress.add_argument("--active-only", action="store_true", help="只显示活跃会话")
+    p_progress.add_argument("--json", action="store_true", help="输出 JSON")
+    p_progress.set_defaults(func=cmd_progress)
     return parser
 
 

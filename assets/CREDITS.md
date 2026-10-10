@@ -31,14 +31,36 @@ README 中的书面授权说明截图，存放于本目录。
 | 对象 | 借鉴了什么 | 处理方式 |
 |---|---|---|
 | `kmjs1915/CeTaPet-AI-DeskTopPet-DeepSeek` | 托盘常驻 + 状态机 + 气泡 + 拖拽的**架构** | 代码为本项目重写（Python / PySide6），未复制其源码文件 |
-| `myunwang/LLMPET`（MIT） | 状态优先级与 oneshot TTL 衰减的**设计思路**（`shared/states.js`） | 思路移植，未复制代码；本项目未使用其任何素材 |
+| `myunwang/LLMPET`（MIT） | ① 状态优先级与 oneshot TTL 衰减（`shared/states.js`）② **用量计量机制**（`backend/metering.js`、`backend/codex-metering.js`、`backend/usage-archive.js`）③ **进度机制**（`backend/transcript.js`、`backend/runtime-monitor.js`） | **机制移植，用 Python 重写，未复制任何 JS 源码文件**；本项目未使用其任何素材 |
 | `caritivememory-ops/chatgpt-longniang` | 精灵图规格与 QA 校验**流程** | 规格照用，素材在授权范围内使用 |
+
+### 3.1 从 LLMPET 移植的具体机制（第 ②③ 项的展开）
+
+如实列出，便于审核对照。这些是**算法与数据结构层面的做法**，Python 实现为本项目独立编写：
+
+| 机制 | LLMPET 出处 | 本项目落点 | 差异 |
+|---|---|---|---|
+| 字节偏移增量扫描 | `metering.js` 的 `cursors` | `agentbridge/providers/base.py::read_from_offset` | 抽成 provider 通用能力 |
+| `message.id` 去重 + 逐分量取最大 + 只记正增量（流式修正） | `metering.js` `usageDelta` / `mergeUsage` | `metering/usage.py::_absorb` | 同 |
+| 5 小时滚动窗口 | `metering.js` `WINDOW_MS` | `metering/usage.py` `recent` + `window_hours` | 窗口长度改为可配置 |
+| 日 / 时 / 终生三级聚合，终生 = carried + 保留日 | `usage-archive.js` | `metering/usage.py::_prune` | 简化：不做 schema 归档层 |
+| 上下文窗口 1M 启发式（用量顶穿 200k 即判 1M） | `transcript.js::contextLimit` | `agentbridge/context.py::context_limit` | 去掉 LiteLLM 在线同步，改内置表 + 显式 `1m` 标记 |
+| Codex 记 `last_token_usage` 而非累计差值 | `codex-metering.js` | `agentbridge/providers/codex.py` | 同（累计计数器压缩后会重置，差值会放大 10 倍） |
+| 进程表采样识别活跃 Agent | `runtime-monitor.js` | `progress/tracker.py::ProcessSampler` | 改为**可选且默认关闭**（依赖 `psutil`） |
+| 会话状态 → 桌宠状态映射 | `adapter.js` | `progress/report.py::pet_state_for` | 状态词表按本项目需要重定义 |
+
+**关键差异（这也是移植的主要原因）**：LLMPET 把数据源写死为 `~/.claude/projects`
+与 `~/.codex/sessions`。本项目把它抽成 `agentbridge` 的 provider 层，并定义了
+一份公开的通用收件箱规范（`docs/AGENT_BRIDGE.md`），使**任何 Agent** 都能接入，
+且**一个数据源都没有时程序照常运行**。
 
 ## 4. 原创部分
 
 以下为本项目原创实现，无第三方来源：
 
 - `src/mcd_mcp/` 全部：MCP Streamable HTTP 客户端、麦麦大脑、下单护栏
+- `src/agentbridge/` 全部：provider 抽象、根目录解析、通用收件箱规范、三档 provider 适配
+- `src/metering/`、`src/progress/` 全部：Python 实现、计价表、文案与口径纪律
 - `src/pet/spritesheet.py`：图集切片播放器
 - `src/schedule/clock.py`：每日调度与休眠补触发
 - `src/nutrition/ledger.py`：营养台账

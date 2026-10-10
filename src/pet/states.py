@@ -14,6 +14,8 @@ STATE_PRIORITY: dict[str, int] = {
     "error": 8,
     "remind": 7,      # 11:30 该吃饭了
     "coupon": 6,      # 领券汇报
+    "progress": 6,    # 项目进度汇报（复用 LLMPET 的进度基础设施）
+    "balance": 6,     # 账号余额提醒（复用 LLMPET 的用量基础设施）
     "waiting": 5,     # 等你点确认
     "eating": 4,
     "working": 3,
@@ -28,6 +30,8 @@ STATE_PRIORITY: dict[str, int] = {
 ONESHOT_TTL_MS: dict[str, int] = {
     "remind": 90_000,
     "coupon": 60_000,
+    "progress": 60_000,
+    "balance": 45_000,
     "error": 45_000,
     "happy": 8_000,
     "greet": 6_000,
@@ -43,6 +47,8 @@ TARGET_ROWS: tuple[str, ...] = (
     "greet",
     "remind",
     "coupon",
+    "progress",
+    "balance",
     "waiting",
     "failed",
     "run-right",
@@ -60,6 +66,8 @@ LONGNIANG_ROW_ALIAS: dict[str, int] = {
     "greet": 3,        # waving
     "remind": 3,       # waving
     "coupon": 8,       # review
+    "progress": 7,     # running: 进度汇报用「在跑」的姿态
+    "balance": 8,      # review: 余额提醒用「翻看」的姿态
     "waiting": 6,
     "failed": 5,
     "error": 5,

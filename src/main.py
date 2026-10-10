@@ -76,6 +76,9 @@ class MonsterApp:
                 ("记一笔麦当劳", self.action_log_meal),
                 ("今日营养", self.action_nutrition_summary),
                 None,
+                ("项目进度", self.action_progress),
+                ("账号余额", self.action_balance),
+                None,
                 ("退出", self.quit),
             ],
         )
@@ -317,6 +320,57 @@ class MonsterApp:
     def action_nutrition_summary(self) -> None:
         self.window.say_state("idle", self.ledger.summary(), 8000)
 
+    # ---------- 复用 LLMPET 基础设施的两个动作 ----------
+
+    def action_progress(self) -> None:
+        """项目进度汇报。只读日志，不碰任何 Agent。"""
+        from .progress import build_tracker, bubble, report
+
+        def work():
+            tracker = build_tracker()
+            if not tracker.providers:
+                return None, "没有可用的 Agent 数据源。"
+            return tracker.snapshot(), ""
+
+        def done(result):
+            snapshot, error = result
+            if snapshot is None:
+                self.window.say_state("error", error, 8000)
+                return
+            if not snapshot.has_data:
+                self.window.say_state("progress", "没读到任何 Agent 的会话。", 8000)
+                return
+            self.window.say_state("progress", bubble(snapshot), 12000)
+            # 详情走 stdout，避免气泡塞不下十几行
+            print(report(snapshot))
+
+        self.run_async(work, done)
+
+    def action_balance(self) -> None:
+        """账号余额提醒。扫台账 → 报窗口用量。"""
+        from .metering import build_meter, bubble, reminder_level
+
+        def work():
+            meter = build_meter()
+            if not meter.providers:
+                return None, None, None, "没有可用的 Agent 数据源。"
+            meter.scan()
+            snapshot = meter.snapshot()
+            projected, _, sample_ok = meter.window_projection(snapshot)
+            return snapshot, projected, sample_ok, ""
+
+        def done(result):
+            snapshot, projected, sample_ok, error = result
+            if snapshot is None:
+                self.window.say_state("error", error, 8000)
+                return
+            state = reminder_level(snapshot, projected)
+            # 用量偏重时用 error 表情提一句，别让它悄无声息地烧
+            pet_state = "error" if state == "heavy" else "balance"
+            self.window.say_state(pet_state, bubble(snapshot, projected, sample_ok), 12000)
+
+        self.run_async(work, done)
+
     def action_ask(self) -> None:
         """问小怪兽：大模型读真实 tools/list 后自己决定调哪个麦当劳工具。"""
         if not self.ensure_client():
@@ -373,6 +427,8 @@ class MonsterApp:
                 ("撤销上一单", self.action_cancel_last_order),
                 ("记一笔麦当劳", self.action_log_meal),
                 ("今日营养", self.action_nutrition_summary),
+                ("项目进度", self.action_progress),
+                ("账号余额", self.action_balance),
                 ("退出", self.quit),
             ],
             point,

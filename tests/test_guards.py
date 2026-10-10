@@ -1,6 +1,18 @@
+from datetime import datetime
+
 import pytest
 
 from src.mcd_mcp.guards import GuardLimits, GuardViolation, OrderAuditEntry, OrderGuard, to_cents
+
+
+def _today_at(hour: int = 11, minute: int = 30) -> str:
+    """今天的某个时刻。
+
+    原来这里写死了 `2026-10-10T11:30:00`——跨过午夜之后「今日额度」就数不到
+    这些记录了，测试会莫名其妙地失败。护栏按 `created_at[:10]` 判断是否今天，
+    所以测试必须用动态日期。
+    """
+    return datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0).isoformat()
 
 
 @pytest.fixture()
@@ -22,7 +34,7 @@ def test_zero_amount_rejected(guard):
 def test_daily_limit_rejected(guard):
     for _ in range(2):
         guard.check(1_000)
-        guard.record(OrderAuditEntry(created_at="2026-10-10T11:30:00", tool="create-order",
+        guard.record(OrderAuditEntry(created_at=_today_at(), tool="create-order",
                                      store="某店", items="巨无霸", amount_cents=1_000, status="placed"))
     with pytest.raises(GuardViolation) as excinfo:
         guard.check(1_000)
@@ -30,14 +42,14 @@ def test_daily_limit_rejected(guard):
 
 
 def test_dry_run_entries_do_not_count_against_daily_limit(guard):
-    guard.record(OrderAuditEntry(created_at="2026-10-10T11:30:00", tool="create-order",
+    guard.record(OrderAuditEntry(created_at=_today_at(), tool="create-order",
                                  store="某店", items="巨无霸", amount_cents=1_000,
                                  dry_run=True, status="dry_run_skipped"))
     guard.check(1_000)  # 演练不占额度，不应抛
 
 
 def test_audit_is_persisted_and_reloadable(guard):
-    guard.record(OrderAuditEntry(created_at="2026-10-10T12:00:00", tool="create-order",
+    guard.record(OrderAuditEntry(created_at=_today_at(hour=12), tool="create-order",
                                  store="某店", items="薯条", amount_cents=900,
                                  order_no="NO-1", status="placed"))
     reloaded = OrderGuard(GuardLimits(), guard.audit_path)
