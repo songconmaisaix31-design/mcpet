@@ -54,7 +54,7 @@ MCPET_AGENT_ROOT_GENERIC=/srv/agent-inbox
 MCPET_AGENT_ROOTS="claude=/a/b,generic=/c/d"
 
 # 配置文件位置
-MCPET_CONFIG_PATH=~/.config/maimai/config.json
+MCPET_CONFIG_PATH=~/.mcpet/config.json
 
 # 台账落盘目录（含用量历史与计价覆盖）
 MCPET_DATA_DIR=~/.mcpet
