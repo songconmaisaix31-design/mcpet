@@ -1,4 +1,4 @@
-"""麦麦小怪兽 —— 入口。
+"""McPet（麦麦搭子） —— 入口。
 
 把四层拼起来：托盘 + 桌宠窗口（表现层）、调度器（时间层）、麦麦大脑（MCP 层）、
 护栏 + 台账（安全与留痕层）。
@@ -49,7 +49,7 @@ class MonsterApp:
         config.load_env()
         self.app = QApplication(argv or sys.argv)
         self.app.setQuitOnLastWindowClosed(False)
-        self.app.setApplicationName("麦麦小怪兽")
+        self.app.setApplicationName("McPet")
 
         self._threads: list[_FnThread] = []
         self.guard = OrderGuard()
@@ -70,7 +70,7 @@ class MonsterApp:
         self.tray = PetTray(
             self._icon(),
             [
-                ("问小怪兽", self.action_ask),
+                ("问麦麦", self.action_ask),
                 ("领券汇报", self.action_coupon_report),
                 ("今天最划算", self.action_best_deal),
                 ("记一笔麦当劳", self.action_log_meal),
@@ -90,7 +90,7 @@ class MonsterApp:
         self._add_lunch_task()
         self.scheduler.start()
 
-        self.window.say("麦麦小怪兽上线了。右键我有菜单。", 6000)
+        self.window.say("McPet 上线了。右键我有菜单。", 6000)
 
     # ---------- 装配 ----------
 
@@ -124,7 +124,7 @@ class MonsterApp:
         return QIcon()
 
     def _add_lunch_task(self) -> None:
-        raw = os.environ.get("MAIMAI_LUNCH_TIME", "11:30")
+        raw = os.environ.get("MCPET_LUNCH_TIME", "11:30")
         try:
             hour, minute = (int(part) for part in raw.split(":", 1))
         except ValueError:
@@ -217,7 +217,7 @@ class MonsterApp:
         def done(result):
             quotes, store = result
             if not quotes:
-                self.window.say_state("coupon", "没找到可用报价（请检查 MAIMAI_CITY 设置）。", 8000)
+                self.window.say_state("coupon", "没找到可用报价（请检查 MCPET_CITY 设置）。", 8000)
                 return
             quote: DealQuote = quotes[0]
             self.pending_quote = quote
@@ -372,11 +372,11 @@ class MonsterApp:
         self.run_async(work, done)
 
     def action_ask(self) -> None:
-        """问小怪兽：大模型读真实 tools/list 后自己决定调哪个麦当劳工具。"""
+        """问麦麦：大模型读真实 tools/list 后自己决定调哪个麦当劳工具。"""
         if not self.ensure_client():
             return
         question, ok = QInputDialog.getText(
-            self.window, "问小怪兽", "想问点什么？会真实调用麦当劳 MCP。"
+            self.window, "问麦麦", "想问点什么？会真实调用麦当劳 MCP。"
         )
         if not ok or not question.strip():
             return
@@ -420,7 +420,7 @@ class MonsterApp:
     def on_menu(self, point) -> None:
         self.window.show_menu(
             [
-                ("问小怪兽", self.action_ask),
+                ("问麦麦", self.action_ask),
                 ("领券汇报", self.action_coupon_report),
                 ("今天最划算", self.action_best_deal),
                 ("就下这一单", self.action_place_order),

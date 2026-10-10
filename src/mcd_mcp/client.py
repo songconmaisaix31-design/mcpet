@@ -23,7 +23,7 @@ from typing import Any
 import httpx
 
 MCP_PROTOCOL_VERSION = "2025-06-18"
-CLIENT_INFO = {"name": "maimai-monster", "version": "0.1.0"}
+CLIENT_INFO = {"name": "mcpet", "version": "0.1.0"}
 
 
 class McpError(RuntimeError):

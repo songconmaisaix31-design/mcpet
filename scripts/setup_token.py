@@ -87,13 +87,13 @@ def run_check(args: list[str], timeout: int = 180) -> tuple[int, str]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="麦麦小怪兽 Token 配置与全链路验证")
+    parser = argparse.ArgumentParser(description="McPet（麦麦搭子） Token 配置与全链路验证")
     parser.add_argument("--reuse", action="store_true", help="复用已有 .env / 环境变量里的 Token，只跑验证")
     parser.add_argument("--token", default=None, help="直接指定 Token")
     args = parser.parse_args()
 
     print("=" * 60)
-    print("麦麦小怪兽 · Token 配置与全链路验证")
+    print("McPet（麦麦搭子） · Token 配置与全链路验证")
     print("=" * 60)
 
     config.load_env()

@@ -106,7 +106,7 @@ def cmd_deal(args: argparse.Namespace) -> int:
         brain = McdBrain(client, OrderGuard())
         store = brain.resolve_default_store()
         if not store:
-            print("没能解析出默认门店（请设置 MAIMAI_CITY，或在 .env 里写 city=北京）。")
+            print("没能解析出默认门店（请设置 MCPET_CITY，或在 .env 里写 city=北京）。")
             return 1
         print(f"门店：{store.store_name} ({store.store_code}) beType={store.be_type} "
               f"营业中={store.business_status} 距离={store.distance}m")
@@ -131,7 +131,7 @@ def cmd_order(args: argparse.Namespace) -> int:
         brain = McdBrain(client, OrderGuard())
         store = brain.resolve_default_store()
         if not store:
-            print("没能解析出默认门店（请设置 MAIMAI_CITY）。")
+            print("没能解析出默认门店（请设置 MCPET_CITY）。")
             return 1
         print(f"门店：{store.store_name} ({store.store_code}) beType={store.be_type}")
         quotes = brain.best_deal(store, keyword=args.keyword)
@@ -372,7 +372,7 @@ def cmd_nutrition(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="maimai", description="麦麦小怪兽命令行验证工具")
+    parser = argparse.ArgumentParser(prog="mcpet", description="McPet命令行验证工具")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_tools = sub.add_parser("tools", help="拉取真实工具清单并核对参数名")
@@ -406,7 +406,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_models = sub.add_parser("models", help="列出阶跃星辰可用对话模型")
     p_models.set_defaults(func=cmd_models)
 
-    p_ask = sub.add_parser("ask", help="问小怪兽（大模型调度 MCP 工具）")
+    p_ask = sub.add_parser("ask", help="问麦麦（大模型调度 MCP 工具）")
     p_ask.add_argument("question")
     p_ask.add_argument("--allow-write", action="store_true",
                        help="允许大模型直接执行领券/下单等写操作（默认需人工确认）")

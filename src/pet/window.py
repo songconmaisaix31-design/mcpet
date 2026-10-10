@@ -57,7 +57,7 @@ class PetWindow(QWidget):
             Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool,
         )
         self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.setWindowTitle("麦麦小怪兽")
+        self.setWindowTitle("McPet（麦麦搭子）")
         self.size = size
 
         self.machine = PetStateMachine("idle")

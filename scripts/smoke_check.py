@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-os.environ.setdefault("MAIMAI_DATA_DIR", str(Path(__file__).resolve().parents[1] / ".tmp-smoke-data"))
+os.environ.setdefault("MCPET_DATA_DIR", str(Path(__file__).resolve().parents[1] / ".tmp-smoke-data"))
 
 from src import config  # noqa: E402
 from src.pet import states  # noqa: E402

@@ -47,11 +47,11 @@ def test_env_override_beats_config(tmp_path):
 
     roots = resolve_roots(
         config_path=cfg,
-        env={"MAIMAI_AGENT_ROOT_CLAUDE": str(env_dir)},
+        env={"MCPET_AGENT_ROOT_CLAUDE": str(env_dir)},
         provider_ids=["claude"],
     )
     assert roots.for_provider("claude") == [env_dir.resolve()]
-    assert roots.sources["claude"] == "MAIMAI_AGENT_ROOT_CLAUDE"
+    assert roots.sources["claude"] == "MCPET_AGENT_ROOT_CLAUDE"
 
 
 def test_config_used_when_env_absent(tmp_path):
@@ -70,7 +70,7 @@ def test_missing_directory_is_declared_but_not_active(tmp_path):
     missing = tmp_path / "nope"
     roots = resolve_roots(
         config_path=tmp_path / "none.json",
-        env={"MAIMAI_AGENT_ROOT_CLAUDE": str(missing)},
+        env={"MCPET_AGENT_ROOT_CLAUDE": str(missing)},
         provider_ids=["claude"],
     )
     assert roots.for_provider("claude") == []
@@ -87,7 +87,7 @@ def test_batch_env_roots_parsing(tmp_path):
     b.mkdir()
     roots = resolve_roots(
         config_path=tmp_path / "none.json",
-        env={"MAIMAI_AGENT_ROOTS": f"claude={a},generic={b}"},
+        env={"MCPET_AGENT_ROOTS": f"claude={a},generic={b}"},
         provider_ids=["claude", "generic"],
     )
     assert roots.for_provider("claude") == [a.resolve()]

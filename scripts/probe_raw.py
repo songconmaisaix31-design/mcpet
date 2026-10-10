@@ -38,7 +38,7 @@ def main() -> int:
     if not token:
         print("缺少 MCD_MCP_TOKEN")
         return 2
-    city = os.environ.get("MAIMAI_CITY", "北京").strip()
+    city = os.environ.get("MCPET_CITY", "北京").strip()
 
     with McdMcpClient(token, config.mcp_url()) as client:
         # ---- 1. 附近门店（找营业中的） ----

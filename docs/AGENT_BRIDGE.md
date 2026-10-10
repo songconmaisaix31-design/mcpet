@@ -1,6 +1,6 @@
 # Agent 桥接规范（AGENT_BRIDGE）
 
-麦麦小怪兽的两项能力——**项目进度汇报**与**账号余额提醒**——都不是麦当劳 MCP 提供的，
+McPet的两项能力——**项目进度汇报**与**账号余额提醒**——都不是麦当劳 MCP 提供的，
 它们来自「读本机其他 Agent 的日志」。这份文档说明**从哪读、读什么、不读什么**，
 以及**任何一个 Agent 该怎么把自己的数据喂进来**。
 
@@ -40,29 +40,29 @@ Agent。
 |---|---|
 | `claude` | `~/.claude/projects` |
 | `codex` | `~/.codex/sessions` |
-| `generic` | `~/.maimai-monster/inbox` |
+| `generic` | `~/.mcpet/inbox` |
 
 ### 环境变量
 
 ```bash
 # 单个 provider
-MAIMAI_AGENT_ROOT_CLAUDE=/path/to/claude/projects
-MAIMAI_AGENT_ROOT_CODEX=/path/to/codex/sessions
-MAIMAI_AGENT_ROOT_GENERIC=/srv/agent-inbox
+MCPET_AGENT_ROOT_CLAUDE=/path/to/claude/projects
+MCPET_AGENT_ROOT_CODEX=/path/to/codex/sessions
+MCPET_AGENT_ROOT_GENERIC=/srv/agent-inbox
 
 # 批量（逗号或换行分隔；Windows 路径里的 `;` 会和 PATH 打架，所以不用它）
-MAIMAI_AGENT_ROOTS="claude=/a/b,generic=/c/d"
+MCPET_AGENT_ROOTS="claude=/a/b,generic=/c/d"
 
 # 配置文件位置
-MAIMAI_CONFIG_PATH=~/.config/maimai/config.json
+MCPET_CONFIG_PATH=~/.config/maimai/config.json
 
 # 台账落盘目录（含用量历史与计价覆盖）
-MAIMAI_DATA_DIR=~/.maimai-monster
+MCPET_DATA_DIR=~/.mcpet
 ```
 
 ### 配置文件
 
-默认 `~/.maimai-monster/config.json`：
+默认 `~/.mcpet/config.json`：
 
 ```json
 {
@@ -159,7 +159,7 @@ Python：
 ```python
 import json, time, pathlib
 
-inbox = pathlib.Path.home() / ".maimai-monster" / "inbox"
+inbox = pathlib.Path.home() / ".mcpet" / "inbox"
 inbox.mkdir(parents=True, exist_ok=True)
 
 # 一次模型调用结束
@@ -183,7 +183,7 @@ Shell：
 
 ```bash
 printf '%s\n' '{"kind":"usage","ts":'$(date +%s)',"model":"m","input":100,"output":20}' \
-  >> ~/.maimai-monster/inbox/my-agent.jsonl
+  >> ~/.mcpet/inbox/my-agent.jsonl
 ```
 
 ---
@@ -201,7 +201,7 @@ Claude / Codex 两档是**只读扫描**，不写、不改、不删任何源文�
 作为标题（≤40 字）。这一行在写入台账前会过一遍密钥样式检测，命中就整条丢弃。
 如果你不希望任何提示文本被读取，用通用收件箱自己写标题即可。
 
-台账落盘位置：`~/.maimai-monster/usage.json`（可用 `MAIMAI_DATA_DIR` 改）。
+台账落盘位置：`~/.mcpet/usage.json`（可用 `MCPET_DATA_DIR` 改）。
 内含 token 与金额统计，**不含**任何提示或代码内容。
 
 ---
@@ -230,10 +230,10 @@ python -m src.cli progress    # 项目进度汇报（--json / --active-only）
 
 | 变量 | 默认 | 作用 |
 |---|---|---|
-| `MAIMAI_AGENT_ROOT_<ID>` | 平台候选 | 单个 provider 的根目录 |
-| `MAIMAI_AGENT_ROOTS` | 空 | 批量覆盖，`id=path` 逗号分隔 |
-| `MAIMAI_CONFIG_PATH` | `~/.maimai-monster/config.json` | 配置文件位置 |
-| `MAIMAI_DATA_DIR` | `~/.maimai-monster` | 台账与计价覆盖的目录 |
-| `MAIMAI_USAGE_WINDOW_HOURS` | `5` | 滚动窗口长度 |
-| `MAIMAI_PROGRESS_STALE_MINUTES` | `30` | 多久没更新算「停了」 |
-| `MAIMAI_WATCH_PROCESSES` | `0` | 是否采样本机进程表（需 `psutil`） |
+| `MCPET_AGENT_ROOT_<ID>` | 平台候选 | 单个 provider 的根目录 |
+| `MCPET_AGENT_ROOTS` | 空 | 批量覆盖，`id=path` 逗号分隔 |
+| `MCPET_CONFIG_PATH` | `~/.mcpet/config.json` | 配置文件位置 |
+| `MCPET_DATA_DIR` | `~/.mcpet` | 台账与计价覆盖的目录 |
+| `MCPET_USAGE_WINDOW_HOURS` | `5` | 滚动窗口长度 |
+| `MCPET_PROGRESS_STALE_MINUTES` | `30` | 多久没更新算「停了」 |
+| `MCPET_WATCH_PROCESSES` | `0` | 是否采样本机进程表（需 `psutil`） |

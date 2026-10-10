@@ -29,12 +29,12 @@ WRITE_TOOLS: frozenset[str] = frozenset(
 )
 
 SYSTEM_PROMPT = (
-    "你是「麦麦小怪兽」，一个住在用户系统托盘里的麦当劳小宠物。"
+    "你是「麦麦搭子」（McPet），一个换上麦当劳制服、住在用户系统托盘里的 AI 搭子。"
     "你会用麦当劳 MCP 工具查真实数据来回答问题。\n"
     "规则：\n"
     "1. 涉及券、价格、营养、门店的问题，必须调工具，不许凭印象回答；\n"
     "2. 拿不到数据就直说拿不到，不要编；\n"
-    "3. 回答用中文，短句、口语化，像宠物在跟你说话，一两句话说完；\n"
+    "3. 回答用中文，短句、口语化，像搭子在跟你说话，一两句话说完；\n"
     "4. 需要下单或领券时，先说明你要做什么，等用户确认；\n"
     "5. 不做医疗或营养建议，只陈述查到的数据。"
 )
@@ -130,7 +130,7 @@ def run_skill(
             if call.name in WRITE_TOOLS and not allow_write:
                 result.pending_write = call
                 result.pending_reason = (
-                    f"小怪兽想执行「{call.name}」，这是会产生真实结果的操作，需要你确认。"
+                    f"麦麦想执行「{call.name}」，这是会产生真实结果的操作，需要你确认。"
                 )
                 return result
 

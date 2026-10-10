@@ -48,7 +48,7 @@ __all__ = [
 
 
 def default_state_path() -> Path:
-    """台账落盘位置。跟着 data_dir()，可被 MAIMAI_DATA_DIR 覆盖。"""
+    """台账落盘位置。跟着 data_dir()，可被 MCPET_DATA_DIR 覆盖。"""
     from ..config import data_dir
 
     return data_dir() / "usage.json"

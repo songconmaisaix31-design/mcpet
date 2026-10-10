@@ -8,7 +8,7 @@
 3. 所有路径都做 `~` 展开与绝对化，Windows / macOS / Linux 同一套代码。
 4. 配置来源全部可被外部注入（`config_path` 参数），便于测试与嵌入式使用。
 
-配置文件默认在 `~/.maimai-monster/config.json`，形状：
+配置文件默认在 `~/.mcpet/config.json`，形状：
 
     {
       "agentRoots": {
@@ -30,20 +30,20 @@ _PLATFORM_DEFAULTS: dict[str, tuple[str, ...]] = {
     "claude": ("~/.claude/projects",),
     "codex": ("~/.codex/sessions",),
     # 通用收件箱：任何 Agent 按 docs/AGENT_BRIDGE.md 的规范往这里写就能被读到
-    "generic": ("~/.maimai-monster/inbox",),
+    "generic": ("~/.mcpet/inbox",),
 }
 
 # provider id -> 专属环境变量（最高优先级）
 _ENV_OVERRIDES: dict[str, str] = {
-    "claude": "MAIMAI_AGENT_ROOT_CLAUDE",
-    "codex": "MAIMAI_AGENT_ROOT_CODEX",
-    "generic": "MAIMAI_AGENT_ROOT_GENERIC",
+    "claude": "MCPET_AGENT_ROOT_CLAUDE",
+    "codex": "MCPET_AGENT_ROOT_CODEX",
+    "generic": "MCPET_AGENT_ROOT_GENERIC",
 }
 
-# 批量覆盖：MAIMAI_AGENT_ROOTS="claude=/a/b,generic=/c/d"
-_ENV_ROOTS = "MAIMAI_AGENT_ROOTS"
+# 批量覆盖：MCPET_AGENT_ROOTS="claude=/a/b,generic=/c/d"
+_ENV_ROOTS = "MCPET_AGENT_ROOTS"
 
-DEFAULT_CONFIG_PATH = Path.home() / ".maimai-monster" / "config.json"
+DEFAULT_CONFIG_PATH = Path.home() / ".mcpet" / "config.json"
 
 
 def _expand(raw: str) -> Path:
@@ -93,7 +93,7 @@ def _load_config(config_path: Path | None) -> dict:
 
 
 def _parse_env_roots(value: str) -> dict[str, list[str]]:
-    """解析 MAIMAI_AGENT_ROOTS：`id=path` 用逗号或换行分隔。
+    """解析 MCPET_AGENT_ROOTS：`id=path` 用逗号或换行分隔。
 
     逗号与换行都支持，是因为 Windows 路径里 `;` 是 PATH 分隔符，用 `;` 会和
     其它工具的习惯打架；`,` 在路径里罕见，够用。

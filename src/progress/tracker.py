@@ -37,7 +37,7 @@ PROCESS_HINTS: dict[str, tuple[str, ...]] = {
 # 明显是宿主自身或无关的进程，采到了也不认
 _PROCESS_IGNORE = (
     "runtime-monitor",
-    "maimai-monster",
+    "mcpet",
     "explorer.exe",
     "chrome_crashpad",
 )

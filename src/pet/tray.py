@@ -11,7 +11,7 @@ class PetTray(QSystemTrayIcon):
 
     def __init__(self, icon: QIcon, entries: list[tuple[str, object] | None], parent=None):
         super().__init__(icon, parent)
-        self.setToolTip("麦麦小怪兽")
+        self.setToolTip("McPet（麦麦搭子）")
         self._menu = QMenu()
         self._build(entries)
         self.setContextMenu(self._menu)

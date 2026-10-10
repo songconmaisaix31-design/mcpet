@@ -1,7 +1,7 @@
 """每日营养台账。
 
 数据来源是麦当劳 MCP 的 list-nutrition-foods（真实调用），本地只做累加和留存。
-台账存在 ~/.maimai-monster/nutrition.json，含个人饮食数据，已被 .gitignore 排除。
+台账存在 ~/.mcpet/nutrition.json，含个人饮食数据，已被 .gitignore 排除。
 
 注意：本项目只做记录与提醒，不做任何医疗或营养建议——CONTEST_DECLARATION.md
 里也有同样声明。

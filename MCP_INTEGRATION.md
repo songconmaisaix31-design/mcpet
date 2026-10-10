@@ -27,7 +27,7 @@ session 回带、单条 JSON 响应与 SSE 流两种响应体、401 直接失败
 
 ## 3. 用到的 Tool 与业务价值
 
-| Tool | 在麦麦小怪兽里做什么 | 是否有副作用 |
+| Tool | 在McPet里做什么 | 是否有副作用 |
 |---|---|---|
 | `available-coupons` | 领券前先看今天有哪些券可领 | 只读 |
 | `auto-bind-coupons` | 一键领全部麦麦省券 | **会真实领券** |
@@ -170,7 +170,7 @@ list-nutrition-foods → data 是**字符串**（不是 JSON！），自定义�
 
 1. 下单前弹确认框，必须展示**门店 + 商品 + 实付金额**，且要勾选确认才能点「下单」；
 2. 单笔金额上限、每日下单次数上限在 `src/mcd_mcp/guards.py`，超了直接拒绝；
-3. 每次下单（含演练）都写本机审计台账 `~/.maimai-monster/order-audit.json`；
+3. 每次下单（含演练）都写本机审计台账 `~/.mcpet/order-audit.json`；
 4. 托盘菜单常驻「撤销上一单」；
 5. `MCD_DRY_RUN=true` 时仍真实调用算价与全部查询，只跳过 `create-order` 提交——
    这是真实链路的演练，不是 mock。

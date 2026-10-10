@@ -29,7 +29,7 @@ class OrderConfirmDialog(QDialog):
 
     def __init__(self, summary: str, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("麦麦小怪兽要下单了")
+        self.setWindowTitle("McPet 要下单了")
         self.setModal(True)
         self.setMinimumWidth(360)
 
@@ -68,14 +68,14 @@ class OrderConfirmDialog(QDialog):
 def prompt_for_token(parent=None) -> str | None:
     """首次运行或 Token 失效时录入。
 
-    写入 ~/.maimai-monster/.env（不在项目目录，已尽量收成 0600），
+    写入 ~/.mcpet/.env（不在项目目录，已尽量收成 0600），
     并明确告知用户这是本机明文存储。
     """
     text, ok = QInputDialog.getText(
         parent,
         "需要麦当劳 MCP Token",
         "在 https://open.mcd.cn/mcp 登录后在「控制台」激活获取。\n"
-        "Token 会以明文存到本机 ~/.maimai-monster/.env（权限尽量设为仅本人可读）。",
+        "Token 会以明文存到本机 ~/.mcpet/.env（权限尽量设为仅本人可读）。",
         echo=QInputDialog.Password,
     )
     if not ok or not text.strip():

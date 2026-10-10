@@ -199,13 +199,13 @@ def test_report_lists_sessions_with_source_and_state():
     now = time.time()
     tracker = ProgressTracker([
         FakeProvider("codex", [
-            rec("codex", "s1", now - 5, state="working", project="麦麦小怪兽",
+            rec("codex", "s1", now - 5, state="working", project="McPet",
                 context_used=100_000, context_limit=200_000, model="gpt-5-codex"),
         ]),
     ])
     text = report(tracker.snapshot(now=now))
     assert "codex" in text
-    assert "麦麦小怪兽" in text
+    assert "McPet" in text
     assert "干活中" in text
     assert "50%" in text
     assert "滞后" in text        # 必须说明这是日志推导，不是实时推送

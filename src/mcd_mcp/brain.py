@@ -247,7 +247,7 @@ class McdBrain:
                     return self._default_store
 
         # 2) fallback：到店自取（beType=1, orderType=1）
-        city = os.environ.get("MAIMAI_CITY", "北京").strip()
+        city = os.environ.get("MCPET_CITY", "北京").strip()
         stores = self.client.call_tool(
             T.TOOL_NEARBY_STORES,
             {

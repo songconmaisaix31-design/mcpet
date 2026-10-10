@@ -108,7 +108,7 @@ def report(snapshot: ProgressSnapshot, *, show_stale: bool = True) -> str:
         detail = "、".join(f"{k} {v}" for k, v in live.items()) or "未发现"
         lines.append(f"进程采样：已开启（{detail}）")
     else:
-        lines.append("进程采样：未开启（设 MAIMAI_WATCH_PROCESSES=1 可开启，需 psutil）")
+        lines.append("进程采样：未开启（设 MCPET_WATCH_PROCESSES=1 可开启，需 psutil）")
     lines.append("")
 
     active = snapshot.active
