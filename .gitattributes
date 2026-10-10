@@ -1,0 +1,12 @@
+# 统一换行符，避免 Windows 提交把整个仓库变成 CRLF
+* text=auto eol=lf
+
+# 二进制素材，不做换行符转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary

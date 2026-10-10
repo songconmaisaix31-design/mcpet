@@ -1,0 +1,7 @@
+# 运行时依赖
+PySide6>=6.6
+httpx>=0.27
+python-dotenv>=1.0
+
+# 开发/测试
+pytest>=8.0

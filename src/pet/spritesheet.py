@@ -1,0 +1,171 @@
+"""精灵图集加载与切片播放。
+
+CeTaPet 原本的机制是「每个状态一张 PNG，切换时从磁盘重读」，没有切片能力。
+而 longniang 规格是单张图集（1536×2288、8 列 × 11 行、单元 192×208），
+两者接不上——所以这一层是新写的：按 pet.json + 行定义表把图集切成帧，
+再按状态逐帧播放。
+
+原创麦当劳素材做好后，只要行数按 states.TARGET_ROWS 排，这里不用改。
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from PySide6.QtCore import QRect, Qt
+from PySide6.QtGui import QImage, QPixmap
+
+from . import states
+
+
+class SpriteLoadError(RuntimeError):
+    pass
+
+
+@dataclass
+class SpriteSheet:
+    image: QImage
+    columns: int
+    rows: int
+    cell_width: int
+    cell_height: int
+    row_of: dict[str, int] = field(default_factory=dict)
+    frames_of: dict[str, int] = field(default_factory=dict)  # 按图集自带的状态名
+    frames_by_row: dict[int, int] = field(default_factory=dict)  # 按行号，播别名状态时用
+    frame_delay_ms: int = 80
+    meta: dict = field(default_factory=dict)
+
+    # ---------- 加载 ----------
+
+    @classmethod
+    def load(
+        cls,
+        image_path: str | Path,
+        *,
+        pet_json: str | Path | None = None,
+        rows_json: str | Path | None = None,
+        alias: dict[str, int] | None = None,
+        frame_delay_ms: int | None = None,
+    ) -> "SpriteSheet":
+        image_path = Path(image_path)
+        image = QImage(str(image_path))
+        if image.isNull():
+            raise SpriteLoadError(f"无法加载图集：{image_path}")
+
+        meta: dict = {}
+        if pet_json and Path(pet_json).exists():
+            meta = json.loads(Path(pet_json).read_text(encoding="utf-8"))
+
+        columns = int(meta.get("columns") or 8)
+        rows_total = int(meta.get("rows") or 11)
+        cell_w = int(meta.get("cell_width") or 0)
+        cell_h = int(meta.get("cell_height") or 0)
+        if not cell_w:
+            cell_w = image.width() // columns
+        if not cell_h:
+            cell_h = image.height() // rows_total
+
+        row_of: dict[str, int] = {}
+        frames_of: dict[str, int] = {}
+        frames_by_row: dict[int, int] = {}
+        if rows_json and Path(rows_json).exists():
+            row_defs = json.loads(Path(rows_json).read_text(encoding="utf-8"))
+            for entry in row_defs.get("rows", []):
+                row = int(entry["row"])
+                row_of[entry["state"]] = row
+                if entry.get("frames"):
+                    frames_of[entry["state"]] = int(entry["frames"])
+                    frames_by_row[row] = int(entry["frames"])
+
+        if not row_of:
+            row_of = dict(alias or states.LONGNIANG_ROW_ALIAS)
+
+        sheet = cls(
+            image=image,
+            columns=columns,
+            rows=rows_total,
+            cell_width=cell_w,
+            cell_height=cell_h,
+            row_of=row_of,
+            frames_of=frames_of,
+            frames_by_row=frames_by_row,
+            frame_delay_ms=frame_delay_ms or 80,
+            meta=meta,
+        )
+        issues = sheet.validate()
+        if issues:
+            # 不抛异常：占位素材尺寸对不上时仍然让它能跑，问题如实报到日志。
+            sheet.validation_issues = issues  # type: ignore[attr-defined]
+        return sheet
+
+    # ---------- 切片 ----------
+
+    def row_for(self, state: str) -> int:
+        if state in self.row_of:
+            return self.row_of[state]
+        alias = states.LONGNIANG_ROW_ALIAS.get(state)
+        return alias if alias is not None else self.row_of.get("idle", 0)
+
+    def frame_count(self, state: str) -> int:
+        """帧数以「行」为准——别名状态（如 remind→行 3）也要能拿到正确的帧数。"""
+        row = self.row_for(state)
+        if row in self.frames_by_row:
+            return self.frames_by_row[row]
+        if state in self.frames_of:
+            return self.frames_of[state]
+        return self.columns  # 行定义缺失时保守地按整行播
+
+    def frame(self, state: str, index: int) -> QPixmap:
+        row = self.row_for(state)
+        count = max(1, self.frame_count(state))
+        column = index % count
+        rect = QRect(column * self.cell_width, row * self.cell_height, self.cell_width, self.cell_height)
+        pixmap = QPixmap.fromImage(self.image.copy(rect))
+        return pixmap
+
+    def frames(self, state: str) -> list[QPixmap]:
+        return [self.frame(state, i) for i in range(self.frame_count(state))]
+
+    # ---------- 校验（对齐 longniang 的 QA 思路） ----------
+
+    def validate(self) -> list[str]:
+        issues: list[str] = []
+        if self.image.width() != self.columns * self.cell_width:
+            issues.append(
+                f"图集宽度 {self.image.width()} 与 列数×单元宽 {self.columns}×{self.cell_width} 不符"
+            )
+        if self.image.height() < self.rows * self.cell_height:
+            issues.append(
+                f"图集高度 {self.image.height()} 小于 行数×单元高 {self.rows}×{self.cell_height}"
+            )
+        for state, row in self.row_of.items():
+            if row >= self.rows:
+                issues.append(f"状态 {state} 的行号 {row} 超出图集行数 {self.rows}")
+        empty = self._empty_cells()
+        if empty:
+            issues.append("以下格子完全透明，可能没画到内容：" + "、".join(empty[:8]))
+        return issues
+
+    def _empty_cells(self) -> list[str]:
+        empty: list[str] = []
+        for state, row in sorted(self.row_of.items(), key=lambda kv: kv[1]):
+            count = min(self.frame_count(state), self.columns)
+            for column in range(count):
+                cell = self.image.copy(
+                    QRect(column * self.cell_width, row * self.cell_height, self.cell_width, self.cell_height)
+                )
+                if cell.hasAlphaChannel():
+                    opaque = 0
+                    for y in range(0, cell.height(), 4):
+                        for x in range(0, cell.width(), 4):
+                            if cell.pixelColor(x, y).alpha() > 8:
+                                opaque += 1
+                    if opaque == 0:
+                        empty.append(f"{state}#{column}")
+        return empty
+
+    @property
+    def has_alpha(self) -> bool:
+        return self.image.hasAlphaChannel()
