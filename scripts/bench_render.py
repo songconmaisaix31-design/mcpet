@@ -100,6 +100,8 @@ def measure_drag(app: QApplication, window: PetWindow, events: int = 120) -> dic
 
     window.clicked.connect(lambda: clicks.append(True))
     window.set_activity("idle")
+    window.set_state("greet", ttl_ms=2000)  # An unexpired touch cannot block an explicit drag.
+    before_drag = window.machine.state
     window.move(window.screen().availableGeometry().topLeft() + QPoint(100, 100))
     origin = window.pos() + QPoint(50, 50)
     send(QEvent.MouseButtonPress, origin, Qt.LeftButton, Qt.LeftButton)
@@ -137,6 +139,7 @@ def measure_drag(app: QApplication, window: PetWindow, events: int = 120) -> dic
         "frame_count": window.sheet.frame_count("run-right"),
         "state_changes": state_changes,
         "clicks_after_drag": len(clicks),
+        "before_drag": before_drag,
     }
 
 
@@ -203,6 +206,7 @@ def main() -> int:
     print(f"  每次耗时    : {drag['per_event_ms']:.2f} ms")
     print(f"  动画推进帧  : {drag['distinct_frames_shown']} / {drag['frame_count']} 帧出现过")
     print(f"  状态切换    : {drag['state_changes']}")
+    print(f"  拖拽前状态  : {drag['before_drag']}（TTL 未到期）")
     print(f"  拖拽后单击  : {drag['clicks_after_drag']}")
     if drag["frame_count"] and drag["distinct_frames_shown"] <= 1:
         print("  ⚠️ 拖拽期间动画冻结（只显示了 1 帧）")

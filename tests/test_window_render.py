@@ -289,3 +289,22 @@ def test_late_frame_uses_elapsed_time_without_loop_gap(window, monkeypatch):
     assert window._index == 3
     assert window._next_frame == pytest.approx(10.32)
     assert window.canvas.pixmap().toImage() == window._frames[3].toImage()
+
+
+@needs_assets
+def test_explicit_drag_renders_running_row_above_unexpired_touch(window):
+    window.set_activity("working")
+    window.set_state("greet", ttl_ms=2000)
+    deadline = window.machine._expires_at
+    window.mousePressEvent(_press(300, 300))
+    window.mouseMoveEvent(_move(340, 300))
+    assert window.machine.state == "run-right"
+    assert window._visual_key[0] == window.sheet.row_for("run-right")
+    assert window.canvas.pixmap().toImage() == window._frames[0].toImage()
+    window._advance()
+    window._advance()
+    frames = window._frames
+    window.set_activity("thinking", None, "巡检")
+    window.mouseMoveEvent(_move(339, 300))
+    assert window._frames is frames and window._index == 2
+    assert window.machine._expires_at == deadline

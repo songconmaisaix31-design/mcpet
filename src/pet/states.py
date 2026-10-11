@@ -96,26 +96,38 @@ class PetStateMachine:
     """带 TTL 衰减的状态机。tick() 由 UI 定时器驱动。"""
 
     def __init__(self, initial: str = "idle"):
-        self.state = initial
+        self._state = initial
+        self._interaction_state: str | None = None
         self.base_state = initial
         self._waiting_event = False
         self._expires_at: float | None = None
         self.state_changed_at = time.monotonic()
 
+    @property
+    def state(self) -> str:
+        """Explicit user interaction displays above the event/base state."""
+        return self._interaction_state or self._state
+
+    def set_interaction(self, state: str | None) -> str:
+        """Pause event presentation without discarding or extending its deadline."""
+        self.tick()
+        self._interaction_state = state
+        return self.state
+
     def set(self, state: str, ttl_ms: int | None = None) -> str:
         now = time.monotonic()
-        if state == self.state:
+        if state == self._state:
             if state == "waiting":
                 self._waiting_event = True
             return self.state
-        resolved = state if self.state == self.base_state and self._expires_at is None else pick_state(self.state, state)
+        resolved = state if self._state == self.base_state and self._expires_at is None else pick_state(self._state, state)
         if resolved != state:
             return self.state  # Rejected events cannot alter the winning event's deadline.
         self._waiting_event = state == "waiting"
-        if resolved != self.state:
-            self.state = resolved
+        if resolved != self._state:
+            self._state = resolved
             self.state_changed_at = now
-        ttl = ttl_ms if ttl_ms is not None else ONESHOT_TTL_MS.get(self.state)
+        ttl = ttl_ms if ttl_ms is not None else ONESHOT_TTL_MS.get(self._state)
         self._expires_at = now + ttl / 1000 if ttl else None
         return self.state
 
@@ -123,15 +135,15 @@ class PetStateMachine:
         """Background observations replace the base, never renew a foreground event."""
         self.base_state = state
         if self._expires_at is None and not self._waiting_event:
-            if self.state != state:
+            if self._state != state:
                 self.state_changed_at = time.monotonic()
-            self.state = state
+            self._state = state
         return self.state
 
     def clear(self, state: str) -> None:
         """显式结束某个一次性状态（例如用户点掉了提醒气泡）。"""
-        if self.state == state:
-            self.state = self.base_state
+        if self._state == state:
+            self._state = self.base_state
             self._expires_at = None
             self._waiting_event = False
             self.state_changed_at = time.monotonic()
@@ -143,7 +155,7 @@ class PetStateMachine:
         if time.monotonic() < self._expires_at:
             return None
         previous = self.state
-        self.state = self.base_state
+        self._state = self.base_state
         self._expires_at = None
         self._waiting_event = False
         self.state_changed_at = time.monotonic()
