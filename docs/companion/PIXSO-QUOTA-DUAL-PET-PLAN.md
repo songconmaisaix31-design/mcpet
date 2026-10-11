@@ -43,3 +43,9 @@ C：唯一面板可爱温暖奶油色+圆角卡片，兼容 DPR1.5 和小屏滚�
 - B 解析审阅返修：Codex/Grok/Claude 仅接受已知 session/weekly 窗口，有 session 则独立显示，不提供时不造数；Claude 有合法窗口时不得一律 unavailable。窗口不相加，缺失/非法保留未知，Cursor 契约不变。返修只由原 B 写域实现并重新验证。
 - A 本地最终 tip 8b7da5c9d396a0e14b77f4e2b7ad5c844c0c4a1e；远端 push/ls-remote 尚未确认，不作为已发布/集成。C native-v1 额度卡压缩是视觉 RED，v2 修复并有尺寸/小屏测试；最终紧凑布局与双角色原生图仍待审阅。原 C Codex 因内存分配失败退出，工作区改动保留，在原终端 resume 同一 cwd 会话，不新建 Worker。
 - 系统代理端口可连接但 Pixso/GitHub 超时，主轨未修改全局代理、未复制 OAuth 凭据、未重启其他进程。各轨仍可本地验证；发布需远端证据，现用户旧 GUI 保持运行，最终集成/优雅重启尚未执行。
+
+后续恢复记录：用户继续指令后网络已恢复，root ee1b583 普通 push/ls-remote 成功。Orca runtime 重启后旧句柄失效，按元数据查到准确原会话 ID 恢复 A/B/C；`resume --last` 曾选中 root，已在目录选择页取消，未启动复制会话任务。首次直接恢复采用默认执行权限导致 helper setup refresh 错误，按当前已授权 danger-full-access/approval never 恢复后各轨 exec 正常；此为环境失败，不计测试 RED。原 A/B 的终端已不存在，因此仅补回原会话的终端，不创建新 Worker/worktree/branch。
+
+当前 root terminal 为 term_2a23bbea-71c5-4f99-b15f-77e5b8ca591b；A term_7ec38c47-7c51-4aa8-b2f2-dac9374fb8a8、B term_465fe177-ce16-48ab-98a8-7388246699ff、C term_f6e5acc2-570f-4908-a1e7-0c85933a05e1。原会话 A=01a12b90-062a-7f70-b3a5-595326746751、B=01a12b90-ae7e-7610-a359-446106d5f5d9、C=01a12b90-c2c2-7cf3-ade5-5dd6a0f77166、集成=01a12baa-554e-7d32-8835-e1865e39d601。
+
+A 已普通 push，root 独立 ls-remote exit0 确认 8b7da5c9d396a0e14b77f4e2b7ad5c844c0c4a1e，A 通知同 SHA/干净并停止，未新增代码或重复完整测试。当前 Orca 账号 home 的 Pixso OAuth 后续浏览器确认成功，实际 app-server mcpServerStatus/list: authStatus=oAuth、toolsError=null、tools_count=24；50 秒父命令等待超时与浏览器 wait url 不支持已单列，最终以回调 Authentication complete 和实际 MCP 状态为准。未导出/复制密钥。仍待 B/C 收尾、原唯一集成和主轨最终运行验收；只读进程核对已无先前用户 GUI49784/launcher38676/监控23860/48728，也未找到 -m src.main 常驻实例，最终启动前需再次核对。
