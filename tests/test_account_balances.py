@@ -80,6 +80,69 @@ def test_orca_whitelist_seconds_and_independent_cursor_buckets(monkeypatch):
     assert options["timeout"] == 0.25
 
 
+@pytest.mark.parametrize("provider", ["codex", "grok", "claude"])
+def test_session_and_weekly_real_fields_are_independent_for_known_providers(monkeypatch, provider):
+    now = time.time()
+    row = {"provider": provider, "status": "ok", "updatedAt": now * 1000,
+           "session": {"usedPercent": 7.5, "windowMinutes": 300,
+                       "resetsAt": (now + 300) * 1000, "resetDescription": "fixture 5h"},
+           "weekly": {"usedPercent": 48, "windowMinutes": 10080,
+                      "resetsAt": (now + 8000) * 1000, "resetDescription": "fixture weekly"},
+           "daily": {"usedPercent": 99, "resetsAt": (now + 600) * 1000}}
+    accounts, _ = cli_result(monkeypatch, {"result": {"rateLimits": [row]}})
+    account = next(a for a in accounts if a.provider == provider)
+    assert account.status == "ok"
+    assert account.buckets == (QuotaBucket("session", 7.5, now + 300),
+                               QuotaBucket("weekly", 48, now + 8000))
+    assert len(accounts) == 4  # no new providers or undocumented daily window
+
+
+@pytest.mark.parametrize("provider", ["codex", "grok", "claude"])
+def test_session_only_keeps_only_the_observed_window(monkeypatch, provider):
+    now = time.time()
+    row = {"provider": provider, "status": "ok", "updatedAt": now * 1000,
+           "session": {"usedPercent": 0, "windowMinutes": 300, "resetsAt": (now + 300) * 1000}}
+    accounts, _ = cli_result(monkeypatch, {"result": {"rateLimits": [row]}})
+    account = next(a for a in accounts if a.provider == provider)
+    assert account.status == "ok"
+    assert account.buckets == (QuotaBucket("session", 0, now + 300),)
+
+
+def test_claude_weekly_without_session_does_not_invent_session(monkeypatch):
+    now = time.time()
+    row = {"provider": "claude", "status": "ok", "updatedAt": now * 1000,
+           "weekly": {"usedPercent": 33, "resetsAt": (now + 600) * 1000}}
+    accounts, _ = cli_result(monkeypatch, {"result": {"rateLimits": [row]}})
+    account = accounts[-1]
+    assert account.status == "ok"
+    assert account.buckets == (QuotaBucket("weekly", 33, now + 600),)
+
+
+@pytest.mark.parametrize("provider", ["codex", "grok", "claude"])
+def test_null_session_with_valid_weekly_keeps_only_weekly(monkeypatch, provider):
+    now = int(time.time())
+    row = {"provider": provider, "status": "ok", "updatedAt": now * 1000,
+           "session": None,
+           "weekly": {"usedPercent": 33, "windowMinutes": 10080,
+                      "resetsAt": (now + 600) * 1000}}
+    accounts, _ = cli_result(monkeypatch, {"result": {"rateLimits": [row]}})
+    account = next(a for a in accounts if a.provider == provider)
+    assert account.status == "ok"
+    assert account.buckets == (QuotaBucket("weekly", 33, now + 600),)
+
+
+def test_invalid_session_is_unknown_without_erasing_valid_weekly(monkeypatch):
+    payload = orca_payload()
+    row = payload["result"]["rateLimits"][0]
+    row["session"] = {"usedPercent": True, "resetsAt": -1, "windowMinutes": 300}
+    accounts, _ = cli_result(monkeypatch, payload)
+    account = accounts[0]
+    assert account.status == "unavailable"
+    assert account.buckets[0] == QuotaBucket("session", None, None)
+    assert account.buckets[1].name == "weekly"
+    assert account.buckets[1].used_percent == 16
+
+
 @pytest.mark.parametrize("invalid", [None, True, False, -1, 101, "16", float("nan"), float("inf")])
 def test_invalid_percent_is_unknown_never_zero(monkeypatch, invalid):
     payload = orca_payload()

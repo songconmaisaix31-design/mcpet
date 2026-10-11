@@ -73,8 +73,12 @@ def _parse_provider(provider: str, row: object, now: float, max_age: float) -> A
     if row.get("status") != "ok":
         return unknown_account(provider, "error", "Orca 缓存状态无法识别")
     updated = positive_seconds(row.get("updatedAt"))
-    if provider in ("codex", "grok"):
-        buckets = (_quota("weekly", row.get("weekly")),)
+    if provider in ("codex", "grok", "claude"):
+        names = tuple(name for name in ("session", "weekly")
+                      if name in row and (name != "session" or row[name] is not None))
+        if not names:
+            return unknown_account(provider, "unavailable", "Orca 未提供可识别额度窗口")
+        buckets = tuple(_quota(name, row[name]) for name in names)
     elif provider == "cursor":
         monthly = row.get("monthly")
         nested = isinstance(monthly, dict) and "buckets" in monthly
