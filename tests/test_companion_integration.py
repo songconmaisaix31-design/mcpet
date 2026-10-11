@@ -69,6 +69,7 @@ def test_native_app_auto_monitor_gestures_single_writer_and_exit(tmp_path):
         stdout, stderr = primary.communicate(timeout=12)
         assert primary.returncode == 0, stdout + stderr
         result = json.loads(stdout.strip().splitlines()[-1])
+        print(json.dumps(result))  # Preserve diagnostics even when an assertion fails.
         assert result["platform"] == env["QT_QPA_PLATFORM"]
         assert result["auto_start"] and result["working"] and result["gestures"]
         assert result["completed"] == 1 and result["usage_tokens"] == 110
@@ -86,7 +87,6 @@ def test_native_app_auto_monitor_gestures_single_writer_and_exit(tmp_path):
                                   capture_output=True, text=True, encoding="utf-8", timeout=12)
         assert restored.returncode == 0, restored.stdout + restored.stderr
         assert json.loads(restored.stdout.strip().splitlines()[-1])["restored"]
-        print(json.dumps(result))
     finally:
         if primary.poll() is None:
             primary.terminate()
@@ -106,7 +106,9 @@ def native_probe(mode):
     config.load_env = lambda: None
     def forbidden(*args, **kwargs):
         raise AssertionError("integration probe must not access model/MCP network")
-    main.McdMcpClient = main.StepFunClient = forbidden
+    main.McdMcpClient = forbidden
+    from src.llm import stepfun
+    stepfun.StepFunClient = forbidden
     directory = config.data_dir()
     root = directory / "inbox"
     root.mkdir(exist_ok=True)
@@ -117,6 +119,16 @@ def native_probe(mode):
     if mode == "observe":
         append(kind="progress", state="idle", project="contract-only")
         append(kind="usage", key="u1", model="gpt-5.5", input=40)
+    main.QtDailyScheduler.start = lambda self: None  # No synchronous meal catch-up.
+    panel_timings = []
+    original_panel = main.MonsterApp.action_panel
+    def timed_panel(self, *args, **kwargs):
+        begin = time.monotonic()
+        try:
+            return original_panel(self, *args, **kwargs)
+        finally:
+            panel_timings.append(round((time.monotonic() - begin) * 1000, 2))
+    main.MonsterApp.action_panel = timed_panel
     monster = main.MonsterApp([])  # Default, real AgentMonitor; no injected factory.
     if monster.secondary:
         code = monster.app.exec()
@@ -215,12 +227,12 @@ def native_probe(mode):
             assert "我在呢" in monster.window.bubble.label.text()
             mouse(QEvent.MouseButtonDblClick, 300)
             mouse(QEvent.MouseButtonRelease, 300, buttons=Qt.NoButton)
-            assert monster.chat and monster.chat.isVisible()
-            chat = monster.chat
-            chat.close()
+            assert monster.panel and monster.panel.isVisible()
+            panel = monster.panel
+            panel.close()
             mouse(QEvent.MouseButtonDblClick, 300)
             mouse(QEvent.MouseButtonRelease, 300, buttons=Qt.NoButton)
-            assert monster.chat is chat and chat.isVisible()
+            assert monster.panel is panel and panel.isVisible()
             before = monster.window.pos()
             mouse(QEvent.MouseButtonPress, 300)
             mouse(QEvent.MouseMove, 340, Qt.NoButton)
@@ -265,7 +277,7 @@ def native_probe(mode):
     heartbeat.stop()
     result.update(platform=QApplication.platformName(), thread_running=monster.tasks.thread.isRunning(),
                   heartbeat_ticks=len(ticks), max_tick_gap_ms=round(max((1000 * (b-a) for a, b in zip(ticks, ticks[1:])), default=0), 2),
-                  errors=errors)
+                  panel_open_ms=panel_timings, errors=errors)
     print(json.dumps(result), flush=True)
     # No join or Qt pumping here: interpreter exit must reap real spawn children.
     return 1 if errors else code

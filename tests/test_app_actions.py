@@ -11,7 +11,6 @@ from PySide6.QtCore import QObject, Signal, QTimer, QThread
 from PySide6.QtWidgets import QApplication
 
 from src import config, main
-from src.llm.stepfun import ChatReply
 from src.mcd_mcp.brain import DealQuote, StoreInfo, NutritionFact, CouponRoundup
 from src.mcd_mcp.client import Tool, ToolResult, McpError
 from src.progress.tracker import ProgressSnapshot, SessionProgress
@@ -48,6 +47,7 @@ def monster(tmp_path, monkeypatch):
     monkeypatch.setenv("MCD_MCP_TOKEN", "test-mcp-secret")
     monkeypatch.setenv("STEPFUN_API_KEY", "test-step-secret")
     monkeypatch.setattr(config, "load_env", lambda: None)  # 绝不读根 .env
+    monkeypatch.setattr(main.QtDailyScheduler, "start", lambda self: None)
     monkeypatch.setattr(main.MonsterApp, "_load_sheet", lambda s: None)
     app = main.MonsterApp([], enforce_single_instance=False, monitor_factory=MonitorStub)
     app.activity = []
@@ -56,9 +56,8 @@ def monster(tmp_path, monkeypatch):
     yield app
     app.quit()
     pump_until(lambda: not app.tasks.thread.isRunning())
-    for dialog in (app.chat, app.progress_dialog, app.usage_dialog, app.payment_dialog):
-        if dialog:
-            dialog.close()
+    if app.panel:
+        app.panel.close()
 
 
 class BusinessClient:
@@ -161,79 +160,6 @@ def test_init_failure_closes_provisional_and_next_task_can_retry(monster, monkey
     assert results == [2]
 
 
-def test_normal_chat_uses_only_stepfun_and_restores_context(monster, monkeypatch):
-    seen = []
-    class LLM:
-        def __enter__(self): return self
-        def __exit__(self, *a): pass
-        def chat(self, messages, **kwargs):
-            assert "tools" not in kwargs
-            seen.append(messages)
-            return ChatReply(text="我在呢，阿王")
-    monkeypatch.setattr(main, "StepFunClient", LLM)
-    monster.tasks.worker.ensure_client = lambda: pytest.fail("普通聊天不能初始化 MCP")
-    monster.chat_store.remember("请叫我阿王")
-    monster.action_ask()
-    monster.chat.input.setPlainText("你好")
-    monster.chat.submit()
-    assert not monster.chat.send.isEnabled()
-    pump_until(lambda: not monster.tasks.busy)
-    monster.chat.close()
-    monster.action_ask()
-    monster.chat.input.setPlainText("还在吗")
-    monster.chat.submit()
-    pump_until(lambda: not monster.tasks.busy)
-    assert seen[1][1:3] == [{"role": "user", "content": "你好"}, {"role": "assistant", "content": "我在呢，阿王"}]
-    assert "请叫我阿王" in seen[1][0]["content"]
-    assert len(seen) == 2 and monster.chat.send.isEnabled()
-    assert main.ChatStore(monster.chat_store.path).messages[-1]["content"] == "我在呢，阿王"
-
-
-def test_chat_error_visible_and_restores_send(monster, monkeypatch):
-    class LLM:
-        def __enter__(self): raise ValueError("test-step-secret")
-        def __exit__(self, *a): pass
-    monkeypatch.setattr(main, "StepFunClient", LLM)
-    monster.action_ask()
-    monster.chat.input.setPlainText("你好")
-    monster.chat.submit()
-    pump_until(lambda: not monster.tasks.busy)
-    assert monster.chat.send.isEnabled()
-    assert "发送失败" in monster.chat.status.text()
-    assert "test-step-secret" not in monster.chat.status.text()
-
-
-def test_explicit_mcp_chat_runs_read_skill_only_no_profile_request(monster, monkeypatch):
-    from src.llm.stepfun import ToolCall
-    seen = []
-    tools = [Tool("available-coupons", input_schema={"type": "object", "properties": {}}),
-             Tool("auto-bind-coupons", input_schema={"type": "object", "properties": {}})]
-    class Client:
-        def list_tools(self): return tools
-        def call_tool(self, name, arguments):
-            assert name == "available-coupons"
-            seen.append(("mcp-read", arguments))
-            return ToolResult(name, {}, "实时测试数据", {})
-    replies = iter([ChatReply(tool_calls=[ToolCall("r", "available-coupons", {})]), ChatReply(text="券查询返回了实时测试数据")])
-    class LLM:
-        def __enter__(self): return self
-        def __exit__(self, *a): pass
-        def chat(self, messages, **kwargs):
-            assert {d["function"]["name"] for d in kwargs["tools"]} == {"available-coupons"}
-            seen.append(("llm", messages))
-            return next(replies)
-    monkeypatch.setattr(main, "StepFunClient", LLM)
-    monster.tasks.worker.ensure_client = lambda: main.McdBrain(Client(), monster.guard)
-    monster.action_ask()
-    monster.chat.mode.setCurrentIndex(1)
-    monster.chat.input.setPlainText("查优惠券")
-    monster.chat.submit()
-    pump_until(lambda: not monster.tasks.busy)
-    assert [x[0] for x in seen] == ["llm", "mcp-read", "llm"]
-    assert "实时测试数据" in monster.chat.transcript.toPlainText()
-    assert monster.chat_store.memories == []
-
-
 def test_order_cancel_does_not_write_and_confirmation_is_complete(monster, monkeypatch):
     brain = order_brain(monster)
     confirmations = []
@@ -280,8 +206,8 @@ def test_confirmed_mock_order_has_payment_ui_and_cancel_confirmation(monster, mo
     monster.action_place_order()
     pump_until(lambda: not monster.tasks.busy)
     assert monster.last_order_no == "O-1"
-    assert monster.payment_dialog.open_button.isEnabled()
-    assert monster.payment_dialog.copy_button.isEnabled()
+    assert monster.panel.open_button.isEnabled()
+    assert monster.panel.copy_button.isEnabled()
     monkeypatch.setattr(monster, "_confirm", lambda *a: False)
     monster.action_cancel_last_order()
     assert [c[0] for c in brain.client.calls] == ["create-order"]
@@ -295,7 +221,7 @@ def test_known_mock_order_survives_audit_disk_failure(monster, monkeypatch):
     monster.action_place_order()
     pump_until(lambda: not monster.tasks.busy)
     assert monster.last_order_no == "O-1"
-    assert "审计保存失败" in monster.payment_dialog.text.toPlainText()
+    assert "审计保存失败" in monster.panel.payment_text.text()
     assert len(brain.client.calls) == 1
 
 
@@ -337,9 +263,9 @@ def test_monitor_uses_real_context_estimate_no_stale_success(monster):
     monster.action_progress()
     assert monster.monitor.progress_requests == 1
     monster.monitor.failed.emit("刷新失败 test-step-secret")
-    text = monster.progress_dialog.text.toPlainText()
+    text = monster.panel.progress_detail.toPlainText()
     monster.action_progress()
-    assert monster.progress_dialog.text.toPlainText() == text
+    assert monster.panel.progress_detail.toPlainText() == text
     assert "test-step-secret" not in text and "最后成功快照" in text
     assert monster.monitor.starts == 1
 

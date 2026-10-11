@@ -1,4 +1,33 @@
 from src import config
+import os
+from io import StringIO
+from pathlib import Path
+import pytest
+from dotenv import dotenv_values as parse_values
+
+
+@pytest.fixture(autouse=True)
+def in_memory_dotenv(monkeypatch):
+    """保存仍写隔离文件；读取只解析本测试写入的内存内容，绝不打开 .env。"""
+    contents = {}
+    original_write = Path.write_text
+    def write(path, text, *args, **kwargs):
+        result = original_write(path, text, *args, **kwargs)
+        if path.name == ".env" or path.name.endswith(".env.tmp"):
+            key = path.with_name(".env")
+            contents[key] = dict(parse_values(stream=StringIO(text), interpolate=False))
+        return result
+    def values(path, **kwargs):
+        assert kwargs.get("interpolate", False) is False
+        return contents.get(Path(path), {}).copy()
+    def load(path, **kwargs):
+        assert kwargs == {"override": False, "interpolate": False}
+        for key, value in values(path).items():
+            os.environ.setdefault(key, value)
+    monkeypatch.setattr(Path, "write_text", write)
+    monkeypatch.setattr(config, "dotenv_values", values)
+    monkeypatch.setattr(config, "load_dotenv", load)
+    return contents
 
 
 def test_redact_masks_token():
@@ -63,11 +92,10 @@ def test_settings_preserve_other_fields_and_can_clear_credentials(tmp_path, monk
     monkeypatch.setenv("MCPET_DATA_DIR", str(tmp_path))
     config.save_settings({"STEPFUN_API_KEY": "fake-old-key", "MCPET_CITY": "广州"})
     config.save_settings({"MCD_MCP_TOKEN": "fake-token"})
-    from dotenv import dotenv_values
-    assert dotenv_values(tmp_path / ".env")["STEPFUN_API_KEY"] == "fake-old-key"
+    assert config.dotenv_values(tmp_path / ".env")["STEPFUN_API_KEY"] == "fake-old-key"
     config.save_settings({"STEPFUN_API_KEY": ""})
     assert config.stepfun_api_key() is None
-    assert dotenv_values(tmp_path / ".env")["MCPET_CITY"] == "广州"
+    assert config.dotenv_values(tmp_path / ".env")["MCPET_CITY"] == "广州"
 
 
 def test_bad_settings_and_nonexistent_roots_are_explicit(tmp_path, monkeypatch):
