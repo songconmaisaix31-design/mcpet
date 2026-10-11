@@ -61,3 +61,9 @@ root 实际 view_image 审 native-compact 三份主页，发现 Codex 已用16.2
 B 窗口返修 f77cbbee6fc7720b742f56c9fc5fa578118ece9d，含实际 session:null；62解析 GREEN。首完整5failed/396passed/211.43s：三类whole-exit时限、旧联合heartbeat1135ms、旧duplicate未命中，保留且不改跨域；CPU76%只为样本，原因未确定。C明确空闲后B串行账号82passed/32.33s，无门槛/Monitor修改。主轨要求再一轮原计划完整pytest、compile/diff、push/remote核对，之后交回C最终完整与联合测试；测试结果不得混成全套GREEN。仅用既有消息协调时段，无并行性能探针。B诊断曾误用showlocals带出继承环境，B已清理其诊断行，不再使用或转发，root不继续读取该类原始环境诊断。
 
 唯一集成 Worker 待三轨精确远端最终 tip/停止后恢复原会话。其可接线旧 tests/test_app_actions.py、tests/test_main_startup.py、tests/test_companion_integration.py 的 AccountMonitor stub，以防默认真实余额/Orca访问；保留旧断言与heartbeat150ms/stop50ms/四入口/单writer。新 tests/test_dual_pet_quota_integration.py 应真实 Qt+AgentMonitor+AccountMonitor、顶层可pickle受控源，验三个read worker的有限回收以及一个usage writer；各域问题退原 Worker。root按最终联合结果再FF/审原生图/真实只读额度/单实例启动，不以当前分轨结果声明组合完成。
+
+## B 最终交接与 C 测试时段
+
+B 最终远端 tip fa96c57801d705f21b400f6f5271745d9914d421，解析实现 f77cbbee6fc7720b742f56c9fc5fa578118ece9d；root 独立 ls-remote exit0 确认，B 通知工作区干净、停止且无测试探针。串行账号适用82 passed/32.33s；最终完整1 failed/400 passed/110.65s，仅旧联合 heartbeat417.81ms>150，stop42.8088ms<50、首panel_open332.09ms、errors=[]；原因未认定，不能称全套GREEN。账号全部Windows退出与旧duplicate本轮通过；compileall/diff检查通过。首完整5 failed/396 passed/211.43s及其他首次RED保留于HANDOFF-B-QUOTA.md。
+
+root 已将独占测试时段交回原 C：活动任务有限退出、原联合、最终完整、compile/diff及精确push/remote交接。v4六图已视觉通过，C无需另改装饰；旧联合若失败只Handoff，保留门槛与领域界限。等待C最终远端tip和停止后，再恢复原唯一集成Worker，完成真实双角色+账号监控组合、离线测试接线与最终性能验证。
