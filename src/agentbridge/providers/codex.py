@@ -38,7 +38,7 @@ from ..records import ProgressRecord, UsageRecord
 from .base import (
     UsageBatch,
     iter_jsonl_files,
-    read_from_offset,
+    iter_offset_batches,
     read_head,
     read_tail,
     recent_jsonl_files,
@@ -78,6 +78,11 @@ class CodexProvider:
 
     def __init__(self, roots: list[Path]) -> None:
         self._roots = [Path(r) for r in roots]
+        self._model_hints: dict[str, str] = {}
+
+    def set_model_hints(self, hints: dict[str, str]) -> None:
+        """Restore the model at each persisted cursor, including mid-file turns."""
+        self._model_hints = dict(hints)
 
     def roots(self) -> list[Path]:
         return list(self._roots)
@@ -88,24 +93,29 @@ class CodexProvider:
             for path in iter_jsonl_files(root):
                 key = str(path)
                 offset = cursors.get(key, 0)
-                try:
-                    size = path.stat().st_size
-                except OSError:
+                size = path.stat().st_size
+                if size == offset:
+                    yield UsageBatch(path=key, offset=offset)
                     continue
                 truncated = size < offset
-                entries, new_offset = read_from_offset(path, offset)
-
-                # 模型名可能出现在 token_count 之前的 turn_context 里；
-                # 增量扫描时它可能在上一批就已经消费掉了，所以回读一次文件头。
-                model = _model_hint(path)
-                records: list[UsageRecord] = []
-                for line_offset, entry in entries:
-                    record = self._to_record(entry, key, line_offset, model)
-                    if record is not None:
-                        records.append(record)
-                yield UsageBatch(
-                    path=key, offset=new_offset, records=records, truncated=truncated
-                )
+                # Old ledgers without a cursor model cannot establish which
+                # turn produced an incremental event. Use UNKNOWN, not the
+                # first turn's model. A new turn_context supplies real evidence.
+                model = _model_hint(path) if not offset or truncated else self._model_hints.get(key, "")
+                for entries, new_offset in iter_offset_batches(path, offset):
+                    records = []
+                    for line_offset, entry in entries:
+                        if entry.get("type") == "turn_context" and isinstance(entry.get("payload"), dict):
+                            model = str(entry["payload"].get("model") or model)
+                        record = self._to_record(entry, key, line_offset, model)
+                        if record is not None:
+                            records.append(record)
+                    yield UsageBatch(
+                        path=key, offset=new_offset, records=records, truncated=truncated,
+                        model_hint=model,
+                    )
+                    self._model_hints[key] = model
+                    truncated = False
 
     def _to_record(
         self, entry: dict, path_key: str, line_offset: int, model_hint: str
@@ -156,6 +166,7 @@ class CodexProvider:
         model = ""
         used = 0
         limit = 0
+        limit_estimated = False
         ts = 0.0
         title = ""
 
@@ -190,7 +201,13 @@ class CodexProvider:
                 )
                 if usage is not None:
                     used = usage["input"] + usage["cached"]
-                    limit = context_limit(model, used)
+                    explicit_limit = info.get("model_context_window")
+                    if isinstance(explicit_limit, int) and not isinstance(explicit_limit, bool) and explicit_limit > 0:
+                        limit = explicit_limit
+                        limit_estimated = False
+                    else:
+                        limit = context_limit(model, used)
+                        limit_estimated = True
                     ts = parse_timestamp(entry.get("timestamp")) or ts
             elif kind == "event_msg" and payload.get("type") == "user_message":
                 text = payload.get("message") or payload.get("text")
@@ -200,10 +217,14 @@ class CodexProvider:
 
         if not session_id:
             session_id = path.stem
-        if used <= 0 and not title:
+        if used <= 0 and not title and not _last_decisive_kind(tail):
             return None
 
         last_kind = _last_decisive_kind(tail)
+        latest_ts = max((parse_timestamp(e.get("timestamp")) for e in tail), default=0.0)
+        completion = next((e for e in reversed(tail) if isinstance(e.get("payload"), dict)
+                           and e["payload"].get("type") == "task_complete"), {})
+        completed_at = parse_timestamp(completion.get("timestamp")) if last_kind == "task_complete" else 0.0
         return ProgressRecord(
             source=self.id,
             session_id=session_id,
@@ -214,7 +235,10 @@ class CodexProvider:
             model=model,
             context_used=used,
             context_limit=limit,
-            updated_at=ts or _mtime(path),
+            updated_at=latest_ts or ts or _mtime(path),
+            completed_at=completed_at,
+            completion_id=str((completion.get("payload") or {}).get("turn_id") or completed_at) if completed_at else "",
+            context_limit_estimated=limit_estimated,
         )
 
 
@@ -236,7 +260,7 @@ def _project_label(cwd: str, path: Path) -> str:
 # 决定会话状态的事件类型。从尾部往前找第一条**有判定力**的事件，
 # 而不是简单看最后一条——中间可能夹着 token_count 这类不表态的记录。
 _WORKING_KINDS = frozenset({
-    "exec_command", "apply_patch", "function_call", "custom_tool_call", "reasoning",
+    "exec_command", "apply_patch", "function_call", "custom_tool_call", "reasoning", "task_started",
 })
 _IDLE_KINDS = frozenset({
     "agent_message", "task_complete", "turn_aborted", "user_message", "error",
@@ -260,7 +284,11 @@ def _state_for(kind: str) -> str:
         return "working"
     if kind == "error":
         return "error"
-    return "idle"
+    if kind == "task_complete":
+        return "done"
+    if kind == "turn_aborted":
+        return "failed"
+    return "idle" if kind else "UNKNOWN"
 
 
 def _model_hint(path: Path) -> str:

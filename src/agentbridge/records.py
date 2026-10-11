@@ -57,7 +57,7 @@ class ProgressRecord:
 
     source: str
     session_id: str
-    state: str = "idle"
+    state: str = "UNKNOWN"
     project: str = ""
     cwd: str = ""
     title: str = ""
@@ -67,6 +67,9 @@ class ProgressRecord:
     background_tasks: int = 0
     detail: str = ""
     updated_at: float = 0.0
+    completed_at: float = 0.0
+    completion_id: str = ""
+    context_limit_estimated: bool = False
 
     @property
     def context_percent(self) -> int | None:

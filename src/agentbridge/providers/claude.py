@@ -30,7 +30,7 @@ from ..records import ProgressRecord, UsageRecord
 from .base import (
     UsageBatch,
     iter_jsonl_files,
-    read_from_offset,
+    iter_offset_batches,
     read_tail,
     recent_jsonl_files,
     to_float,
@@ -112,20 +112,17 @@ class ClaudeProvider:
             for path in iter_jsonl_files(root):
                 key = str(path)
                 offset = cursors.get(key, 0)
-                try:
-                    size = path.stat().st_size
-                except OSError:
-                    continue
-                truncated = size < offset
-                entries, new_offset = read_from_offset(path, offset)
-                records = [
-                    record
-                    for _, entry in entries
-                    if (record := self._to_record(entry)) is not None
-                ]
-                yield UsageBatch(
-                    path=key, offset=new_offset, records=records, truncated=truncated
-                )
+                truncated = path.stat().st_size < offset
+                for entries, new_offset in iter_offset_batches(path, offset):
+                    records = []
+                    for line_offset, entry in entries:
+                        record = self._to_record(entry)
+                        if record is not None:
+                            records.append(record)
+                    yield UsageBatch(
+                        path=key, offset=new_offset, records=records, truncated=truncated
+                    )
+                    truncated = False
 
     def _to_record(self, entry: dict) -> UsageRecord | None:
         if entry.get("type") != "assistant" or entry.get("isApiErrorMessage") is True:
@@ -197,21 +194,26 @@ class ClaudeProvider:
             ts = parse_timestamp(entry.get("timestamp"))
             break
 
-        if used <= 0 and not title:
+        if used <= 0 and not title and entries[-1].get("type") != "task_complete":
             return None
 
         last_type = entries[-1].get("type") if entries else ""
+        latest_ts = max((parse_timestamp(e.get("timestamp")) for e in entries), default=0.0)
+        complete = last_type == "task_complete"
         return ProgressRecord(
             source=self.id,
             session_id=session_id,
-            state="working" if last_type == "assistant" else "idle",
+            state="done" if complete else "working" if last_type == "assistant" else "idle",
             project=_project_name(cwd, path),
             cwd=cwd,
             title=title,
             model=model,
             context_used=used,
             context_limit=limit,
-            updated_at=ts or _mtime(path),
+            updated_at=latest_ts or ts or _mtime(path),
+            completed_at=latest_ts if complete else 0.0,
+            completion_id=str(entries[-1].get("task_id") or latest_ts) if complete else "",
+            context_limit_estimated=limit > 0,
         )
 
 

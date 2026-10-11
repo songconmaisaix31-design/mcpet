@@ -45,6 +45,7 @@ class UsageBatch:
     offset: int = 0
     records: list[UsageRecord] = field(default_factory=list)
     truncated: bool = False   # 文件变小被重读，调用方可据此记一笔诊断
+    model_hint: str = ""       # Model in effect at this cursor, when the provider reports it.
 
 
 @runtime_checkable
@@ -74,7 +75,7 @@ def read_tail(path: Path, max_bytes: int = TAIL_BYTES) -> list[dict]:
             handle.seek(start)
             blob = handle.read()
     except OSError:
-        return []
+        raise
 
     text = blob.decode("utf-8", errors="replace")
     lines = text.split("\n")
@@ -82,7 +83,7 @@ def read_tail(path: Path, max_bytes: int = TAIL_BYTES) -> list[dict]:
         lines = lines[1:]  # 丢掉被截断的首行
 
     out: list[dict] = []
-    for line in lines:
+    for line in lines[:-1]:
         line = line.strip()
         if not line:
             continue
@@ -106,11 +107,11 @@ def read_head(path: Path, max_bytes: int = HEAD_BYTES) -> list[dict]:
         with path.open("rb") as handle:
             blob = handle.read(max_bytes)
     except OSError:
-        return []
+        raise
 
     text = blob.decode("utf-8", errors="replace")
     lines = text.split("\n")
-    if len(lines) > 1:
+    if lines:
         lines = lines[:-1]  # 最后一行可能是半行，丢掉
 
     out: list[dict] = []
@@ -127,6 +128,45 @@ def read_head(path: Path, max_bytes: int = HEAD_BYTES) -> list[dict]:
     return out
 
 
+def iter_offset_batches(
+    path: Path, offset: int, *, batch_lines: int = 256, batch_bytes: int = 1024 * 1024
+) -> Iterator[tuple[list[tuple[int, dict]], int]]:
+    """Consume complete lines in bounded batches; leave an unfinished line unconsumed.
+
+    Memory is bounded by one JSONL line plus a batch, rather than a whole file.
+    Freeze the size for this scan so a continuously appending writer cannot keep
+    the scan alive forever. I/O failures propagate to the snapshot diagnostics.
+    """
+    if batch_lines <= 0 or batch_bytes <= 0:
+        raise ValueError("batch limits must be positive")
+    size = path.stat().st_size
+    cursor = 0 if size < offset else offset
+    entries: list[tuple[int, dict]] = []
+    lines = consumed = 0
+    with path.open("rb") as handle:
+        handle.seek(cursor)
+        while cursor < size:
+            raw = handle.readline(size - cursor)
+            if not raw.endswith(b"\n"):
+                break
+            start = cursor
+            cursor += len(raw)
+            lines += 1
+            consumed += len(raw)
+            try:
+                obj = json.loads(raw)
+            except (ValueError, UnicodeDecodeError):
+                obj = None
+            if isinstance(obj, dict):
+                entries.append((start, obj))
+            if lines >= batch_lines or consumed >= batch_bytes:
+                yield entries, cursor
+                entries = []
+                lines = consumed = 0
+    # Also publish an unchanged cursor for empty files / unfinished tails.
+    yield entries, cursor
+
+
 def read_from_offset(path: Path, offset: int) -> tuple[list[tuple[int, dict]], int]:
     """从字节偏移续读 JSONL，返回 ([(行起始偏移, 对象)], 新偏移)。
 
@@ -136,43 +176,10 @@ def read_from_offset(path: Path, offset: int) -> tuple[list[tuple[int, dict]], i
 
     文件变小（被轮转 / 截断）时从 0 重读，否则会永久漏掉内容。
     """
-    try:
-        size = path.stat().st_size
-    except OSError:
-        return [], offset
-    if size < offset:
-        offset = 0
-    if size == offset:
-        return [], offset
-
-    try:
-        with path.open("rb") as handle:
-            handle.seek(offset)
-            blob = handle.read()
-    except OSError:
-        return [], offset
-
-    # 只消费到最后一个换行，避免把半行写进状态导致丢数据
-    last_newline = blob.rfind(b"\n")
-    if last_newline < 0:
-        return [], offset
-    consumed = blob[: last_newline + 1]
-    new_offset = offset + len(consumed)
-
     out: list[tuple[int, dict]] = []
-    cursor = offset
-    for raw_line in consumed.split(b"\n"):
-        line_start = cursor
-        cursor += len(raw_line) + 1  # +1 补回被 split 吃掉的 \n
-        line = raw_line.decode("utf-8", errors="replace").strip()
-        if not line:
-            continue
-        try:
-            obj = json.loads(line)
-        except ValueError:
-            continue
-        if isinstance(obj, dict):
-            out.append((line_start, obj))
+    new_offset = offset
+    for entries, new_offset in iter_offset_batches(path, offset):
+        out.extend(entries)
     return out, new_offset
 
 
@@ -186,7 +193,10 @@ def iter_jsonl_files(root: Path, max_depth: int = MAX_DEPTH) -> Iterator[Path]:
     if not root.is_dir():
         return
     root_depth = len(root.parts)
-    for dirpath, dirnames, filenames in os.walk(root):
+    def on_error(error: OSError) -> None:
+        raise error
+
+    for dirpath, dirnames, filenames in os.walk(root, onerror=on_error):
         depth = len(Path(dirpath).parts) - root_depth
         if depth >= max_depth:
             dirnames[:] = []

@@ -30,3 +30,26 @@ def test_persists_across_instances(tmp_path):
     path = tmp_path / "nutrition.json"
     NutritionLedger(path).add_fact(_fact(), date="2026-10-10")
     assert NutritionLedger(path).day("2026-10-10")[0].meal_name == "巨无霸"
+
+
+def test_selected_meal_quantity_survive_reopen(tmp_path):
+    fact = NutritionFact(name="巨无霸", energy_kcal=513, protein_g=27, sodium_mg=961, note="服务端说明")
+    ledger = NutritionLedger(tmp_path / "nutrition.json")
+    entry = ledger.add_fact(fact, quantity=2)
+    assert entry.meal_name == "巨无霸"
+    assert entry.quantity == 2
+    assert entry.energy_kcal == 1026
+    assert entry.note == fact.note
+    reopened = NutritionLedger(ledger.path)
+    assert reopened.entries[0] == entry
+    assert reopened.totals()["sodium_mg"] == 1922
+
+
+def test_quantity_default_one_and_invalid_never_writes(tmp_path):
+    import pytest
+    ledger = NutritionLedger(tmp_path / "nutrition.json")
+    assert ledger.add_fact(NutritionFact(name="纯悦")).quantity == 1
+    for quantity in (0, -1, float("nan"), float("inf"), True):
+        with pytest.raises(ValueError):
+            ledger.add_fact(NutritionFact(name="纯悦"), quantity=quantity)
+    assert len(ledger.entries) == 1

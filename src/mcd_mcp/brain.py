@@ -51,11 +51,12 @@ import os
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any, Callable
 
 from .. import config
-from .client import McdMcpClient, ToolResult
-from .guards import GuardViolation, OrderAuditEntry, OrderGuard, to_cents
+from .client import McdMcpClient, McpError, ToolResult
+from .guards import GuardViolation, OrderAuditEntry, OrderGuard
 from . import tools as T
 
 
@@ -199,6 +200,56 @@ class OrderOutcome:
     raw: dict[str, Any] = field(default_factory=dict)
 
 
+class StoreUnavailable(McpError):
+    """No store with an explicitly open business status is available."""
+
+
+def _checked(result: ToolResult) -> ToolResult:
+    """Domain checks must precede unwrap; the protocol client remains unchanged."""
+    node = result.data
+    if isinstance(node, list) and len(node) == 1:
+        node = node[0]
+    if isinstance(node, dict) and node.get("success") in (False, "false"):
+        raise McpError(str(node.get("message") or "麦当劳业务请求失败"), code=node.get("code"))
+    result.raise_for_error()
+    return result
+
+
+def _is_open(store: Any) -> bool:
+    value = _pick(store, "businessStatus", "business_status", default=None)
+    return value is True or value == 1 or isinstance(value, str) and value.lower() == "true"
+
+
+def _valid_price(value: Any, *, yuan: bool = False) -> int:
+    """Parse known units explicitly. Missing/negative/nonfinite prices are errors."""
+    if value is None or isinstance(value, bool):
+        raise McpError("算价结果 UNKNOWN：缺少合法价格")
+    try:
+        amount = Decimal(str(value).strip()) * (100 if yuan else 1)
+        if not amount.is_finite() or amount < 0 or amount != amount.to_integral_value():
+            raise InvalidOperation
+        return int(amount)
+    except (InvalidOperation, ValueError, TypeError):
+        raise McpError("算价结果 UNKNOWN：价格无效") from None
+
+
+def _payable(node: Any) -> int:
+    if not isinstance(node, dict):
+        raise McpError("算价结果 UNKNOWN：响应不是价格对象")
+    # price is the server's final order total, including any order-level fees.
+    if "price" in node:
+        return _valid_price(node["price"])
+    products = node.get("productList")
+    if isinstance(products, list) and products:
+        if not all(isinstance(p, dict) and "subtotal" in p for p in products):
+            raise McpError("算价结果 UNKNOWN：商品小计不完整")
+        return sum(_valid_price(p["subtotal"]) for p in products)
+    for key in McdBrain._PRICE_FIELDS:
+        if key in node:
+            return _valid_price(node[key])
+    raise McpError("算价结果 UNKNOWN：未返回实付价格")
+
+
 class McdBrain:
     def __init__(
         self,
@@ -222,17 +273,21 @@ class McdBrain:
             return self._default_store
 
         # 1) 尝试外送地址
-        addresses = self.client.call_tool(T.TOOL_DELIVERY_ADDRESSES).as_list()
+        addresses = _checked(self.client.call_tool(T.TOOL_DELIVERY_ADDRESSES)).as_list()
+        closed_seen = False
         for address in addresses:
             address_id = str(_pick(address, "addressId", "id", default="") or "")
             if not address_id:
                 continue
-            stores = self.client.call_tool(
+            stores = _checked(self.client.call_tool(
                 T.TOOL_DELIVERY_STORES,
                 {T.ARG_KEYS["address_id"]: address_id, T.ARG_KEYS["be_type"]: 2},
-            ).as_list()
+            )).as_list()
             for store in stores:
                 code = str(_pick(store, "storeCode", "id", default="") or "")
+                if code and not _is_open(store):
+                    closed_seen = True
+                    continue
                 if code:
                     be_code = str(_pick(store, "beCode", default="") or "")
                     self._default_store = StoreInfo(
@@ -248,7 +303,7 @@ class McdBrain:
 
         # 2) fallback：到店自取（beType=1, orderType=1）
         city = os.environ.get("MCPET_CITY", "北京").strip()
-        stores = self.client.call_tool(
+        stores = _checked(self.client.call_tool(
             T.TOOL_NEARBY_STORES,
             {
                 T.ARG_KEYS["be_type"]: 1,
@@ -257,21 +312,20 @@ class McdBrain:
                 T.ARG_KEYS["city"]: city,
                 T.ARG_KEYS["keyword"]: "麦当劳",
             },
-        ).as_list()
+        )).as_list()
         if not stores:
-            return None
-
-        def is_open(store: Any) -> bool:
-            return bool(_pick(store, "businessStatus", "business_status", default=False))
+            if closed_seen:
+                raise StoreUnavailable("查询到的门店均未营业或营业状态 UNKNOWN")
+            raise StoreUnavailable("未查询到可用门店")
 
         # 营业中的优先，其次按距离排序
         ordered = sorted(
             [s for s in stores if isinstance(s, dict)],
-            key=lambda s: (not is_open(s), int(_num_of(s, "distance", default=10**9))),
+            key=lambda s: (not _is_open(s), int(_num_of(s, "distance", default=10**9))),
         )
         for store in ordered:
             code = str(_pick(store, "storeCode", "id", default="") or "")
-            if not code:
+            if not code or not _is_open(store):
                 continue
             self._default_store = StoreInfo(
                 store_code=code,
@@ -281,10 +335,10 @@ class McdBrain:
                 be_code="",
                 address=_text_of(store, "address"),
                 distance=int(_num_of(store, "distance", default=0)),
-                business_status=is_open(store),
+                business_status=True,
             )
             return self._default_store
-        return None
+        raise StoreUnavailable("查询到的门店均未营业或营业状态 UNKNOWN；无法获取菜单和报价")
 
     # ---------- 1. 领券汇报 ----------
 
@@ -300,7 +354,7 @@ class McdBrain:
         ⚠ auto-bind-coupons 在「没有新券可领」时返回 {success:false, code:499,
           message:"暂无可领取的优惠券"} —— 这是良性结果，不能当失败报给用户。
         """
-        before = [item for item in self.client.call_tool(T.TOOL_AVAILABLE_COUPONS).as_list()
+        before = [item for item in _checked(self.client.call_tool(T.TOOL_AVAILABLE_COUPONS)).as_list()
                   if isinstance(item, dict)]
         roundup = CouponRoundup(available_count=len(before))
         roundup.claimable_before = sum(
@@ -329,7 +383,7 @@ class McdBrain:
                 roundup.claim_ok = False
                 roundup.claim_error = result.error_message or result.text[:200]
 
-        after = self.client.call_tool(T.TOOL_MY_COUPONS).as_list()
+        after = _checked(self.client.call_tool(T.TOOL_MY_COUPONS)).as_list()
         my_names = [
             _text_of(item, "title", "couponName", "name")
             for item in after
@@ -349,17 +403,21 @@ class McdBrain:
     def _meal_index(self, store: StoreInfo) -> dict[str, dict[str, Any]]:
         """query-meals → {productCode: {name, currentPrice, originalPrice, canWithOrder, ...}}"""
         result = self.client.call_tool(T.TOOL_MEALS, self._store_args(store))
-        node = result.unwrap()
+        try:
+            node = _checked(result).unwrap()
+        except McpError:
+            self._default_store = None
+            raise
         if not isinstance(node, dict):
-            return {}
+            raise McpError("菜单结果 UNKNOWN：响应不是菜单对象")
         meals = node.get("meals")
         if isinstance(meals, dict):
             return {str(code): (info if isinstance(info, dict) else {}) for code, info in meals.items()}
-        return {}
+        raise McpError("菜单结果 UNKNOWN：缺少 meals")
 
     def _store_coupons(self, store: StoreInfo) -> list[dict[str, Any]]:
         """query-store-coupons → 门店可用券列表。"""
-        items = self.client.call_tool(T.TOOL_STORE_COUPONS, self._store_args(store)).as_list()
+        items = _checked(self.client.call_tool(T.TOOL_STORE_COUPONS, self._store_args(store))).as_list()
         return [c for c in items if isinstance(c, dict)]
 
     def meal_detail(self, store: StoreInfo, product_code: str) -> dict[str, Any]:
@@ -372,7 +430,7 @@ class McdBrain:
                                  values:[{code, price, name, selectedKey, unselectedKey, ...}]}]}}
         """
         args = {**self._store_args(store), T.ARG_KEYS["detail_code"]: product_code}
-        node = self.client.call_tool(T.TOOL_MEAL_DETAIL, args).unwrap()
+        node = _checked(self.client.call_tool(T.TOOL_MEAL_DETAIL, args)).unwrap()
         return node if isinstance(node, dict) else {}
 
     def best_deal(
@@ -432,12 +490,6 @@ class McdBrain:
         quotes: list[DealQuote] = []
         for name, code in candidates:
             baseline = self._price(store, code)
-            if baseline is None:
-                # 兜底：用菜单里的 currentPrice（单位是元）
-                fallback = _pick(meals.get(code, {}), "currentPrice", default=None)
-                baseline = to_cents(fallback) if fallback is not None else None
-            if baseline is None:
-                continue
 
             best = DealQuote(
                 meal_name=name,
@@ -449,11 +501,9 @@ class McdBrain:
             for coupon in coupon_by_product.get(code, []):
                 coupon_id = _text_of(coupon, "couponId", "id")
                 coupon_code = _text_of(coupon, "couponCode", "code")
-                if not coupon_id:
+                if not coupon_id or not coupon_code:
                     continue
                 payable = self._price(store, code, coupon_id=coupon_id, coupon_code=coupon_code)
-                if payable is None:
-                    continue
                 quote = DealQuote(
                     meal_name=name,
                     meal_code=code,
@@ -472,6 +522,10 @@ class McdBrain:
         return quotes
 
     def _store_args(self, store: StoreInfo) -> dict[str, Any]:
+        if not store.store_code:
+            raise StoreUnavailable("未指定门店")
+        if not store.business_status:
+            raise StoreUnavailable("选定门店未营业；无法获取菜单和报价")
         args: dict[str, Any] = {
             T.ARG_KEYS["store_code"]: store.store_code,
             T.ARG_KEYS["be_type"]: store.be_type,
@@ -498,6 +552,8 @@ class McdBrain:
             T.ARG_KEYS["product_code"]: product_code,
             T.ARG_KEYS["quantity"]: quantity,
         }
+        if bool(coupon_id) != bool(coupon_code):
+            raise McpError("使用优惠券需要 couponId 和 couponCode")
         if coupon_id:
             item[T.ARG_KEYS["coupon_id"]] = coupon_id
             if coupon_code:
@@ -516,31 +572,11 @@ class McdBrain:
         product_code: str,
         coupon_id: str | None = None,
         coupon_code: str | None = None,
-    ) -> int | None:
+    ) -> int:
         items = [self._item(product_code, 1, coupon_id=coupon_id, coupon_code=coupon_code)]
         args = {**self._store_args(store), T.ARG_KEYS["items"]: items}
         result = self.client.call_tool(T.TOOL_CALCULATE_PRICE, args)
-        if result.is_error:
-            return None
-        node = result.unwrap()
-        if not isinstance(node, dict):
-            return None
-
-        # 优先按 productList 的 subtotal 求和（多商品时更准）
-        product_list = node.get("productList")
-        if isinstance(product_list, list) and product_list:
-            subtotals = [
-                to_cents(_pick(p, "subtotal", "payAmount", default=None))
-                for p in product_list
-                if isinstance(p, dict)
-            ]
-            if any(s > 0 for s in subtotals):
-                return sum(subtotals)
-
-        for key in self._PRICE_FIELDS:
-            if key in node and node[key] not in (None, ""):
-                return to_cents(node[key])
-        return None
+        return _payable(_checked(result).unwrap())
 
     # ---------- 3. 营养查询 ----------
 
@@ -551,7 +587,7 @@ class McdBrain:
         keyword 在本地过滤。
         """
         result = self.client.call_tool(T.TOOL_NUTRITION)
-        node = result.unwrap()
+        node = _checked(result).unwrap()
         rows = parse_nutrition_table(node if isinstance(node, str) else result.text)
 
         facts: list[NutritionFact] = []
@@ -604,7 +640,7 @@ class McdBrain:
         """取 calculate-price 返回的 takeWayList，供下单时选堂食/外带。"""
         args = {**self._store_args(store), T.ARG_KEYS["items"]: [self._item(product_code, 1)]}
         result = self.client.call_tool(T.TOOL_CALCULATE_PRICE, args)
-        node = result.unwrap()
+        node = _checked(result).unwrap()
         if isinstance(node, dict) and isinstance(node.get("takeWayList"), list):
             return [o for o in node["takeWayList"] if isinstance(o, dict)]
         return []
@@ -617,21 +653,15 @@ class McdBrain:
         coupon_id: str | None = None,
         coupon_code: str | None = None,
     ) -> int:
+        if not product_codes:
+            raise McpError("请先选择餐品")
         items = [
             self._item(code, 1, coupon_id=coupon_id, coupon_code=coupon_code)
             for code in product_codes
         ]
         args = {**self._store_args(store), T.ARG_KEYS["items"]: items}
         result = self.client.call_tool(T.TOOL_CALCULATE_PRICE, args)
-        if result.is_error:
-            return 0
-        node = result.unwrap()
-        if not isinstance(node, dict):
-            return 0
-        for key in self._PRICE_FIELDS:
-            if key in node and node[key] not in (None, ""):
-                return to_cents(node[key])
-        return 0
+        return _payable(_checked(result).unwrap())
 
     def render_order_summary(
         self,
@@ -709,12 +739,12 @@ class McdBrain:
         if take_way_code:
             args[T.ARG_KEYS["take_way_code"]] = take_way_code
         result: ToolResult = self.client.call_tool(T.TOOL_CREATE_ORDER, args)
-        if result.is_error:
+        if result.is_error or not result.ok:
             return OrderOutcome(
                 status="rejected",
                 summary=summary,
                 amount_cents=amount,
-                reason=f"下单失败：{result.text[:300]}",
+                reason=f"下单失败：{result.error_message or result.text[:300]}",
             )
 
         node = result.unwrap()
@@ -747,7 +777,7 @@ class McdBrain:
             T.TOOL_CANCEL_ORDER,
             {T.ARG_KEYS["order_id"]: order_no, T.ARG_KEYS["cancel_reason_code"]: "1"},
         )
-        if result.is_error:
+        if result.is_error or not result.ok:
             return False
         self.guard.mark_cancelled(order_no)
         return True

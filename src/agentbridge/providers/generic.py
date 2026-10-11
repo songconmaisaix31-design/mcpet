@@ -34,7 +34,7 @@ from pathlib import Path
 
 from ..context import context_limit
 from ..records import ProgressRecord, UsageRecord
-from .base import UsageBatch, iter_jsonl_files, read_from_offset, to_int
+from .base import UsageBatch, iter_jsonl_files, iter_offset_batches, to_int
 from .claude import parse_timestamp
 
 _KIND_ALIASES = {"kind", "type", "event"}
@@ -68,6 +68,8 @@ class GenericProvider:
 
     def __init__(self, roots: list[Path]) -> None:
         self._roots = [Path(r) for r in roots]
+        self._progress_cursors: dict[str, int] = {}
+        self._progress_latest: dict[str, dict[str, ProgressRecord]] = {}
 
     def roots(self) -> list[Path]:
         return list(self._roots)
@@ -78,20 +80,17 @@ class GenericProvider:
             for path in iter_jsonl_files(root):
                 key = str(path)
                 offset = cursors.get(key, 0)
-                try:
-                    size = path.stat().st_size
-                except OSError:
-                    continue
-                truncated = size < offset
-                entries, new_offset = read_from_offset(path, offset)
-                records: list[UsageRecord] = []
-                for line_offset, entry in entries:
-                    record = self._to_record(entry, key, line_offset)
-                    if record is not None:
-                        records.append(record)
-                yield UsageBatch(
-                    path=key, offset=new_offset, records=records, truncated=truncated
-                )
+                truncated = path.stat().st_size < offset
+                for entries, new_offset in iter_offset_batches(path, offset):
+                    records = []
+                    for line_offset, entry in entries:
+                        record = self._to_record(entry, key, line_offset)
+                        if record is not None:
+                            records.append(record)
+                    yield UsageBatch(
+                        path=key, offset=new_offset, records=records, truncated=truncated
+                    )
+                    truncated = False
 
     def _to_record(
         self, entry: dict, path_key: str, line_offset: int
@@ -134,24 +133,22 @@ class GenericProvider:
                 if record is not None:
                     yield record
             # 追加式：jsonl 里的 progress 事件，取每个会话最后一条
-            latest: dict[str, ProgressRecord] = {}
             for path in iter_jsonl_files(root):
-                try:
-                    size = path.stat().st_size
-                except OSError:
-                    continue
-                entries, _ = read_from_offset(path, 0)
-                for _, entry in entries:
-                    if _kind_of(entry) != "progress":
-                        continue
-                    record = self._progress_from_entry(entry, path)
-                    if record is None:
-                        continue
-                    previous = latest.get(record.session_id)
-                    if previous is None or record.updated_at >= previous.updated_at:
-                        latest[record.session_id] = record
-                _ = size
-            yield from latest.values()
+                key = str(path)
+                offset = self._progress_cursors.get(key, 0)
+                if path.stat().st_size < offset:
+                    self._progress_latest.pop(key, None)
+                latest = self._progress_latest.setdefault(key, {})
+                for entries, new_offset in iter_offset_batches(path, offset):
+                    for _, entry in entries:
+                        if _kind_of(entry) not in {"progress", "task_complete"}:
+                            continue
+                        record = self._progress_from_entry(entry, path)
+                        previous = latest.get(record.session_id)
+                        if previous is None or record.updated_at >= previous.updated_at:
+                            latest[record.session_id] = record
+                    self._progress_cursors[key] = new_offset
+                yield from latest.values()
 
     def _progress_from_entry(self, entry: dict, path: Path) -> ProgressRecord | None:
         session_id = _text(entry, "session", "sessionId", "session_id") or path.stem
@@ -168,7 +165,7 @@ class GenericProvider:
         if not isinstance(entry, dict):
             return None
         kind = _kind_of(entry)
-        if kind and kind != "progress":
+        if kind and kind not in {"progress", "task_complete"}:
             return None
         session_id = _text(entry, "session", "sessionId", "session_id") or path.stem
         ts = parse_timestamp(_pick(entry, "ts", "timestamp", "time"))
@@ -183,12 +180,17 @@ class GenericProvider:
         model = _text(entry, "model")
         used = to_int(_pick(entry, "contextUsed", "context_used", "contextTokens"))
         limit = to_int(_pick(entry, "contextLimit", "context_limit", "contextWindow"))
+        limit_estimated = limit <= 0 and used > 0
         if limit <= 0 and used > 0:
             limit = context_limit(model, used)
+        state = _text(entry, "state", "status") or "UNKNOWN"
+        if _kind_of(entry) == "task_complete":
+            state = "done"
+        complete = state.lower() in {"done", "complete", "completed", "task_complete"}
         return ProgressRecord(
             source=self.id,
             session_id=session_id,
-            state=_text(entry, "state", "status") or "idle",
+            state=state,
             project=_text(entry, "project"),
             cwd=_text(entry, "cwd", "path"),
             title=_text(entry, "title", "task", "summary"),
@@ -198,4 +200,7 @@ class GenericProvider:
             background_tasks=to_int(_pick(entry, "backgroundTasks", "background_tasks")),
             detail=_text(entry, "detail", "message"),
             updated_at=ts,
+            completed_at=ts if complete else 0.0,
+            completion_id=_text(entry, "taskId", "task_id", "eventId", "event_id") or str(ts) if complete else "",
+            context_limit_estimated=limit_estimated,
         )

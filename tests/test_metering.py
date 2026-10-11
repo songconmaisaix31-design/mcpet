@@ -176,11 +176,12 @@ def test_state_written_atomically_no_tmp_left(tmp_path):
     assert not state.with_suffix(".tmp").exists()
 
 
-def test_schema_mismatch_is_ignored(tmp_path):
+def test_schema_mismatch_is_reported_without_overwriting(tmp_path):
     state = tmp_path / "usage.json"
     state.write_text(json.dumps({"schemaVersion": 999, "cursors": {"x": 1}}), encoding="utf-8")
-    meter = UsageMeter([], state_path=state)
-    assert meter.cursors == {}
+    with pytest.raises(RuntimeError, match="版本未知"):
+        UsageMeter([], state_path=state)
+    assert json.loads(state.read_text())["cursors"] == {"x": 1}
 
 
 # ------------------------------------------------------------------ 窗口与外推
@@ -349,3 +350,89 @@ def test_recent_days_fills_gaps(tmp_path):
     assert len(days) == 5
     assert all(row["tokens"] == 0 for _, row in days)
     assert days[-1][0] == day_key(time.time())
+
+
+def test_scan_lazy_consumption_and_first_failure(tmp_path):
+    now = time.time()
+    meter = make_meter(tmp_path, [])
+    class Streaming(FakeProvider):
+        def iter_usage(self, cursors):
+            yield UsageBatch(path="f", offset=1, records=[record("k", now, input_tokens=1)])
+            assert cursors["f"] == 1
+            raise OSError("first read failure")
+    meter.providers = [Streaming([])]
+    result = meter.scan()
+    assert result.errors == ["fake: OSError: first read failure"]
+    assert meter.snapshot().status == "UNKNOWN"
+    meter.providers = [FakeProvider([])]
+    meter.scan()
+    assert meter.diagnostics["firstFailure"] == result.errors[0]
+    assert meter.snapshot().lifetime.tokens == 1
+
+
+def test_pricing_confidence_survives_restart_and_incremental_scan(tmp_path):
+    meter = make_meter(tmp_path, [UsageBatch(path="f", offset=10, records=[
+        record("k", time.time(), model="gpt-5.5", input_tokens=10),
+        record("u", time.time(), model="unknown-model", input_tokens=10),
+    ])])
+    meter.scan()
+    reopened = UsageMeter([], state_path=meter.state_path)
+    reopened.scan()
+    assert "gpt-5.5" in reopened.snapshot().estimated_models
+    assert "unknown-model" in reopened.snapshot().unknown_models
+
+
+def test_historical_stable_keys_not_counted_twice_after_pruning_restart(tmp_path):
+    batch = UsageBatch(path="f", offset=10, records=[
+        record("stable", time.time() - 110 * 86400, input_tokens=40),
+    ])
+    meter = make_meter(tmp_path, [batch])
+    meter.scan()
+    reopened = UsageMeter([FakeProvider([batch])], state_path=meter.state_path)
+    assert reopened.scan().records == 0
+    assert reopened.snapshot().lifetime.tokens == 40
+
+
+def test_failed_persistence_keeps_original(tmp_path, monkeypatch):
+    meter = make_meter(tmp_path, [])
+    meter.scan()
+    previous = meter.state_path.read_bytes()
+    def broken(*args):
+        raise OSError("disk full")
+    monkeypatch.setattr("src.metering.usage.os.replace", broken)
+    with pytest.raises(OSError, match="disk full"):
+        meter.scan()
+    assert meter.state_path.read_bytes() == previous
+
+
+def test_corrupt_existing_ledger_not_overwritten(tmp_path):
+    state = tmp_path / "usage.json"
+    state.write_text("broken", encoding="utf-8")
+    with pytest.raises(RuntimeError, match="保留原文件"):
+        UsageMeter([], state_path=state)
+    assert state.read_text() == "broken"
+
+
+def test_codex_mid_file_model_survives_incremental_scan_and_restart(tmp_path):
+    from src.agentbridge.providers.codex import CodexProvider
+    root = tmp_path / "logs"
+    root.mkdir()
+    path = root / "session.jsonl"
+    def event():
+        return {"type": "event_msg", "timestamp": time.time(), "payload": {"type": "token_count", "info": {
+            "last_token_usage": {"input_tokens": 10, "output_tokens": 2}}}}
+    entries = [{"type": "turn_context", "payload": {"model": "gpt-5.5"}}, event(),
+               {"type": "turn_context", "payload": {"model": "gpt-6"}}, event()]
+    path.write_text("".join(json.dumps(e) + "\n" for e in entries), encoding="utf-8")
+    state = tmp_path / "usage.json"
+    meter = UsageMeter([CodexProvider([root])], state_path=state)
+    meter.scan()
+    assert meter.model_hints[str(path)] == "gpt-6"
+    with path.open("a", encoding="utf-8") as h:
+        h.write(json.dumps(event()) + "\n")
+    reopened = UsageMeter([CodexProvider([root])], state_path=state)
+    assert reopened.scan().records == 1
+    buckets = reopened.by_model_by_day[day_key(time.time())]
+    assert buckets["gpt-5.5"]["tokens"] == 12
+    assert buckets["gpt-6"]["tokens"] == 24
+    assert reopened.scan().records == 0
