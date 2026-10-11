@@ -14,7 +14,7 @@ import time
 
 from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtCore import QUrl
-from PySide6.QtGui import QDesktopServices, QFont
+from PySide6.QtGui import QDesktopServices, QFont, QPixmap
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -30,6 +30,13 @@ from PySide6.QtWidgets import (
 )
 
 from .. import config
+from .spritesheet import AnimationSheet
+
+
+def character_preview(sheet):
+    # AnimationSheet.image is its already-decoded first idle frame. Calling
+    # frame('idle') would evict A's active animation atlas and decode it again.
+    return QPixmap.fromImage(sheet.image) if isinstance(sheet, AnimationSheet) else sheet.frame("idle", 0)
 
 
 class SettingsForm(QWidget):
@@ -210,6 +217,9 @@ class CompanionPanel(QDialog):
         self.account_rows = []
         self.reset_labels = []
         self._quota_snapshot = None
+        self._accounts_rendered = False
+        self._accounts_stale = False
+        self._balance_configured = False
         self.buttons["quota"] = refresh
         money = self.card(self.home_layout, "DeepSeek API 余额")
         self.money_layout = QVBoxLayout()
@@ -284,24 +294,26 @@ class CompanionPanel(QDialog):
     def set_character(self, character_id, name, sheet, choices):
         self.character_name.setText(name)
         blue = character_id == "deepseek"
-        self.character_card.setStyleSheet("QFrame#card { background:" + ("#eaf4fb" if blue else "#fff0df") + "; }")
+        if getattr(self, "_styled_character", None) != character_id:
+            self.character_card.setStyleSheet("QFrame#card { background:" + ("#eaf4fb" if blue else "#fff0df") + "; }")
+            self._styled_character = character_id
         for identifier, label in choices or ((character_id, name),):
             if identifier not in self.character_buttons:
                 button = QPushButton(label)
                 button.setCheckable(True)
                 button.clicked.connect(lambda checked=False, value=identifier: self.character_requested.emit(value))
                 button.setMaximumWidth(160)
+                button.setStyleSheet("QPushButton:checked { background:" + ("#72aad7" if identifier == "deepseek" else "#ed9864") + "; }")
                 self.character_choices.insertWidget(self.character_choices.count() - 1, button)
                 self.character_buttons[identifier] = button
             button = self.character_buttons[identifier]
             button.setChecked(identifier == character_id)
             button.setEnabled(bool(choices))
-            button.setStyleSheet("QPushButton:checked { background:" + ("#72aad7" if identifier == "deepseek" else "#ed9864") + "; }")
         if sheet is not self._preview_sheet:
             self._preview_sheet = sheet
             self.preview.clear()
             if sheet:
-                self.preview.setPixmap(sheet.frame("idle", 0).scaled(88, 88, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self.preview.setPixmap(character_preview(sheet).scaled(88, 88, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         if not sheet:
             self.preview.setText(name)
         self.resting_button.setText("唤醒" + name if self.resting_button.isChecked() else "让" + name + "休息")
@@ -324,14 +336,30 @@ class CompanionPanel(QDialog):
             label.setText(self.reset_text(reset, now))
 
     def set_accounts(self, snapshot, error="", refreshing=False):
-        self._quota_snapshot = snapshot
         status = "Orca 账号缓存 · 刷新中 · 保留上次快照" if refreshing and snapshot else "Orca 账号缓存 · 刷新中 · 等待账号快照" if refreshing else "Orca 账号缓存 · 各窗口分别计量"
         if error:
-            status = "UNKNOWN · " + error + (" · 保留上次快照（过时）" if snapshot else "")
+            status = "UNKNOWN · " + error + (" · 保留上次快照（过时）" if snapshot else "") + (" · 刷新中" if refreshing else "")
         if snapshot is None and not refreshing and not error:
             status = "UNKNOWN · 等待账号快照"
         self.quota_status.setText(config.redact(status))
-        # Only snapshots change the card structure; countdown ticks update labels alone.
+        configured = bool(config.deepseek_api_key())
+        if (self._accounts_rendered and snapshot is self._quota_snapshot
+                and bool(error) == self._accounts_stale and configured == self._balance_configured):
+            # Refresh/reopen changes the header, not the observed account facts.
+            # Keep row objects and countdowns; a new snapshot still updates every fact.
+            self.update_countdowns()
+            return
+        self._accounts_rendered = True
+        self._quota_snapshot = snapshot
+        self._accounts_stale = bool(error)
+        self._balance_configured = configured
+        shape = (snapshot is not None, tuple((account.provider, len(account.buckets), len(account.balances))
+                                            for account in snapshot.accounts) if snapshot else ())
+        if shape == getattr(self, "_account_shape", None):
+            self._update_account_rows(snapshot, error)
+            return
+        self._account_shape = shape
+        # Rebuild only when providers or row structure change, including key clear.
         for container in (self.accounts_layout, self.money_layout):
             while container.count():
                 item = container.takeAt(0)
@@ -339,6 +367,7 @@ class CompanionPanel(QDialog):
                     item.widget().hide()
                     item.widget().deleteLater()
         self.account_rows, self.reset_labels = [], []
+        self.money_placeholder = None
         statuses = {"ok": "正常", "unavailable": "不可用 · UNKNOWN", "unconfigured": "未配置 · UNKNOWN", "error": "失败 · UNKNOWN", "stale": "过时 · 待刷新"}
         for account in snapshot.accounts if snapshot else ():
             frame = QFrame()
@@ -364,7 +393,8 @@ class CompanionPanel(QDialog):
             state_label.setTextFormat(Qt.PlainText)
             title.addWidget(state_label)
             column.addLayout(title)
-            row = {"provider": account.provider, "status": state, "buckets": [], "balances": [], "frame": frame}
+            row = {"provider": account.provider, "status": state, "buckets": [], "balances": [], "frame": frame,
+                   "heading": heading, "state_label": state_label, "stamps": [], "bar_colors": [], "empty_label": None}
             try:
                 updated = "更新时间 UNKNOWN" if account.updated_at is None else "更新 " + datetime.fromtimestamp(account.updated_at).strftime("%m-%d %H:%M")
             except (ValueError, OverflowError, OSError):
@@ -382,6 +412,7 @@ class CompanionPanel(QDialog):
                 bar.setTextVisible(False)
                 bar.setValue(round(value * 10) if known else 0)
                 bar.setStyleSheet("QProgressBar::chunk { background:" + ("#b7aea6" if state == "stale" else "#ae5962" if known and value >= 95 else "#ad6d39" if known and value >= 80 else "#79b69c") + "; }")
+                row["bar_colors"].append("#b7aea6" if state == "stale" else "#ae5962" if known and value >= 95 else "#ad6d39" if known and value >= 80 else "#79b69c")
                 bar.setAccessibleName(config.redact(text))
                 band.addWidget(bar, 1)
                 bar.setMinimumWidth(75)
@@ -396,6 +427,7 @@ class CompanionPanel(QDialog):
                     stamp = self.label(footer, updated)
                     stamp.setWordWrap(False)
                     stamp.setStyleSheet("color:#81756b; font-size:10px;")
+                    row["stamps"].append((stamp, ""))
                 column.addLayout(footer)
                 self.reset_labels.append((reset, bucket.resets_at))
                 row["buckets"].append((summary, bar, reset))
@@ -408,21 +440,63 @@ class CompanionPanel(QDialog):
                 label = self.label(column, text, personal=False)
                 row["balances"].append(label)
             if not account.buckets and not account.balances:
-                self.label(column, "未配置余额查询密钥" if account.provider == "deepseek" and state == "unconfigured" else "余额 UNKNOWN" if account.provider == "deepseek" else "尚无可读取额度 · UNKNOWN")
+                row["empty_label"] = self.label(column, "未配置余额查询密钥" if account.provider == "deepseek" and state == "unconfigured" else "余额 UNKNOWN" if account.provider == "deepseek" else "尚无可读取额度 · UNKNOWN")
             if not account.buckets:
                 origin = "DeepSeek 官方余额" if account.provider == "deepseek" else "Orca 账号缓存"
-                self.label(column, origin + " · " + updated).setStyleSheet("color:#81756b; font-size:10px;")
+                stamp = self.label(column, origin + " · " + updated)
+                stamp.setStyleSheet("color:#81756b; font-size:10px;")
+                row["stamps"].append((stamp, origin + " · "))
             if account.message:
                 frame.setToolTip(html.escape(config.redact(account.message)))
-            if state == "stale":
-                self.label(column, "上次快照，已过时")
+            row["stale_label"] = self.label(column, "上次快照，已过时")
+            row["stale_label"].setVisible(state == "stale")
             (self.money_layout if account.provider == "deepseek" or account.balances else self.accounts_layout).addWidget(frame)
             frame.show()
             self.account_rows.append(row)
         if snapshot is not None and not snapshot.accounts:
             self.label(self.accounts_layout, "暂无账号额度 · UNKNOWN")
         if not any(row["provider"] == "deepseek" or row["balances"] for row in self.account_rows):
-            self.label(self.money_layout, "未配置余额查询密钥" if not config.deepseek_api_key() else "余额 UNKNOWN · 等待查询")
+            self.money_placeholder = self.label(self.money_layout, "未配置余额查询密钥" if not configured else "余额 UNKNOWN · 等待查询")
+        self.update_countdowns()
+
+    def _update_account_rows(self, snapshot, error):
+        statuses = {"ok": "正常", "unavailable": "不可用 · UNKNOWN", "unconfigured": "未配置 · UNKNOWN", "error": "失败 · UNKNOWN", "stale": "过时 · 待刷新"}
+        self.reset_labels = []
+        for row, account in zip(self.account_rows, snapshot.accounts if snapshot else ()):
+            state = "stale" if error and (account.buckets or account.balances) else account.status
+            row["status"] = state
+            row["heading"].setText(config.redact(account.label))
+            row["state_label"].setText(statuses.get(state, "UNKNOWN"))
+            row["frame"].setToolTip(html.escape(config.redact(account.message)))
+            row["stale_label"].setVisible(state == "stale")
+            try:
+                updated = "更新时间 UNKNOWN" if account.updated_at is None else "更新 " + datetime.fromtimestamp(account.updated_at).strftime("%m-%d %H:%M")
+            except (ValueError, OverflowError, OSError):
+                updated = "更新时间 UNKNOWN"
+            for stamp, prefix in row["stamps"]:
+                stamp.setText(prefix + updated)
+            for index, (bucket, (summary, bar, reset)) in enumerate(zip(account.buckets, row["buckets"])):
+                value = bucket.used_percent
+                known = value is not None and math.isfinite(value) and 0 <= value <= 100
+                text = f"{bucket.name} · 剩余 {100-value:g}% · 已用 {value:g}%" if known else f"{bucket.name} · 剩余 UNKNOWN · 已用 UNKNOWN"
+                summary.setText(config.redact(text))
+                bar.setAccessibleName(config.redact(text))
+                bar.setValue(round(value * 10) if known else 0)
+                bar.setVisible(known)
+                color = "#b7aea6" if state == "stale" else "#ae5962" if known and value >= 95 else "#ad6d39" if known and value >= 80 else "#79b69c"
+                if color != row["bar_colors"][index]:
+                    bar.setStyleSheet("QProgressBar::chunk { background:" + color + "; }")
+                    row["bar_colors"][index] = color
+                self.reset_labels.append((reset, bucket.resets_at))
+            for label, balance in zip(row["balances"], account.balances):
+                def amount(value):
+                    return format(value, "f") if isinstance(value, Decimal) and value.is_finite() and value >= 0 else "UNKNOWN"
+                text = f"{config.redact(balance.currency)} · 余额 {amount(balance.total)}\n赠送 {amount(balance.granted)} · 充值 {amount(balance.topped_up)}"
+                label.setText(config.redact(text, personal=False))
+            if row["empty_label"]:
+                row["empty_label"].setText("未配置余额查询密钥" if account.provider == "deepseek" and state == "unconfigured" else "余额 UNKNOWN" if account.provider == "deepseek" else "尚无可读取额度 · UNKNOWN")
+        if self.money_placeholder:
+            self.money_placeholder.setText("未配置余额查询密钥" if not self._balance_configured else "余额 UNKNOWN · 等待查询")
         self.update_countdowns()
 
     def showEvent(self, event):

@@ -1,5 +1,5 @@
 """C UI contract fixtures: no account/credential files or real network."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
 import json
@@ -10,12 +10,12 @@ from types import ModuleType
 
 import pytest
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtWidgets import QApplication, QLabel
 
 from src import config, main
 from src.pet.dialogs import CompanionPanel
-from src.pet.spritesheet import SpriteLoadError
+from src.pet.spritesheet import SpriteLoadError, AnimationSheet
 from test_app_actions import MonitorStub, pump_until
 
 
@@ -189,11 +189,129 @@ def test_refresh_error_stale_recover_reuses_monitor_and_no_model(quota_monster, 
     assert not (config.data_dir() / "chat.json").exists()
 
 
+def test_thirty_actual_quota_actions_keep_rows_and_publish_new_facts(quota_monster):
+    app = quota_monster
+    app.action_panel()
+    first = sample_snapshot()
+    app.account_monitor.snapshot_ready.emit(first)
+    frames = tuple(row["frame"] for row in app.panel.account_rows)
+    before = time.perf_counter()
+    for _ in range(30):
+        app.action_quota()
+        assert tuple(row["frame"] for row in app.panel.account_rows) == frames
+        assert "刷新中" in app.panel.quota_status.text()
+    print({"thirty_action_quota_ms": (time.perf_counter() - before) * 1000})
+    assert app.account_monitor.refreshes == 30
+    app.action_panel()
+    assert tuple(row["frame"] for row in app.panel.account_rows) == frames
+    # Reusing frozen facts must not freeze a later source observation.
+    now = time.time() + 60
+    changed = SnapshotFixture((
+        AccountFixture("codex", "Codex 新快照", "ok", now,
+                       (BucketFixture("Weekly", None, now + 600),)),
+        AccountFixture("deepseek", "DeepSeek 新快照", "ok", now, balances=(
+            BalanceFixture("CNY", Decimal("0.000000000001"), Decimal("0"), Decimal("0.000000000001")),)),
+    ), now)
+    app.account_monitor.snapshot_ready.emit(changed)
+    codex, money = app.panel.account_rows
+    assert codex["frame"] is not frames[0]
+    assert "UNKNOWN" in codex["buckets"][0][0].text()
+    assert codex["buckets"][0][1].isHidden()
+    assert "0.000000000001" in money["balances"][0].text()
+    assert not app.account_refreshing
+    app.account_monitor.failed.emit("第一次失败")
+    stale_frames = tuple(row["frame"] for row in app.panel.account_rows)
+    assert all(row["status"] == "stale" for row in app.panel.account_rows)
+    app.account_monitor.failed.emit("第二次失败")
+    assert "第二次失败" in app.panel.quota_status.text()
+    assert tuple(row["frame"] for row in app.panel.account_rows) == stale_frames
+    app.account_monitor.snapshot_ready.emit(changed)
+    assert all(row["status"] == "ok" for row in app.panel.account_rows)
+    app.panel.update_countdowns(now + 601)
+    assert "等待刷新" in app.panel.account_rows[0]["buckets"][0][2].text()
+    assert app.panel.account_rows[0]["buckets"][0][1].isHidden()
+
+
+def test_same_character_sync_does_not_repolish_existing_styles(quota_monster, monkeypatch):
+    app = quota_monster
+    app.action_panel()
+    calls = []
+    targets = [app.panel.character_card, *app.panel.character_buttons.values()]
+    for target in targets:
+        original = target.setStyleSheet
+        def styled(value, callback=original):
+            calls.append(value)
+            callback(value)
+        monkeypatch.setattr(target, "setStyleSheet", styled)
+    for _ in range(30):
+        app._sync_panel()
+    assert not calls
+    app.panel.set_character("deepseek", "DeepSeek 娘", app.sheet,
+                            (("maimai", "麦麦"), ("deepseek", "DeepSeek 娘")))
+    assert len(calls) == 1 and "#eaf4fb" in calls[0]
+    assert app.panel.character_buttons["deepseek"].isChecked()
+
+
+def test_new_same_shape_snapshot_updates_all_fields_without_replacing_cards(quota_monster):
+    app = quota_monster
+    app.action_panel()
+    now = time.time()
+    first = sample_snapshot(now)
+    app.account_monitor.snapshot_ready.emit(first)
+    frames = tuple(row["frame"] for row in app.panel.account_rows)
+    changed = list(first.accounts)
+    changed[0] = replace(changed[0], label="Codex 最新来源", updated_at=now + 180,
+                         message="新来源说明", buckets=(BucketFixture("Session", 97.5, now + 120),))
+    changed[2] = replace(changed[2], label="Claude 查询失败", status="error", message="来源出错")
+    changed[-1] = replace(changed[-1], balances=(
+        BalanceFixture("USD", Decimal("0.000000000009"), Decimal("0"), Decimal("0.000000000009")),
+        BalanceFixture("CNY", Decimal("1.234567890123456789"), Decimal("1"), Decimal("0.234567890123456789"))))
+    app.account_monitor.snapshot_ready.emit(SnapshotFixture(tuple(changed), now + 180))
+    assert tuple(row["frame"] for row in app.panel.account_rows) == frames
+    codex, _, claude, _, money = app.panel.account_rows
+    assert codex["heading"].text() == "Codex 最新来源" and codex["frame"].toolTip() == "新来源说明"
+    assert "Session · 剩余 2.5% · 已用 97.5%" == codex["buckets"][0][0].text()
+    assert codex["buckets"][0][1].value() == 975 and "#ae5962" in codex["buckets"][0][1].styleSheet()
+    assert codex["stamps"][0][0].text() != "更新时间 UNKNOWN"
+    assert claude["status"] == "error" and "失败" in claude["state_label"].text()
+    assert "USD · 余额 0.000000000009" in money["balances"][0].text()
+    assert "CNY · 余额 1.234567890123456789" in money["balances"][1].text()
+    app.panel.update_countdowns(now + 121)
+    assert "等待刷新" in codex["buckets"][0][2].text()
+    app.account_monitor.failed.emit("断线")
+    assert codex["status"] == "stale" and not codex["stale_label"].isHidden()
+    assert "#b7aea6" in codex["buckets"][0][1].styleSheet()
+    app.action_quota()
+    assert codex["status"] == "stale" and not codex["stale_label"].isHidden()
+    assert "断线" in app.panel.quota_status.text() and "刷新中" in app.panel.quota_status.text()
+    app.account_monitor.snapshot_ready.emit(SnapshotFixture(tuple(changed), now + 181))
+    assert codex["status"] == "ok" and codex["stale_label"].isHidden()
+    assert "#ae5962" in codex["buckets"][0][1].styleSheet()
+
+
+def test_static_preview_and_tray_do_not_evict_active_animation_atlas(quota_monster):
+    app = quota_monster
+    app.action_panel()
+    sheet = AnimationSheet.__new__(AnimationSheet)
+    sheet.image = QImage(32, 32, QImage.Format_ARGB32)
+    sheet.image.fill("blue")
+    resident = sheet._atlases = {"working-fixture": object()}
+    def forbidden(*args):
+        pytest.fail("C idle preview decoded/evicted the active animation source")
+    sheet.frame = forbidden
+    app.sheet = sheet
+    app.panel.set_character("deepseek", "DeepSeek 娘", sheet, (("deepseek", "DeepSeek 娘"),))
+    assert app.panel.preview.pixmap().toImage().pixelColor(0, 0).name() == "#0000ff"
+    assert app._icon().pixmap(32, 32).toImage().pixelColor(0, 0).name() == "#0000ff"
+    assert sheet._atlases is resident and list(resident) == ["working-fixture"]
+
+
 def test_key_save_reconfigures_same_monitor_and_clears_old_account(quota_monster, monkeypatch):
     app = quota_monster
     app.action_settings()
     monitor = app.account_monitor
     app.account_monitor.snapshot_ready.emit(sample_snapshot())
+    previous_cards = tuple(row["frame"] for row in app.panel.account_rows)
     def save(values):
         for key, value in values.items(): monkeypatch.setenv(key, value)
     monkeypatch.setattr(config, "save_settings", save)
@@ -204,6 +322,9 @@ def test_key_save_reconfigures_same_monitor_and_clears_old_account(quota_monster
     assert monitor.sources[-1].api_key == "fixture-new-balance-key" and monitor.refreshes == 1
     assert app.account_snapshot is None and app.account_refreshing
     assert "刷新中" in app.panel.quota_status.text()
+    assert not app.panel.account_rows and all(card.isHidden() for card in previous_cards)
+    assert app.panel.money_layout.count() == 1
+    assert "等待查询" in app.panel.money_layout.itemAt(0).widget().text()
     assert form.fields["DEEPSEEK_API_KEY"].text() == ""
     form.clear_deepseek.setChecked(True)
     form.save_button.click()
