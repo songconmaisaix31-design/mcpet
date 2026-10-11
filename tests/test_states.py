@@ -92,3 +92,24 @@ def test_notification_returns_to_most_recent_base(monkeypatch):
     assert machine.state == "happy"
     clock[0] = 1.1
     assert machine.tick() == "thinking"
+
+
+def test_interaction_hides_event_expiry_and_clear_without_losing_base(monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    machine = PetStateMachine()
+    machine.set_base("working")
+    machine.set("greet", ttl_ms=1000)
+    machine.set_interaction("run-right")
+    machine.set("error", ttl_ms=2000)
+    assert machine.state == "run-right"
+    machine.set_base("thinking")
+    clock[0] = 2.1
+    assert machine.tick() is None  # Event expiry must not interrupt the ongoing gesture.
+    assert machine.state == "run-right"
+    assert machine.set_interaction(None) == "thinking"
+    machine.set("waiting")
+    machine.set_interaction("sleeping")
+    machine.clear("waiting")
+    assert machine.state == "sleeping"
+    assert machine.set_interaction(None) == "thinking"

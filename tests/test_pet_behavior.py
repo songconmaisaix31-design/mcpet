@@ -6,7 +6,7 @@ import pytest
 from PySide6.QtCore import QCoreApplication, QEvent, QPoint, QPointF, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QMouseEvent
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QMenu
+from PySide6.QtWidgets import QApplication, QMenu, QWidget
 
 from src.pet.behavior import RoamingBehavior, clamp_position
 from src.pet.preferences import PetPreferences
@@ -95,6 +95,107 @@ def test_drag_reversal_uses_distance_from_extreme(pet):
     move(pet, 333)
     assert pet.machine.state == "run-left"
     release(pet, 333)
+
+
+def test_touch_chat_reopen_then_drag_before_touch_ttl(pet):
+    clicks, chats = [], []
+    chat = QWidget()
+    pet.clicked.connect(lambda: clicks.append(True))
+    pet.chat_requested.connect(lambda: (chats.append(True), chat.show()))
+    try:
+        press(pet)
+        release(pet)
+        QTest.qWait(QApplication.doubleClickInterval() + 40)
+        assert clicks == [True]
+        assert pet.machine.state == "greet"
+        deadline = pet.machine._expires_at
+        mouse(pet, QEvent.MouseButtonDblClick, 300, 300)
+        release(pet)
+        assert chat.isVisible()
+        chat.close()
+        mouse(pet, QEvent.MouseButtonDblClick, 300, 300)
+        release(pet)
+        assert chat.isVisible() and chats == [True, True]
+        assert time.monotonic() < deadline
+        press(pet)
+        move(pet, 340)
+        assert pet.machine.state == "run-right"
+        move(pet, 339)
+        assert pet.machine.state == "run-right"
+        move(pet, 332)
+        assert pet.machine.state == "run-left"
+        release(pet, 332)
+        QTest.qWait(QApplication.doubleClickInterval() + 40)
+        assert clicks == [True]
+    finally:
+        chat.close()
+
+
+@pytest.mark.parametrize("foreground", ["greet", "happy", "coupon", "progress", "remind", "error", "waiting"])
+def test_explicit_drag_and_rest_override_foreground_without_renewal(pet, monkeypatch, foreground):
+    clock = [10.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    pet.set_activity("working")
+    pet.set_state(foreground)
+    deadline = pet.machine._expires_at
+    assert pet.machine.state == foreground
+    press(pet)
+    move(pet, 340)
+    assert pet.machine.state == "run-right"
+    pet.set_activity("thinking")
+    pet._decay()
+    assert pet.machine.state == "run-right"
+    assert pet.machine._expires_at == deadline
+    release(pet, 340)
+    assert pet.machine.state == foreground
+    pet.set_resting(True)
+    assert pet.machine.state == "sleeping"
+    pet.set_activity("working")
+    pet.set_state("idle", ttl_ms=10000)  # Rejected background event cannot change suspended TTL.
+    assert pet.machine.state == "sleeping"
+    assert pet.machine._expires_at == deadline
+    pet.set_resting(False)
+    assert pet.machine.state == foreground
+    assert pet.machine._expires_at == deadline
+
+
+def test_rest_wake_and_drag_keep_latest_base_when_touch_expires(pet, monkeypatch):
+    clock = [10.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    pet.set_activity("working")
+    pet._touch()
+    pet.set_resting(True)
+    assert pet.machine.state == "sleeping"
+    pet.set_activity("thinking")
+    clock[0] = 12.1
+    pet._decay()
+    assert pet.machine.state == "sleeping"
+    press(pet)
+    move(pet, 340)
+    assert pet.machine.state == "run-right"
+    pet.set_activity("working")
+    release(pet, 340)
+    assert pet.resting and pet.machine.state == "sleeping"
+    pet.set_resting(False)
+    assert pet.machine.state == "working"
+
+
+def test_rest_cancels_pending_click_and_low_motion_keeps_touch(pet):
+    clicks = []
+    pet.clicked.connect(lambda: clicks.append(True))
+    pet._touch()
+    deadline = pet.machine._expires_at
+    press(pet)
+    move(pet, 301)
+    assert pet.machine.state == "greet"
+    assert pet.machine._expires_at == deadline
+    release(pet, 301)
+    assert pet._click_timer.isActive()
+    pet.set_resting(True)
+    assert not pet._click_timer.isActive()
+    QTest.qWait(QApplication.doubleClickInterval() + 40)
+    assert clicks == [True]
+    assert pet.machine.state == "sleeping"
 
 
 def test_background_poll_keeps_touch_bubble_and_restores_new_base(pet, monkeypatch):

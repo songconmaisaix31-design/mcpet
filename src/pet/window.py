@@ -292,11 +292,13 @@ class PetWindow(QWidget):
         self._clamp()
 
     def _apply_base(self) -> None:
-        base = "sleeping" if self.resting else self._activity_state
+        self.machine.set_base(self._activity_state)
         if self._drag_active:
-            self.machine.base_state = base
-            return
-        self._load_frames(self.machine.set_base(base))
+            interaction = ("run-right" if self._drag_direction > 0 else
+                           "run-left" if self._drag_direction < 0 else "idle")
+        else:
+            interaction = "sleeping" if self.resting else None
+        self._load_frames(self.machine.set_interaction(interaction))
 
     def set_roaming(self, enabled: bool) -> None:
         self.roaming_enabled = bool(enabled)
@@ -306,6 +308,9 @@ class PetWindow(QWidget):
 
     def set_resting(self, enabled: bool) -> None:
         self.resting = bool(enabled)
+        if self.resting:
+            self._click_timer.stop()
+            self.bubble.hide()
         self._apply_base()
         self._save_preferences()
 
@@ -470,8 +475,7 @@ class PetWindow(QWidget):
                 self._direction_extreme = point.x()
             elif self._drag_direction == 0 and abs(delta) >= 8:
                 self._drag_direction = 1 if delta > 0 else -1
-            if self._drag_direction:
-                self.set_state("run-right" if self._drag_direction > 0 else "run-left")
+            self._apply_base()
         event.accept()
 
     def mouseReleaseEvent(self, event):  # noqa: N802
