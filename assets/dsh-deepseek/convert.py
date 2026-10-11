@@ -24,6 +24,65 @@ SIZE = 192
 COLUMNS = 12
 
 
+def write_pages(destination, state, atlas, count):
+    """Lossless fixed rows, no resampling or individual frame trimming."""
+    pages = []
+    for page in range((count + COLUMNS - 1) // COLUMNS):
+        filename = f"{state}-{page:03}.png"
+        image = atlas.copy(0, page * SIZE, COLUMNS * SIZE, SIZE)
+        if not image.save(str(destination / filename), "PNG"):
+            raise RuntimeError("PNG page encoding failed")
+        decoded = QImage(str(destination / filename))
+        if decoded != image:
+            raise RuntimeError("page pixels changed during lossless encoding")
+        pages.append(filename)
+    return pages
+
+
+def repack():
+    """Repack our existing pinned cache; no WebM, FFmpeg or network required.
+
+    Retain the old atlases in the explicitly supplied evidence directory first.
+    Every used frame is compared to its original before updating the manifest.
+    """
+    import shutil
+    destination = Path(__file__).resolve().parent
+    evidence = Path(sys.argv[2])
+    evidence.mkdir(parents=True, exist_ok=False)
+    manifest = json.loads((destination / "manifest.json").read_text(encoding="utf-8"))
+    if any(not entry["file"].endswith(".webp") for entry in manifest["animations"].values()):
+        raise RuntimeError("repack requires the old full WebP atlases, not already paged assets")
+    shutil.copyfile(destination / "manifest.json", evidence / "manifest-before.json")
+    audit = []
+    for state, entry in manifest["animations"].items():
+        old_path = destination / entry["file"]
+        shutil.copyfile(old_path, evidence / old_path.name)
+        image = QImage(str(old_path))
+        if image.isNull():
+            raise RuntimeError("original cache cannot be decoded")
+        pages = write_pages(destination, state, image, entry["frames"])
+        for page, filename in enumerate(pages):
+            decoded = QImage(str(destination / filename))
+            for column in range(min(COLUMNS, entry["frames"] - page * COLUMNS)):
+                original = image.copy(column * SIZE, page * SIZE, SIZE, SIZE)
+                if decoded.copy(column * SIZE, 0, SIZE, SIZE) != original:
+                    raise RuntimeError("fixed frame changed")
+        if state == "idle":
+            preview = image.copy(0, 0, SIZE, SIZE)
+            if not preview.save(str(destination / "preview.png"), "PNG") or QImage(str(destination / "preview.png")) != preview:
+                raise RuntimeError("preview pixels changed")
+        entry["pages"], entry["file"] = pages, pages[0]
+        audit.append({"state":state,"frames_compared":entry["frames"],"pages":len(pages),
+                      "bytes":sum((destination/name).stat().st_size for name in pages)})
+    manifest["preview"] = "preview.png"
+    (destination / "manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    (evidence / "pixel-audit.json").write_text(json.dumps(audit,indent=2),encoding="utf-8")
+    # Only originals just backed up and verified above are removed.
+    for row in audit:
+        (destination / (row["state"] + ".webp")).unlink()
+    print(json.dumps(audit),flush=True)
+
+
 def alpha_bounds(image):
     image = image.convertToFormat(QImage.Format_RGBA8888)
     data = bytes(image.constBits())
@@ -90,17 +149,20 @@ def main():
         for index, frame in enumerate(frames):
             painter.drawImage((index % COLUMNS) * SIZE, (index // COLUMNS) * SIZE, frame)
         painter.end()
-        if not atlas.save(str(destination / (state + ".webp")), "WEBP", 100):
-            raise RuntimeError("lossless WebP encoding failed")
+        pages = write_pages(destination, state, atlas, len(frames))
+        if state == "idle":
+            if not frames[0].save(str(destination / "preview.png"), "PNG"):
+                raise RuntimeError("preview encoding failed")
         bounds = audits[state]
-        manifest["animations"][state] = {"file": state + ".webp", "frames": len(frames),
+        manifest["animations"][state] = {"file": pages[0], "pages": pages, "frames": len(frames),
             "source": name + ".webm", "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
             "native_frames": len(bounds), "native_bottom_range": max(b[3] for b in bounds) - min(b[3] for b in bounds),
             "native_center_range": max((b[0]+b[2])/2 for b in bounds) - min((b[0]+b[2])/2 for b in bounds),
             "native_first_bounds": bounds[0], "native_last_bounds": bounds[-1]}
-        print(state, len(frames), (destination / (state + ".webp")).stat().st_size, flush=True)
+        print(state, len(frames), sum((destination / page).stat().st_size for page in pages), flush=True)
+    manifest["preview"] = "preview.png"
     (destination / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
-    main()
+    repack() if sys.argv[1:2] == ["--repack"] else main()

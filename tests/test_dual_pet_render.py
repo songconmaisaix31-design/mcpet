@@ -185,6 +185,41 @@ def test_native_action_sweep_residency_is_frames_not_entire_sequences(pet):
         assert sum(image.sizeInBytes() for image in pet.sheet._atlases.values()) < 20_000_000
 
 
+def test_switch_prepares_actual_phase_and_failure_keeps_previous_character(pet, monkeypatch):
+    pet.set_activity("working")
+    pet._index = 3  # Six maimai frames -> frame 63, on DeepSeek page five.
+    candidate = load_character("deepseek")
+    calls = []
+    original = candidate.frame
+    def frame(state, index):
+        calls.append(index)
+        if index == 63:
+            raise SpriteLoadError("corrupt actual phase page")
+        return original(state, index)
+    candidate.frame = frame
+    monkeypatch.setattr("src.pet.window.load_character", lambda identity: candidate)
+    before = (pet.sheet, pet._frames, pet.canvas.pixmap().cacheKey(), pet._index,
+              pet.machine.state, pet.machine._expires_at, PetPreferences().path.read_bytes())
+    with pytest.raises(SpriteLoadError):
+        pet.set_character("deepseek")
+    assert (pet.sheet, pet._frames, pet.canvas.pixmap().cacheKey(), pet._index,
+            pet.machine.state, pet.machine._expires_at, PetPreferences().path.read_bytes()) == before
+    assert calls == [63]  # No unnecessary frame-zero page decode first.
+
+
+def test_saved_current_character_reuses_supplied_sheet_without_reload(pet, monkeypatch):
+    pet._save_preferences()
+    def unexpected(identity):
+        raise AssertionError("already supplied and validated character must not reload")
+    monkeypatch.setattr("src.pet.window.load_character", unexpected)
+    restored = PetWindow(pet.sheet)
+    try:
+        assert restored.sheet is pet.sheet and restored.character_id == "maimai"
+        assert not restored.canvas.pixmap().isNull()
+    finally:
+        restored.close()
+
+
 def native_probe():
     """Uses only our own window; never captures or controls the user's desktop."""
     from scripts.bench_render import measure_idle, measure_drag

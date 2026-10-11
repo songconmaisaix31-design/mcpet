@@ -181,12 +181,18 @@ class SpriteSheet:
                     QRect(column * self.cell_width, row * self.cell_height, self.cell_width, self.cell_height)
                 )
                 if cell.hasAlphaChannel():
-                    opaque = 0
+                    # Same 4px sample grid and >8 threshold. Read alpha bytes
+                    # once, and stop at the first content instead of crossing
+                    # the Python/Qt boundary for every pixel in every cell.
+                    cell = cell.convertToFormat(QImage.Format_RGBA8888)
+                    data = cell.constBits()
+                    stride = cell.bytesPerLine()
+                    opaque = False
                     for y in range(0, cell.height(), 4):
-                        for x in range(0, cell.width(), 4):
-                            if cell.pixelColor(x, y).alpha() > 8:
-                                opaque += 1
-                    if opaque == 0:
+                        if any(alpha > 8 for alpha in data[y * stride + 3:y * stride + cell.width() * 4:16]):
+                            opaque = True
+                            break
+                    if not opaque:
                         empty.append(f"{state}#{column}")
         return empty
 
@@ -196,7 +202,7 @@ class SpriteSheet:
 
 
 class AnimationSheet(SpriteSheet):
-    """Fixed-size offline atlases; at most one decoded source sequence in memory.
+    """Fixed-cell pages; at most one decoded 12-frame page in memory.
 
     A logical row identifies an animation, not its physical atlas row. The public
     frame/frames/row_for/frame_count API is identical to SpriteSheet.
@@ -206,21 +212,28 @@ class AnimationSheet(SpriteSheet):
         try:
             manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
             size, columns = int(manifest["cell_size"]), int(manifest["columns"])
+            if size != 192 or columns != 12:
+                raise ValueError("invalid animation geometry")
             animations = manifest["animations"]
             if not isinstance(animations, dict):
                 raise ValueError("invalid animation manifest")
             paths, counts = {}, {}
             row_of = {}
             for row, (state, entry) in enumerate(animations.items()):
-                filename, count = entry["file"], int(entry["frames"])
-                if Path(filename).name != filename or count < 1 or count > 256 or size != 192 or columns != 12:
+                filenames, count = entry["pages"], int(entry["frames"])
+                if not isinstance(filenames, list) or len(filenames) != (count + columns - 1) // columns or count < 1 or count > 256 or size != 192 or columns != 12:
                     raise ValueError("invalid animation geometry")
-                path = directory / filename
-                reader = QImageReader(str(path))
-                dimensions = reader.size()
-                if not reader.canRead() or dimensions.width() != size * columns or dimensions.height() != ((count + columns - 1) // columns) * size:
-                    raise ValueError(f"invalid animation: {state}")
-                row_of[state], paths[row], counts[row] = row, path, count
+                pages = []
+                for filename in filenames:
+                    if not isinstance(filename, str) or Path(filename).name != filename:
+                        raise ValueError("invalid page path")
+                    path = directory / filename
+                    reader = QImageReader(str(path))
+                    dimensions = reader.size()
+                    if not reader.canRead() or dimensions.width() != size * columns or dimensions.height() != size:
+                        raise ValueError(f"invalid animation: {state}")
+                    pages.append(path)
+                row_of[state], paths[row], counts[row] = row, tuple(pages), count
             required = ("idle", "run-left", "working", "thinking", "greet", "happy", "error", "sleeping", "eating")
             if any(state not in row_of for state in required):
                 raise ValueError("missing animation")
@@ -230,16 +243,18 @@ class AnimationSheet(SpriteSheet):
             for alias, state in {"remind": "greet", "coupon": "thinking", "balance": "thinking",
                                  "progress": "working", "waiting": "thinking", "failed": "error"}.items():
                 row_of[alias] = row_of[state]
-            idle_image = QImage(str(paths[row_of["idle"]]))
-            preview = idle_image.copy(0, 0, size, size)
-            if preview.isNull() or not preview.hasAlphaChannel():
+            preview_file = manifest["preview"]
+            if not isinstance(preview_file, str) or Path(preview_file).name != preview_file:
+                raise ValueError("invalid preview path")
+            preview = QImage(str(directory / preview_file))
+            if preview.isNull() or preview.width() != size or preview.height() != size or not preview.hasAlphaChannel():
                 raise ValueError("invalid transparent preview")
             super().__init__(preview, columns, len(paths), size, size, row_of=row_of,
                              frames_by_row=counts, frame_delay_ms=int(manifest["frame_delay_ms"]),
                              meta={**manifest, "character_id": "deepseek"})
             self._paths = paths
             self._mirrored_row = right
-            self._atlases: OrderedDict[Path, QImage] = OrderedDict({paths[row_of["idle"]]: idle_image})
+            self._atlases: OrderedDict[Path, QImage] = OrderedDict()
         except (OSError, ValueError, TypeError, KeyError) as exc:
             raise SpriteLoadError("无法加载 DeepSeek 娘动画缓存") from exc
 
@@ -248,17 +263,17 @@ class AnimationSheet(SpriteSheet):
 
     def frame(self, state: str, index: int) -> QPixmap:
         row = self.row_for(state)
-        path = self._paths[row]
+        cell = index % self.frame_count(state)
+        path = self._paths[row][cell // self.columns]
         image = self._atlases.get(path)
         if image is None:
             image = QImage(str(path))
-            if image.isNull():
+            if image.isNull() or image.width() != self.columns * self.cell_width or image.height() != self.cell_height or not image.hasAlphaChannel():
                 raise SpriteLoadError("无法读取角色动作缓存")
             self._atlases.clear()
             self._atlases[path] = image
-        cell = index % self.frame_count(state)
         frame = image.copy((cell % self.columns) * self.cell_width,
-                           (cell // self.columns) * self.cell_height,
+                           0,
                            self.cell_width, self.cell_height)
         if row == self._mirrored_row:
             frame = frame.transformed(QTransform().scale(-1, 1))
@@ -290,8 +305,9 @@ class AnimationSheet(SpriteSheet):
 class ScaledAnimationFrames(Sequence[QPixmap]):
     """Scale on presentation; two resident frames instead of a 126-frame copy.
 
-    The source atlas remains one fixed coordinate system. There is no alpha
-    analysis, geometry adjustment or disk IO while playing the current action.
+    Pages retain the same fixed cells. The first presented page is decoded
+    synchronously on action change; later pages load only as playback reaches
+    them. No alpha analysis or geometry adjustment occurs during playback.
     """
 
     def __init__(self, sheet: AnimationSheet, state: str, size: int, dpr: float):

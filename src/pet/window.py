@@ -99,7 +99,7 @@ class PetWindow(QWidget):
         self._preferences = PetPreferences()
         saved = self._preferences.load()
         self._character_id = (sheet.meta.get("character_id", "maimai") if sheet else "maimai")
-        if saved.get("character_id") in CHARACTER_IDS:
+        if saved.get("character_id") in CHARACTER_IDS and (sheet is None or saved["character_id"] != self._character_id):
             try:
                 sheet = load_character(saved["character_id"])
                 self._character_id = saved["character_id"]
@@ -208,27 +208,33 @@ class PetWindow(QWidget):
         # state, so a broken asset leaves the previous character fully usable.
         key = (sheet.row_for(self.machine.state), sheet.frame_count(self.machine.state),
                self.pet_size, self.devicePixelRatioF())
-        frames = self._scaled_frames(sheet, self.machine.state, key[3])
-        if not frames or frames[0].isNull():
-            raise SpriteLoadError("角色动作为空")
         old_count = max(1, len(self._frames))
-        self._index = (self._index * len(frames) // old_count) % len(frames)
+        index = (self._index * key[1] // old_count) % key[1]
+        frames = self._scaled_frames(sheet, self.machine.state, key[3], initial_index=index)
+        if not frames:
+            raise SpriteLoadError("角色动作为空")
+        # A preserved phase may live on a different page than frame zero.
+        # Decode and scale that actual frame before committing the switch too.
+        presented = frames[index]
+        if presented.isNull():
+            raise SpriteLoadError("角色动作为空")
+        self._index = index
         self.sheet, self._character_id = sheet, character_id
         self._frame_delay_ms = resolve_frame_delay(sheet)
         self._cache = {self.machine.state: frames}
         self._visual_cache = {key: frames}
         self._visual_key, self._current_state, self._frames = key, self.machine.state, frames
-        self.canvas.setPixmap(frames[self._index])
+        self.canvas.setPixmap(presented)
         self._next_frame = time.monotonic() + self._frame_delay_ms / 1000
         if self.isVisible():
             self._anim.start(self._frame_delay_ms)
         self._save_preferences()
 
-    def _scaled_frames(self, sheet: SpriteSheet, state: str, dpr: float):
+    def _scaled_frames(self, sheet: SpriteSheet, state: str, dpr: float, *, initial_index: int = 0):
         if isinstance(sheet, AnimationSheet):
             frames = ScaledAnimationFrames(sheet, state, self.pet_size, dpr)
             # Decode the current source now, allowing transactional switching.
-            if frames[0].isNull():
+            if frames[initial_index].isNull():
                 raise SpriteLoadError("角色动作为空")
             return frames
         frames = [frame.scaled(round(self.pet_size * dpr), round(self.pet_size * dpr),
@@ -277,7 +283,8 @@ class PetWindow(QWidget):
         frames = self._visual_cache.get(key)
         if frames is None:
             try:
-                frames = self._scaled_frames(self.sheet, state, key[3])
+                frames = self._scaled_frames(self.sheet, state, key[3], initial_index=(
+                    self._index % key[1] if same_row and not force else 0))
             except (ValueError, RuntimeError):
                 frames = []
             self._visual_cache[key] = frames
@@ -293,7 +300,7 @@ class PetWindow(QWidget):
             if isinstance(frames, ScaledAnimationFrames):
                 # A cached preview frame can outlive its source atlas. Load the
                 # selected source during the action change, not the next tick.
-                self.sheet.frame(state, 0)
+                self.sheet.frame(state, self._index % key[1] if same_row and not force else 0)
         self._cache[state] = frames
 
         self._current_state = state
