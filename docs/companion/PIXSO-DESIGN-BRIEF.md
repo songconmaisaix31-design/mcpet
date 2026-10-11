@@ -1,6 +1,6 @@
 # 麦麦小窝设计稿输入
 
-目标：一个可爱的原生小窝，辅助正在进行的 Agent 会话；不新增聊天输入。Pixso MCP 已 OAuth 成功，实际 tools/list 返回 24 工具，fetch_context/apply_design/code_to_design/take_screenshot/check_layout 均可用，尚缺设计文件 file_key；设计输出尚未创建。
+目标：一个可爱的原生小窝，辅助正在进行的 Agent 会话；不新增聊天输入。Pixso MCP 已 OAuth 成功，实际 tools/list 返回 24 工具。主轨通过已登录浏览器新建专用设计文件，实际调用 fetch_context/load_guidelines/code_to_design/take_screenshot；code_to_design 返回 success:true、frame 3:1，take_screenshot 返回真实 PNG，已审阅并保存 [PIXSO-HOME-DESIGN.png](PIXSO-HOME-DESIGN.png)。设计链接：https://pixso.cn/app/design/c7aSBvfcRT5aEFJtF7vTmQ?node-id=3%3A1 。
 
 ## 视觉规格（C 可先实现，Pixso 输出随后对照）
 
@@ -16,4 +16,4 @@
 
 ## 设计与实现证据边界
 
-这份是主轨设计决定，不是 Pixso 已生成截图。获得 file_key 后主轨用实际 Pixso 工具新增这次专用 frame，检查布局并截图，再与 C 的真实 Qt 对照。演示设计数据必须标注“设计示意”，产品只能呈现实际 source 快照/未知状态。C 可以按本规格继续原生实现与禁网络验证，最终是否完成 Pixso 输出据实记录。
+这份视觉规格已在 Pixso 新文件生成首页 frame，并经真实 MCP 截图审阅。文件只新增本次设计，没有修改已有用户设计。演示设计数据标注“设计示意”，产品只能呈现实际 source 快照/未知状态，禁止硬编码示例百分比。C 按同一规格及 PNG 对照原生实现；原生适应数据长度/窗口滚动，无需像素固定复刻设计样例。Pixso 全页面/交互原型未建设，其他三页沿同一视觉体系复用现有功能。
