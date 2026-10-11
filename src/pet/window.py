@@ -497,7 +497,7 @@ class PetWindow(QWidget):
 
     def _touch(self) -> None:
         self.set_state("greet", ttl_ms=2000)
-        self.say("我在呢，陪你一起。双击我可以聊天。", 3000)
+        self.say("我在呢，陪你一起。双击打开麦麦小窝。", 3000)
         self.clicked.emit()
 
     def mouseDoubleClickEvent(self, event):  # noqa: N802
