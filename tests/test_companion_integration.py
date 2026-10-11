@@ -48,6 +48,24 @@ def pid_running(pid):
         return False
 
 
+def native_window_state(widget):
+    """只读检查本探针创建的 HWND；不枚举或操作其他应用窗口。"""
+    state = {"minimized": widget.isMinimized(), "visible": widget.isVisible()}
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+        user = ctypes.WinDLL("user32", use_last_error=True)
+        user.IsIconic.argtypes = [wintypes.HWND]
+        user.IsWindowVisible.argtypes = [wintypes.HWND]
+        user.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+        rectangle = wintypes.RECT()
+        handle = int(widget.winId())
+        assert user.GetWindowRect(handle, ctypes.byref(rectangle))
+        state.update(iconic=bool(user.IsIconic(handle)), native_visible=bool(user.IsWindowVisible(handle)),
+                     rect=[rectangle.left, rectangle.top, rectangle.right, rectangle.bottom])
+    return state
+
+
 def test_native_app_auto_monitor_gestures_single_writer_and_exit(tmp_path):
     env = probe_env(tmp_path)
     command = [sys.executable, str(Path(__file__).resolve()), "--probe"]
@@ -72,6 +90,12 @@ def test_native_app_auto_monitor_gestures_single_writer_and_exit(tmp_path):
         print(json.dumps(result))  # Preserve diagnostics even when an assertion fails.
         assert result["platform"] == env["QT_QPA_PLATFORM"]
         assert result["auto_start"] and result["working"] and result["gestures"]
+        assert set(result["restored_entries"]) == {"duplicate", "tray", "right-menu", "double-click"}
+        assert result["before_restore"]["minimized"]
+        for state in result["restored_entries"].values():
+            assert state["visible"] and not state["minimized"]
+            if sys.platform == "win32":
+                assert state["native_visible"] and not state["iconic"]
         assert result["completed"] == 1 and result["usage_tokens"] == 110
         assert result["progress_signals"] >= 3 and result["usage_signals"] >= 2
         assert result["writer_count"] == 1 and len(result["children"]) == 2
@@ -98,7 +122,7 @@ def native_probe(mode):
     from PySide6.QtCore import QEvent, QPoint, QPointF, Qt, QTimer
     from PySide6.QtGui import QMouseEvent
     from PySide6.QtTest import QTest
-    from PySide6.QtWidgets import QApplication
+    from PySide6.QtWidgets import QApplication, QSystemTrayIcon
     from src import config, main
     from src.runtime.monitor import AgentMonitor
 
@@ -144,7 +168,7 @@ def native_probe(mode):
         print(json.dumps({"restored": True, "thread_running": monster.tasks.thread.isRunning()}))
         return code
 
-    result = {"auto_start": False, "working": False, "gestures": False}
+    result = {"auto_start": False, "working": False, "gestures": False, "restored_entries": {}}
     errors, progress_signals, usage_signals, completed, ticks = [], [], [], [], []
     children = []
     phase, connected, sampled = "boot", False, 0
@@ -165,6 +189,24 @@ def native_probe(mode):
     def refresh():
         monster.monitor.refresh_progress()
         monster.monitor.refresh_usage()
+
+    def minimize_panel():
+        monster.panel.showMinimized()
+        QApplication.processEvents()
+        state = native_window_state(monster.panel)
+        assert state["minimized"], state
+        if sys.platform == "win32":
+            assert state["iconic"], state
+        return state
+
+    def assert_restored(entry):
+        state = native_window_state(monster.panel)
+        assert state["visible"] and not state["minimized"], (entry, state)
+        if sys.platform == "win32":
+            assert state["native_visible"] and not state["iconic"], (entry, state)
+        assert any(screen.availableGeometry().intersects(monster.panel.frameGeometry())
+                   for screen in QApplication.screens()), (entry, state)
+        result["restored_entries"][entry] = state
 
     def step():
         nonlocal phase, connected, children, sampled
@@ -211,9 +253,13 @@ def native_probe(mode):
             phase = "dedup"
         elif phase == "dedup" and monitor.last_progress.sampled_at > sampled:
             assert len(completed) == 1
+            monster.action_panel()
+            # The real secondary process must wake an actually minimized window.
+            result["before_restore"] = minimize_panel()
             (directory / "ready").write_text("ready", encoding="utf-8")
             phase = "duplicate"
         elif phase == "duplicate" and (directory / "duplicate-checked").exists():
+            assert_restored("duplicate")
             assert sorted(p.pid for p in multiprocessing.active_children()) == children
             assert len(monitor._threads) == 2
             poll.stop()  # QTest.qWait pumps events; do not reenter this phase.
@@ -233,6 +279,25 @@ def native_probe(mode):
             mouse(QEvent.MouseButtonDblClick, 300)
             mouse(QEvent.MouseButtonRelease, 300, buttons=Qt.NoButton)
             assert monster.panel is panel and panel.isVisible()
+            minimize_panel()
+            monster.tray.activated.emit(QSystemTrayIcon.Trigger)
+            assert_restored("tray")
+            minimize_panel()
+            def activate_menu():
+                menu = QApplication.activePopupWidget()
+                if menu is None:
+                    QTimer.singleShot(10, activate_menu)
+                    return
+                menu.actions()[0].trigger()  # Actual QAction.triggered(bool).
+                menu.close()
+            QTimer.singleShot(10, activate_menu)
+            monster.on_menu(monster.window.pos())
+            assert_restored("right-menu")
+            minimize_panel()
+            mouse(QEvent.MouseButtonDblClick, 300)
+            mouse(QEvent.MouseButtonRelease, 300, buttons=Qt.NoButton)
+            assert_restored("double-click")
+            assert monster.panel is panel
             before = monster.window.pos()
             mouse(QEvent.MouseButtonPress, 300)
             mouse(QEvent.MouseMove, 340, Qt.NoButton)
