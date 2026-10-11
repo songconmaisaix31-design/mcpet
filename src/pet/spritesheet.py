@@ -14,6 +14,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from collections import OrderedDict
+from collections.abc import Sequence
 
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QImage, QImageReader, QPixmap, QTransform
@@ -229,7 +230,8 @@ class AnimationSheet(SpriteSheet):
             for alias, state in {"remind": "greet", "coupon": "thinking", "balance": "thinking",
                                  "progress": "working", "waiting": "thinking", "failed": "error"}.items():
                 row_of[alias] = row_of[state]
-            preview = QImage(str(paths[row_of["idle"]])).copy(0, 0, size, size)
+            idle_image = QImage(str(paths[row_of["idle"]]))
+            preview = idle_image.copy(0, 0, size, size)
             if preview.isNull() or not preview.hasAlphaChannel():
                 raise ValueError("invalid transparent preview")
             super().__init__(preview, columns, len(paths), size, size, row_of=row_of,
@@ -237,7 +239,7 @@ class AnimationSheet(SpriteSheet):
                              meta={**manifest, "character_id": "deepseek"})
             self._paths = paths
             self._mirrored_row = right
-            self._atlases: OrderedDict[Path, QImage] = OrderedDict()
+            self._atlases: OrderedDict[Path, QImage] = OrderedDict({paths[row_of["idle"]]: idle_image})
         except (OSError, ValueError, TypeError, KeyError) as exc:
             raise SpriteLoadError("无法加载 DeepSeek 娘动画缓存") from exc
 
@@ -283,3 +285,36 @@ class AnimationSheet(SpriteSheet):
         # Geometry is validated at load. Scan every used frame only when requested.
         return [f"{state}: empty frame" for state in self.row_of
                 if any(bound is None for bound in self.anchor_bounds(state))]
+
+
+class ScaledAnimationFrames(Sequence[QPixmap]):
+    """Scale on presentation; two resident frames instead of a 126-frame copy.
+
+    The source atlas remains one fixed coordinate system. There is no alpha
+    analysis, geometry adjustment or disk IO while playing the current action.
+    """
+
+    def __init__(self, sheet: AnimationSheet, state: str, size: int, dpr: float):
+        self.sheet, self.state, self.size, self.dpr = sheet, state, size, dpr
+        self.resident: OrderedDict[int, QPixmap] = OrderedDict()
+
+    def __len__(self) -> int:
+        return self.sheet.frame_count(self.state)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self[i] for i in range(*index.indices(len(self)))]
+        if index < 0:
+            index += len(self)
+        if index < 0 or index >= len(self):
+            raise IndexError(index)
+        frame = self.resident.pop(index, None)
+        if frame is None:
+            frame = self.sheet.frame(self.state, index).scaled(
+                round(self.size * self.dpr), round(self.size * self.dpr),
+                Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            frame.setDevicePixelRatio(self.dpr)
+        self.resident[index] = frame
+        while len(self.resident) > 2:
+            self.resident.popitem(last=False)
+        return frame

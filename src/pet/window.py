@@ -9,17 +9,17 @@ from __future__ import annotations
 import os
 import math
 import time
+from collections.abc import Sequence
 
 from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal
 from PySide6.QtGui import QFont, QPixmap
 from PySide6.QtWidgets import QApplication, QLabel, QMenu, QProgressBar, QVBoxLayout, QWidget
 
-from .spritesheet import SpriteSheet
+from .spritesheet import AnimationSheet, ScaledAnimationFrames, SpriteLoadError, SpriteSheet
 from .states import PetStateMachine
 from .behavior import RoamingBehavior, clamp_position
 from .preferences import PetPreferences
 from .characters import CHARACTER_IDS, load_character
-from .spritesheet import SpriteLoadError
 
 DEFAULT_SIZE = 180
 DEFAULT_FRAME_DELAY_MS = 80
@@ -147,9 +147,9 @@ class PetWindow(QWidget):
         self.setLayout(layout)
         self.setFixedSize(size, size + 42)
 
-        self._frames: list[QPixmap] = []
-        self._cache: dict[str, list[QPixmap]] = {}  # state -> 已缩放帧，切状态不再重算
-        self._visual_cache: dict[tuple, list[QPixmap]] = {}
+        self._frames: Sequence[QPixmap] = []
+        self._cache: dict[str, Sequence[QPixmap]] = {}
+        self._visual_cache: dict[tuple, Sequence[QPixmap]] = {}
         self._visual_key: tuple | None = None
         self._current_state: str | None = None
         self._index = 0
@@ -209,7 +209,7 @@ class PetWindow(QWidget):
         key = (sheet.row_for(self.machine.state), sheet.frame_count(self.machine.state),
                self.pet_size, self.devicePixelRatioF())
         frames = self._scaled_frames(sheet, self.machine.state, key[3])
-        if not frames or any(frame.isNull() for frame in frames):
+        if not frames or frames[0].isNull():
             raise SpriteLoadError("角色动作为空")
         old_count = max(1, len(self._frames))
         self._index = (self._index * len(frames) // old_count) % len(frames)
@@ -224,7 +224,13 @@ class PetWindow(QWidget):
             self._anim.start(self._frame_delay_ms)
         self._save_preferences()
 
-    def _scaled_frames(self, sheet: SpriteSheet, state: str, dpr: float) -> list[QPixmap]:
+    def _scaled_frames(self, sheet: SpriteSheet, state: str, dpr: float):
+        if isinstance(sheet, AnimationSheet):
+            frames = ScaledAnimationFrames(sheet, state, self.pet_size, dpr)
+            # Decode the current source now, allowing transactional switching.
+            if frames[0].isNull():
+                raise SpriteLoadError("角色动作为空")
+            return frames
         frames = [frame.scaled(round(self.pet_size * dpr), round(self.pet_size * dpr),
                                Qt.KeepAspectRatio, Qt.SmoothTransformation)
                   for frame in sheet.frames(state)]
@@ -284,6 +290,10 @@ class PetWindow(QWidget):
         else:
             self._visual_cache.pop(key)
             self._visual_cache[key] = frames
+            if isinstance(frames, ScaledAnimationFrames):
+                # A cached preview frame can outlive its source atlas. Load the
+                # selected source during the action change, not the next tick.
+                self.sheet.frame(state, 0)
         self._cache[state] = frames
 
         self._current_state = state

@@ -161,6 +161,7 @@ def test_deepseek_alias_polling_and_full_loop_keep_phase_with_bounded_cache(pet)
         assert len({id(frames) for frames in pet._cache.values()}) <= 2
         assert len(pet.sheet._atlases) <= 1
         assert {frame.devicePixelRatioF() for frame in pet._frames} == {pet.devicePixelRatioF()}
+        assert len(pet._frames.resident) <= 2
     pet.set_activity("idle")
     pet._index = len(pet._frames) - 1
     pet._next_frame = time.monotonic() - 0.001
@@ -168,6 +169,20 @@ def test_deepseek_alias_polling_and_full_loop_keep_phase_with_bounded_cache(pet)
     assert pet._index == 0
     assert pet.canvas.pixmap().toImage() == pet._frames[0].toImage()
     assert pet.canvas.pixmap().toImage().pixelColor(0, 0).alpha() == 0
+
+
+def test_native_action_sweep_residency_is_frames_not_entire_sequences(pet):
+    pet.set_character("deepseek")
+    for state in list(pet.sheet.meta["animations"]) * 2:
+        pet._load_frames(state)
+        for _ in range(3):
+            pet._next_frame = time.monotonic() - 0.001
+            pet._advance()
+        QApplication.processEvents()
+        assert pet._frames and not pet.canvas.pixmap().isNull()
+        assert len(pet._frames) in (61, 126)
+        assert sum(len(sequence.resident) for sequence in pet._visual_cache.values()) <= 4
+        assert sum(image.sizeInBytes() for image in pet.sheet._atlases.values()) < 20_000_000
 
 
 def native_probe():
@@ -196,7 +211,8 @@ def native_probe():
             # Count live pixel storage, including source atlas and all unique
             # scaled sequences, not alias dictionary entries.
             cache_bytes = sum(frame.width() * frame.height() * 4
-                              for sequence in window._visual_cache.values() for frame in sequence)
+                              for sequence in window._visual_cache.values()
+                              for frame in (sequence.resident.values() if hasattr(sequence, "resident") else sequence))
             source_bytes = sum(image.sizeInBytes() for image in getattr(window.sheet, "_atlases", {}).values())
             results[identity] = {"switch_ms": round(switch_ms, 2), "idle": idle, "drag": drag,
                                  "scaled_cache_bytes": cache_bytes, "source_cache_bytes": source_bytes}
@@ -211,6 +227,7 @@ def native_probe():
                     cold[state] = round((time.perf_counter() - started) * 1000, 2)
                     assert window._frames and not window.canvas.pixmap().isNull()
                     assert len(window._visual_cache) <= 2 and len(window.sheet._atlases) <= 1
+                    assert len(window._frames.resident) <= 2
                 results[identity]["cold_action_ms"] = cold
         print(json.dumps({"platform": app.platformName(), "dpr": window.devicePixelRatioF(),
                           "results": results}, ensure_ascii=False))
