@@ -18,4 +18,6 @@
 
 ## 验收与交付
 
+收尾补遗：C 检查发现 A 的 `src/pet/window.py` 触摸气泡仍写“双击我可以聊天”。恢复原 A Worker/Worktree/Branch，仅授权该文件的这句用户文案改为打开小窝；不改手势/状态/动画，不跨 C 写域。A 快进本计划提交，核对现有触摸回归，commit+push+交接并停止。原唯一集成 Worker 普通合并 C 和此 A 文案 tip 后组合验证。
+
 更新旧聊天接线测试为“触摸 + 双击统一面板/关闭重开 + 拖拽/休息 + 实际 monitor”组合回归；单窗口复用、标签入口、真实信号更新、设置保存与取消/掩码、缺凭证不影响会话显示、零聊天/模型请求须有必要测试。用正确 WorkBuddy Python 运行完整 pytest、compileall、diff check 和 Windows Qt 组合探针。用隔离受控日志/测试凭证截图可爱面板，不读取真实用户数据。首失败保留。C commit+push+handoff+停止，原集成 Worker 合并并 push 后主分支 FF。主 Agent检查截图，并优雅关闭本轮之前启动的已知旧桌宠、启动新版供用户操作；不杀其他项目进程，不重跑17GB冷回填作为 UI 改动验收。
