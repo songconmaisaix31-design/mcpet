@@ -205,7 +205,7 @@ class SingleInstance(QObject):
 
 
 class MonsterApp(QObject):
-    def __init__(self, argv=None, *, enforce_single_instance=True, monitor_factory=None):
+    def __init__(self, argv=None, *, enforce_single_instance=True, monitor_factory=None, account_monitor_factory=None):
         self.app = QApplication.instance() or QApplication(argv or sys.argv)
         super().__init__()
         self.app.setQuitOnLastWindowClosed(False)
@@ -228,6 +228,7 @@ class MonsterApp(QObject):
         self.tasks.cleanup_failed.connect(self._cleanup_failed)
         self.sheet = self._load_sheet()
         self.window = PetWindow(self.sheet)
+        self.sheet = self.window.sheet  # A 恢复上次选定角色后的实际图集。
         self.window.menu_requested.connect(self.on_menu)
         if hasattr(self.window, "chat_requested"):
             self.window.chat_requested.connect(self.action_panel)
@@ -246,12 +247,18 @@ class MonsterApp(QObject):
         self._monitor_factory = monitor_factory
         self.monitor = None
         self.monitor_error = "后台观测正在启动…"
+        self._account_monitor_factory = account_monitor_factory
+        self.account_monitor = None
+        self.account_snapshot = None
+        self.account_error = ""
+        self.account_refreshing = True
         self.schedule = DailySchedule()
         self.scheduler = QtDailyScheduler(self.schedule)
         self.scheduler.fired.connect(self.on_scheduled)
         self._add_lunch_task()
         self.scheduler.start()
         QTimer.singleShot(0, self._start_monitor)
+        QTimer.singleShot(0, self._start_account_monitor)
         self.window.say("McPet 上线了。双击打开麦麦小窝，右键也能找到我。", 6000)
 
     def eventFilter(self, watched, event):
@@ -272,6 +279,8 @@ class MonsterApp(QObject):
             return None
 
     def _icon(self):
+        if hasattr(self, "window") and hasattr(self.window, "character_id") and self.sheet:
+            return QIcon(self.sheet.frame("idle", 0))
         icon = config.PROJECT_ROOT / "assets" / "icon.png"
         if icon.exists():
             return QIcon(str(icon))
@@ -429,10 +438,12 @@ class MonsterApp(QObject):
             self.panel = CompanionPanel(self.sheet, self.window)
             self.panel.action_requested.connect(self._panel_action)
             self.panel.settings.save_requested.connect(self._save_settings)
+            self.panel.character_requested.connect(self._change_character)
         self.panel.select_page(page)
         self._sync_panel()
         self._render_progress()
         self._render_usage()
+        self._render_accounts()
         self.panel.mcd_result.setText(self._business_status)
         label = self.tasks.active[4] if self.tasks.active else "排队中"
         self.panel.set_busy(self.tasks.busy, label)
@@ -445,6 +456,8 @@ class MonsterApp(QObject):
         self.panel.activateWindow()
 
     def _panel_action(self, action):
+        if self.closing:
+            return
         handlers = {"visibility": self.toggle_window, "quit": self.quit}
         handler = handlers.get(action) or getattr(self, "action_" + action)
         handler()
@@ -454,6 +467,76 @@ class MonsterApp(QObject):
         if self.panel:
             self.panel.set_controls(self.window.roaming_enabled, self.window.resting, self.window.isVisible())
             self.panel.set_business_state(bool(self.pending_quote), bool(self.last_order_no))
+            try:
+                from .pet.characters import CHARACTER_IDS, character_name
+                choices = tuple((identifier, character_name(identifier)) for identifier in CHARACTER_IDS)
+                identifier = self.window.character_id
+                name = character_name(identifier)
+            except (ImportError, AttributeError):
+                identifier, name, choices = "maimai", "麦麦", ()
+            self.panel.set_character(identifier, name, self.sheet, choices)
+
+    def _change_character(self, identifier):
+        if self.closing:
+            return
+        try:
+            from .pet.characters import CHARACTER_IDS
+            if identifier not in CHARACTER_IDS:
+                raise ValueError("未知角色")
+            if identifier != self.window.character_id:
+                self.window.set_character(identifier)
+        except (ImportError, AttributeError, SpriteLoadError, ValueError) as exc:
+            self.panel.character_message.setText(config.redact(f"角色切换失败：{exc}"))
+            self._sync_panel()
+            return
+        self.sheet = self.window.sheet
+        self.tray.setIcon(self._icon())
+        self.panel.character_message.clear()
+        self._sync_panel()
+
+    def _start_account_monitor(self):
+        if self.closing or self.account_monitor is not None:
+            return
+        try:
+            if self._account_monitor_factory is None:
+                from .accounts import AccountMonitor, DeepSeekBalanceSource
+                monitor = AccountMonitor(self, deepseek_source=DeepSeekBalanceSource(config.deepseek_api_key()))
+            else:
+                monitor = self._account_monitor_factory()
+            self.account_monitor = monitor
+            monitor.snapshot_ready.connect(self._accounts_ready)
+            monitor.failed.connect(self._accounts_failed)
+            monitor.start()
+        except Exception as exc:
+            self._accounts_failed(f"账号额度不可用：{type(exc).__name__}: {exc}")
+
+    def _accounts_ready(self, snapshot):
+        if not self.closing:
+            self.account_snapshot = snapshot
+            self.account_refreshing = False
+            self.account_error = ""
+            self._render_accounts()
+
+    def _accounts_failed(self, message):
+        if not self.closing:
+            self.account_error = config.redact(message)
+            self.account_refreshing = False
+            self._render_accounts()
+
+    def _render_accounts(self):
+        if self.panel:
+            self.panel.set_accounts(self.account_snapshot, self.account_error, self.account_refreshing)
+
+    def action_quota(self):
+        if self.closing:
+            return
+        if self.account_monitor:
+            self.account_refreshing = True
+            self.account_error = ""
+            self._render_accounts()
+            self.account_monitor.refresh()
+        else:
+            self._start_account_monitor()
 
     def _business_message(self, message):
         self._business_status = config.redact(message)
@@ -663,14 +746,32 @@ class MonsterApp(QObject):
         self.action_panel("settings")
 
     def _save_settings(self, values):
+        if self.closing:
+            return
         if self.tasks.busy:
             self.panel.settings.message.setText("请等待当前请求结束后再保存。")
             return
         try:
             config.save_settings(values)
         except (ValueError, OSError) as exc:
-            self.panel.settings.message.setText(config.redact(f"保存失败：{exc}"))
+            message = config.redact(f"保存失败：{exc}")
+            for key in ("MCD_MCP_TOKEN", "DEEPSEEK_API_KEY"):
+                message = config.redact(message, token=values.get(key))
+            self.panel.settings.message.setText(message)
             return
+        if "DEEPSEEK_API_KEY" in values:
+            try:
+                from .accounts import DeepSeekBalanceSource
+                if self.account_monitor:
+                    self.account_monitor.reconfigure(deepseek_source=DeepSeekBalanceSource(config.deepseek_api_key()))
+                    # 上一份余额来自旧 key，保存后不能再当作新账号余额展示。
+                    self.account_snapshot = None
+                    self.action_quota()
+                else:
+                    self._start_account_monitor()
+            except Exception as exc:
+                self.account_snapshot = None
+                self._accounts_failed(f"凭证已保存，余额刷新失败：{type(exc).__name__}: {exc}")
         self.pending_quote = self.pending_store = None
         self.panel.settings.reset()
         warnings = config.root_warnings(values)
@@ -727,11 +828,19 @@ class MonsterApp(QObject):
         self.scheduler.stop()
         if self.monitor:
             self.monitor.stop()
+        if self.account_monitor:
+            self.account_monitor.stop()
         self.tray.hide()
         if self.panel:
-            self.panel.hide()
-        self.window.say("正在退出，等待当前请求安全结束…", 6000)
+            self.panel.quota_timer.stop()
+            self.panel.status.setText("正在退出，等待当前请求安全结束…")
+        if self.tasks.busy:
+            QTimer.singleShot(0, self._show_quitting)
         self.tasks.shutdown()
+
+    def _show_quitting(self):
+        if self.closing and not self._allow_quit and self.tasks.busy:
+            self.window.say("正在退出，等待当前请求安全结束…", 6000)
 
     @Slot()
     def _finish_quit(self):

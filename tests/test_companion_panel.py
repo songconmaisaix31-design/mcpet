@@ -19,6 +19,18 @@ from src.progress.tracker import ProgressSnapshot, SessionProgress
 from src.metering.usage import UsageSnapshot
 from src.mcd_mcp.brain import OrderOutcome
 from test_app_actions import monster, pump_until
+from test_quota_panel import AccountMonitorStub, sample_snapshot
+
+
+@pytest.fixture(autouse=True)
+def offline_account_monitor(monkeypatch):
+    """Keep this C-owned suite offline after B's account module is integrated."""
+    start = main.MonsterApp._start_account_monitor
+    def start_fixture(app):
+        if app._account_monitor_factory is None:
+            app._account_monitor_factory = AccountMonitorStub
+        start(app)
+    monkeypatch.setattr(main.MonsterApp, "_start_account_monitor", start_fixture)
 
 
 def test_real_qaction_and_double_click_reuse_single_panel(monster, monkeypatch):
@@ -180,7 +192,7 @@ def test_inline_payment_and_companion_controls(monster, monkeypatch):
     assert not monster.window.resting
 
 
-def native_screenshots(directory):
+def native_screenshots(directory, characters_root=None):
     """Windows真实Qt + 默认B监控 + 自造小日志，截图存TEMP。"""
     directory = Path(directory).resolve()
     directory.mkdir(parents=True, exist_ok=True)
@@ -198,6 +210,21 @@ def native_screenshots(directory):
                dict(kind="usage", ts=time.time(), session="panel-1", key="panel-usage", model="gpt-5.5", input=1234, output=321)]
     (inbox / "controlled.jsonl").write_text("\n".join(json.dumps(row, ensure_ascii=False) for row in records)+"\n", encoding="utf-8")
     config.load_env = lambda: None
+    if characters_root:
+        # Explicit read-only A module overlay for this probe, without merge/copy.
+        import importlib.util
+        import src.pet
+        for name in ("spritesheet", "preferences", "characters", "window"):
+            path = Path(characters_root) / "src" / "pet" / (name + ".py")
+            spec = importlib.util.spec_from_file_location("src.pet." + name, path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module
+            setattr(src.pet, name, module)
+            spec.loader.exec_module(module)
+        main.PetWindow = src.pet.window.PetWindow
+        main.SpriteSheet = src.pet.spritesheet.SpriteSheet
+        main.SpriteLoadError = src.pet.spritesheet.SpriteLoadError
+        main.MonsterApp._load_sheet = lambda self: src.pet.characters.load_character("maimai")
     calls = []
     def forbidden(*args, **kwargs):
         calls.append("forbidden-network")
@@ -210,7 +237,7 @@ def native_screenshots(directory):
     ChatStore.__init__ = forbidden
     httpx.Client.request = forbidden
     main.QtDailyScheduler.start = lambda self: None  # 禁止构造时同步补饭点。
-    monster = main.MonsterApp([])
+    monster = main.MonsterApp([], account_monitor_factory=AccountMonitorStub)
     monster.scheduler.stop()
     errors, screenshots = [], []
     started = time.monotonic()
@@ -219,7 +246,7 @@ def native_screenshots(directory):
     def capture():
         if not monster.progress_snapshot or not monster.usage_snapshot:
             if time.monotonic() - started > 20:
-                errors.append("monitor timeout")
+                errors.append(config.redact(f"monitor timeout: {monster.monitor_error}; progress={monster.progress_snapshot is not None}; usage={monster.usage_snapshot is not None}"))
                 poll.stop()
                 monster.quit()
             return
@@ -227,6 +254,7 @@ def native_screenshots(directory):
         try:
             monster.action_panel()
             panel = monster.panel
+            monster.account_monitor.snapshot_ready.emit(sample_snapshot())
             assert panel.session_table.rowCount() == 3
             assert monster.usage_snapshot[0].lifetime.tokens == 1555
             assert not calls
@@ -237,6 +265,25 @@ def native_screenshots(directory):
                     panel.settings.advanced.setChecked(True)
                 QApplication.processEvents()
                 path = directory / (page + ".png")
+                assert panel.grab().save(str(path))
+                screenshots.append(str(path))
+            panel.select_page("home")
+            home_scroll = panel.tabs.currentWidget()
+            home_scroll.verticalScrollBar().setValue(home_scroll.verticalScrollBar().maximum())
+            QApplication.processEvents()
+            path = directory / "home-bottom.png"
+            assert panel.grab().save(str(path))
+            screenshots.append(str(path))
+            if characters_root:
+                old_icon = monster.tray.icon().cacheKey()
+                panel.character_buttons["deepseek"].click()
+                assert monster.window.character_id == "deepseek"
+                assert panel.character_buttons["deepseek"].isChecked()
+                assert panel.character_name.text() == "DeepSeek 娘"
+                assert monster.tray.icon().cacheKey() != old_icon
+                home_scroll.verticalScrollBar().setValue(0)
+                QApplication.processEvents()
+                path = directory / "home-deepseek.png"
                 assert panel.grab().save(str(path))
                 screenshots.append(str(path))
             assert panel.devicePixelRatioF() == 1.5
@@ -254,10 +301,11 @@ def native_screenshots(directory):
     code = monster.app.exec()
     print(json.dumps(dict(platform=QApplication.platformName(), dpr=monster.panel.devicePixelRatioF() if monster.panel else None,
                           screenshots=screenshots, network_calls=len(calls), errors=errors,
+                          characters_root=characters_root,
                           worker_stopped=not monster.tasks.thread.isRunning()), ensure_ascii=False), flush=True)
     return 1 if errors else code
 
 
 if __name__ == "__main__" and sys.argv[1:2] == ["--screenshots"]:
     multiprocessing.freeze_support()
-    raise SystemExit(native_screenshots(sys.argv[2]))
+    raise SystemExit(native_screenshots(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None))

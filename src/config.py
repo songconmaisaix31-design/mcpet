@@ -27,7 +27,7 @@ def load_env() -> None:
     load_dotenv(PROJECT_ROOT / ".env", override=False, interpolate=False)
 
 
-SETTINGS_KEYS = ("MCD_MCP_TOKEN", "STEPFUN_API_KEY", "MCPET_CITY",
+SETTINGS_KEYS = ("MCD_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY", "MCPET_CITY",
                  "MCPET_AGENT_ROOT_CLAUDE", "MCPET_AGENT_ROOT_CODEX",
                  "MCPET_AGENT_ROOT_GENERIC")
 
@@ -87,6 +87,12 @@ def stepfun_api_key() -> str | None:
 
 def stepfun_model() -> str:
     return os.environ.get("STEPFUN_MODEL") or "step-3.5-flash"
+
+
+def deepseek_api_key() -> str:
+    """仅用于余额只读查询；占位值等同未配置。"""
+    value = os.environ.get("DEEPSEEK_API_KEY") or ""
+    return "" if _is_placeholder(value) else value.strip()
 
 
 def city() -> str:
@@ -164,7 +170,7 @@ _EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
 _ID_CARD_RE = re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)")
 
 
-def redact(text: str, token: str | None = None) -> str:
+def redact(text: str, token: str | None = None, *, personal: bool = True) -> str:
     """脱敏：盖掉 Token、手机号、邮箱、身份证号。
 
     地址类信息（门店名、收货地址）没有可靠的通用模式，redact 不做处理——
@@ -173,7 +179,7 @@ def redact(text: str, token: str | None = None) -> str:
     if not text:
         return text
     out = text
-    for key in ("MCD_MCP_TOKEN", "STEPFUN_API_KEY"):
+    for key in ("MCD_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY"):
         secret = os.environ.get(key, "")
         if secret and not _is_placeholder(secret):
             out = out.replace(secret, "***")
@@ -181,7 +187,8 @@ def redact(text: str, token: str | None = None) -> str:
         out = out.replace(token, "***")
     for pattern in _TOKEN_PATTERNS:
         out = pattern.sub(lambda m: (m.group(1) if m.lastindex else "") + "***", out)
-    out = _PHONE_RE.sub(lambda m: m.group(0)[:3] + "****" + m.group(0)[-4:], out)
-    out = _EMAIL_RE.sub("***@***", out)
-    out = _ID_CARD_RE.sub(lambda m: m.group(0)[:4] + "*" * 10 + m.group(0)[-4:], out)
+    if personal:
+        out = _PHONE_RE.sub(lambda m: m.group(0)[:3] + "****" + m.group(0)[-4:], out)
+        out = _EMAIL_RE.sub("***@***", out)
+        out = _ID_CARD_RE.sub(lambda m: m.group(0)[:4] + "*" * 10 + m.group(0)[-4:], out)
     return out
