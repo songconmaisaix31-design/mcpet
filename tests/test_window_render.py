@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import time
 
 import pytest
 from PySide6.QtCore import QEvent, QPointF, Qt
@@ -50,7 +51,8 @@ def sheet():
 
 
 @pytest.fixture()
-def window(sheet):
+def window(sheet, tmp_path, monkeypatch):
+    monkeypatch.setenv("MCPET_DATA_DIR", str(tmp_path))
     win = PetWindow(sheet)
     yield win
     win.close()
@@ -221,3 +223,69 @@ def test_placeholder_fallback_when_no_sheet():
     assert win._frames == []
     assert not win._anim.isActive()
     win.close()
+
+
+@needs_assets
+def test_constructor_keeps_real_first_frame(window):
+    assert window.canvas.pixmap().toImage() == window._frames[0].toImage()
+
+
+@needs_assets
+def test_alias_change_keeps_animation_phase(window):
+    window.set_state("working")
+    window._advance()
+    window._advance()
+    frames = window._frames
+    window.set_state("progress")
+    assert window._index == 2
+    assert window._frames is frames
+
+
+@needs_assets
+def test_full_loop_renders_last_and_returns_to_first_without_placeholder(window):
+    observed = []
+    for _ in range(len(window._frames)):
+        observed.append(window._index)
+        assert window.canvas.pixmap().toImage() == window._frames[window._index].toImage()
+        window._advance()
+    assert observed == list(range(len(window._frames)))
+    assert window._index == 0
+    assert window.canvas.pixmap().toImage() == window._frames[0].toImage()
+
+
+@needs_assets
+def test_activity_poll_does_not_reset_animation_or_notification(window):
+    window.set_activity("working", 25, "开发")
+    window._advance()
+    window._advance()
+    for value in (26, 27, None, 28):
+        window.set_activity("working", value, "开发")
+        assert window._index == 2
+    window.set_state("happy")
+    window._advance()
+    frames, index = window._frames, window._index
+    window.set_activity("thinking", None, "开发")
+    assert window.machine.state == "happy"
+    assert window._frames is frames and window._index == index
+
+
+@needs_assets
+def test_fixed_scaling_respects_device_pixel_ratio(window, monkeypatch):
+    window._advance()
+    window._advance()
+    monkeypatch.setattr(window, "devicePixelRatioF", lambda: 1.5)
+    window._load_frames("idle")
+    assert all(frame.devicePixelRatioF() == 1.5 for frame in window._frames)
+    assert all(frame.height() == 270 for frame in window._frames)
+    assert len({(f.width(), f.height()) for f in window._frames}) == 1
+    assert window._index == 2  # A DPI transition preserves the same row's phase.
+
+
+@needs_assets
+def test_late_frame_uses_elapsed_time_without_loop_gap(window, monkeypatch):
+    window._next_frame = 10.08
+    monkeypatch.setattr(time, "monotonic", lambda: 10.25)
+    window._advance()
+    assert window._index == 3
+    assert window._next_frame == pytest.approx(10.32)
+    assert window.canvas.pixmap().toImage() == window._frames[3].toImage()

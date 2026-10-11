@@ -16,17 +16,19 @@
 from __future__ import annotations
 
 import statistics
+import os
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from PySide6.QtCore import QTimer  # noqa: E402
+from PySide6.QtCore import QEvent, QPoint, QPointF, QTimer, Qt  # noqa: E402
+from PySide6.QtGui import QMouseEvent  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from src import config  # noqa: E402
 from src.pet.spritesheet import SpriteSheet  # noqa: E402
 from src.pet.window import PetWindow  # noqa: E402
 
@@ -45,8 +47,8 @@ def measure_idle(app: QApplication, window: PetWindow, seconds: float) -> dict:
     original = window._advance
 
     def tap() -> None:
-        stamps.append(time.perf_counter())
         original()
+        stamps.append(time.perf_counter())
 
     window._advance = tap  # type: ignore[method-assign]
 
@@ -77,37 +79,78 @@ def measure_idle(app: QApplication, window: PetWindow, seconds: float) -> dict:
 
 
 def measure_drag(app: QApplication, window: PetWindow, events: int = 120) -> dict:
-    """模拟拖拽：连续 set_state，看动画是否还在推进、每次要多久。"""
+    """Send actual Qt mouse gestures with small reversals through the event loop."""
     seen: set[int] = set()
+    timings: list[float] = []
+    state_changes: list[str] = []
+    clicks: list[bool] = []
     original = window._advance
 
     def tap() -> None:
-        seen.add(window._index)
         original()
+        if window._drag_active:
+            seen.add(window._index)
 
     window._advance = tap  # type: ignore[method-assign]
 
-    start = time.perf_counter()
-    for i in range(events):
-        window.set_state("run-right")
-        app.processEvents()
-        time.sleep(0.008)
-    elapsed = (time.perf_counter() - start) * 1000
+    def send(kind, point, button, buttons):
+        event = QMouseEvent(kind, QPointF(window.mapFromGlobal(point)), QPointF(point),
+                            button, buttons, Qt.NoModifier)
+        app.sendEvent(window, event)
+
+    window.clicked.connect(lambda: clicks.append(True))
+    window.set_activity("idle")
+    window.move(window.screen().availableGeometry().topLeft() + QPoint(100, 100))
+    origin = window.pos() + QPoint(50, 50)
+    send(QEvent.MouseButtonPress, origin, Qt.LeftButton, Qt.LeftButton)
+    points = [origin + QPoint(20 + (i // 3) * 3 + (0, -1, 0)[i % 3], 0) for i in range(events)]
+    count = [0]
+    timer = QTimer()
+    timer.setTimerType(Qt.PreciseTimer)
+    timer.setInterval(8)
+
+    def move():
+        start = time.perf_counter()
+        point = points[count[0]]
+        send(QEvent.MouseMove, point, Qt.NoButton, Qt.LeftButton)
+        # Simulated background observation must preserve the drag and its phase.
+        window.set_activity("idle", None, "陪伴")
+        if not state_changes or window.machine.state != state_changes[-1]:
+            state_changes.append(window.machine.state)
+        timings.append((time.perf_counter() - start) * 1000)
+        count[0] += 1
+        if count[0] == events:
+            timer.stop()
+            send(QEvent.MouseButtonRelease, point, Qt.LeftButton, Qt.NoButton)
+            QTimer.singleShot(app.doubleClickInterval() + 50, app.quit)
+
+    timer.timeout.connect(move)
+    timer.start()
+    app.exec()
 
     window._advance = original  # type: ignore[method-assign]
     return {
         "events": events,
-        "total_ms": elapsed,
-        "per_event_ms": elapsed / events,
+        "total_ms": sum(timings),
+        "per_event_ms": statistics.mean(timings),
         "distinct_frames_shown": len(seen),
-        "frame_count": len(window._frames),
+        "frame_count": window.sheet.frame_count("run-right"),
+        "state_changes": state_changes,
+        "clicks_after_drag": len(clicks),
     }
 
 
 def main() -> int:
     seconds = float(sys.argv[1]) if len(sys.argv) > 1 else 5.0
+    if seconds < 1:
+        raise ValueError("基准至少运行 1 秒")
+    if "MCPET_DATA_DIR" not in os.environ:
+        os.environ["MCPET_DATA_DIR"] = tempfile.mkdtemp(prefix="mcpet-bench-")
 
     app = QApplication([])
+    if app.platformName() != "windows":
+        print(f"需要真实 windows 平台，实际为 {app.platformName()}")
+        return 2
     base = PROJECT_ROOT / "assets" / "longniang"
     sheet = SpriteSheet.load(
         base / "spritesheet.webp",
@@ -116,6 +159,8 @@ def main() -> int:
     )
 
     window = PetWindow(sheet)
+    window.set_roaming(False)
+    window.set_resting(False)
     window.show()
     app.processEvents()
 
@@ -127,6 +172,18 @@ def main() -> int:
     print(f"目标帧间隔    : {window._frame_delay_ms} ms  ({target_fps:.1f} fps)")
     print(f"计时器类型    : {window._anim.timerType()}")
     print(f"帧缓存条目    : {len(getattr(window, '_cache', {}))}")
+    print(f"Qt 平台 / DPR : {app.platformName()} / {window.devicePixelRatioF()}")
+    for state in sheet.row_of:
+        bounds = sheet.anchor_bounds(state)
+        if any(b is None for b in bounds):
+            print(f"[atlas {state}] 存在空白帧")
+            continue
+        centers = [(b[0] + b[2]) / 2 for b in bounds]
+        bottoms = [b[3] for b in bounds]
+        print(f"[atlas {state}] 横中心范围 {max(centers)-min(centers):.1f}px / 底部范围 {max(bottoms)-min(bottoms)}px")
+    # Audit cost is excluded from the timed event loop.
+    window._next_frame = time.monotonic() + window._frame_delay_ms / 1000
+    window._anim.start(window._frame_delay_ms)
 
     idle = measure_idle(app, window, seconds)
     print("-" * 58)
@@ -142,14 +199,21 @@ def main() -> int:
 
     drag = measure_drag(app, window)
     print("-" * 58)
-    print(f"[拖拽模拟] {drag['events']} 次 set_state")
+    print(f"[真实 Qt 拖拽事件] {drag['events']} 次 mouseMove + 1px 反向 + 后台活动更新")
     print(f"  每次耗时    : {drag['per_event_ms']:.2f} ms")
     print(f"  动画推进帧  : {drag['distinct_frames_shown']} / {drag['frame_count']} 帧出现过")
+    print(f"  状态切换    : {drag['state_changes']}")
+    print(f"  拖拽后单击  : {drag['clicks_after_drag']}")
     if drag["frame_count"] and drag["distinct_frames_shown"] <= 1:
         print("  ⚠️ 拖拽期间动画冻结（只显示了 1 帧）")
     print("=" * 58)
 
-    return 0
+    passed = (idle.get("frames", 0) > 1 and idle["jank_ratio"] <= 0.02
+              and idle["fps"] >= target_fps * 0.9
+              and drag["distinct_frames_shown"] > 1
+              and drag["state_changes"] == ["run-right"] and drag["clicks_after_drag"] == 0)
+    window.close()
+    return 0 if passed else 1
 
 
 if __name__ == "__main__":
