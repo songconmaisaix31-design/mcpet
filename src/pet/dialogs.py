@@ -215,6 +215,12 @@ class CompanionPanel(QDialog):
         self.accounts_layout = QVBoxLayout()
         quota.addLayout(self.accounts_layout)
         self.account_rows = []
+        # Only rows created by a real snapshot live here. During credential
+        # replacement they are cleared and hidden, then reconciled by the next
+        # observation; absent providers never accumulate across observations.
+        self._provider_rows = {}
+        self.account_placeholder = None
+        self.money_placeholder = None
         self.reset_labels = []
         self._quota_snapshot = None
         self._accounts_rendered = False
@@ -345,129 +351,223 @@ class CompanionPanel(QDialog):
         configured = bool(config.deepseek_api_key())
         if (self._accounts_rendered and snapshot is self._quota_snapshot
                 and bool(error) == self._accounts_stale and configured == self._balance_configured):
-            # Refresh/reopen changes the header, not the observed account facts.
-            # Keep row objects and countdowns; a new snapshot still updates every fact.
             self.update_countdowns()
             return
-        self._accounts_rendered = True
-        self._quota_snapshot = snapshot
-        self._accounts_stale = bool(error)
-        self._balance_configured = configured
-        shape = (snapshot is not None, tuple((account.provider, len(account.buckets), len(account.balances))
-                                            for account in snapshot.accounts) if snapshot else ())
-        if shape == getattr(self, "_account_shape", None):
-            self._update_account_rows(snapshot, error)
+        # Reconcile synchronously, including clearing credentials' old observations.
+        # Restore the caller's repaint setting even if rendering a source fails.
+        page = self.home_layout.parentWidget()
+        updates = page.updatesEnabled()
+        page.setUpdatesEnabled(False)
+        try:
+            self.reset_labels = []
+            self.account_rows = []
+            if snapshot is None:
+                for row in self._provider_rows.values():
+                    self._clear_account_widget(row["frame"])
+                    row["status"] = "unknown"
+                    row["bar_colors"] = [None] * len(row["buckets"])
+                    self._detach_account_widget(row["frame"])
+            else:
+                occurrences, keys = {}, []
+                for account in snapshot.accounts:
+                    occurrence = occurrences.get(account.provider, 0)
+                    occurrences[account.provider] = occurrence + 1
+                    key = (account.provider, occurrence)
+                    keys.append(key)
+                    row = self._provider_rows.get(key)
+                    if row is None:
+                        row = self._create_account_row(account.provider)
+                        self._provider_rows[key] = row
+                    self._resize_account_row(row, account)
+                    self.account_rows.append(row)
+                # A genuine empty observation also releases retained cleared rows.
+                for key in tuple(self._provider_rows):
+                    if key not in keys:
+                        row = self._provider_rows.pop(key)
+                        self._discard_account_widget(row["frame"])
+                self._update_account_rows(snapshot, error)
+                positions = {self.accounts_layout: 0, self.money_layout: 0}
+                for row in self.account_rows:
+                    container = self.money_layout if row["provider"] == "deepseek" or row["balances"] else self.accounts_layout
+                    frame, position = row["frame"], positions[container]
+                    if container.indexOf(frame) != position:
+                        self._detach_account_widget(frame)
+                        container.insertWidget(position, frame)
+                    frame.show()
+                    positions[container] += 1
+            empty = snapshot is not None and not snapshot.accounts
+            self._set_account_placeholder("account_placeholder", self.accounts_layout,
+                                          "暂无账号额度 · UNKNOWN" if empty else None)
+            has_money = any(row["provider"] == "deepseek" or row["balances"] for row in self.account_rows)
+            self._set_account_placeholder("money_placeholder", self.money_layout,
+                                          None if has_money else "未配置余额查询密钥" if not configured else "余额 UNKNOWN · 等待查询")
+            self.update_countdowns()
+            self._quota_snapshot = snapshot
+            self._accounts_stale = bool(error)
+            self._balance_configured = configured
+            self._accounts_rendered = True
+        except Exception:
+            self._accounts_rendered = False
+            raise
+        finally:
+            page.setUpdatesEnabled(updates)
+
+    @staticmethod
+    def _clear_account_widget(widget):
+        # Hidden widgets remain accessible objects until deletion. Erase their
+        # payload too, rather than relying on visibility or deleteLater alone.
+        for child in (widget, *widget.findChildren(QWidget)):
+            child.setToolTip("")
+            child.setAccessibleName("")
+            child.setAccessibleDescription("")
+            if isinstance(child, QLabel):
+                child.clear()
+            elif isinstance(child, QProgressBar):
+                child.reset()
+                child.hide()
+
+    def _detach_account_widget(self, widget):
+        widget.hide()
+        self.accounts_layout.removeWidget(widget)
+        self.money_layout.removeWidget(widget)
+
+    def _discard_account_widget(self, widget):
+        self._clear_account_widget(widget)
+        self._detach_account_widget(widget)
+        widget.deleteLater()
+
+    def _set_account_placeholder(self, name, container, text):
+        label = getattr(self, name)
+        if text is None:
+            if label is not None:
+                label.clear()
+                label.hide()
+                container.removeWidget(label)
             return
-        self._account_shape = shape
-        # Rebuild only when providers or row structure change, including key clear.
-        for container in (self.accounts_layout, self.money_layout):
-            while container.count():
-                item = container.takeAt(0)
-                if item.widget():
-                    item.widget().hide()
-                    item.widget().deleteLater()
-        self.account_rows, self.reset_labels = [], []
-        self.money_placeholder = None
-        statuses = {"ok": "正常", "unavailable": "不可用 · UNKNOWN", "unconfigured": "未配置 · UNKNOWN", "error": "失败 · UNKNOWN", "stale": "过时 · 待刷新"}
-        for account in snapshot.accounts if snapshot else ():
-            frame = QFrame()
-            frame.setStyleSheet("QFrame { background:#fffaf5; border-radius:10px; }")
-            column = QVBoxLayout(frame)
-            column.setContentsMargins(6, 5, 6, 5)
-            column.setSpacing(3)
-            column.setSizeConstraint(QLayout.SetMinimumSize)
-            title = QHBoxLayout()
-            icon = QLabel({"codex": "C", "grok": "G", "cursor": "Cu", "claude": "Cl", "deepseek": "D"}.get(account.provider, "A"))
-            icon.setFixedSize(24, 24)
-            icon.setAlignment(Qt.AlignCenter)
-            icon.setStyleSheet("background:#e9dbf4; border-radius:7px; font-weight:700;")
-            title.addWidget(icon)
-            heading = QLabel(config.redact(account.label))
-            heading.setTextFormat(Qt.PlainText)
-            heading.setWordWrap(True)
-            heading.setStyleSheet("font-weight:700;")
-            title.addWidget(heading, 1)
-            state = "stale" if error and (account.buckets or account.balances) else account.status
-            state_label = QLabel(statuses.get(state, "UNKNOWN"))
-            state_label.setStyleSheet("font-size:11px; color:#81756b;")
-            state_label.setTextFormat(Qt.PlainText)
-            title.addWidget(state_label)
-            column.addLayout(title)
-            row = {"provider": account.provider, "status": state, "buckets": [], "balances": [], "frame": frame,
-                   "heading": heading, "state_label": state_label, "stamps": [], "bar_colors": [], "empty_label": None}
-            try:
-                updated = "更新时间 UNKNOWN" if account.updated_at is None else "更新 " + datetime.fromtimestamp(account.updated_at).strftime("%m-%d %H:%M")
-            except (ValueError, OverflowError, OSError):
-                updated = "更新时间 UNKNOWN"
-            for index, bucket in enumerate(account.buckets):
-                value = bucket.used_percent
-                known = value is not None and math.isfinite(value) and 0 <= value <= 100
-                text = f"{bucket.name} · 剩余 {100-value:g}% · 已用 {value:g}%" if known else f"{bucket.name} · 剩余 UNKNOWN · 已用 UNKNOWN"
-                band = QHBoxLayout()
-                summary = self.label(band, text)
-                summary.setStyleSheet("font-size:11px; font-weight:600;")
-                bar = QProgressBar()
-                bar.setFixedHeight(8)
-                bar.setRange(0, 1000)
-                bar.setTextVisible(False)
-                bar.setValue(round(value * 10) if known else 0)
-                bar.setStyleSheet("QProgressBar::chunk { background:" + ("#b7aea6" if state == "stale" else "#ae5962" if known and value >= 95 else "#ad6d39" if known and value >= 80 else "#79b69c") + "; }")
-                row["bar_colors"].append("#b7aea6" if state == "stale" else "#ae5962" if known and value >= 95 else "#ad6d39" if known and value >= 80 else "#79b69c")
-                bar.setAccessibleName(config.redact(text))
-                band.addWidget(bar, 1)
-                bar.setMinimumWidth(75)
-                bar.setMaximumWidth(180)
-                column.addLayout(band)
-                bar.setVisible(known)  # 未知额度不画假 0% 空条；先归入父布局。
-                footer = QHBoxLayout()
-                reset = self.label(footer, "")
-                reset.setStyleSheet("color:#81756b; font-size:10px;")
-                footer.setStretchFactor(reset, 1)
-                if index == 0:
-                    stamp = self.label(footer, updated)
-                    stamp.setWordWrap(False)
-                    stamp.setStyleSheet("color:#81756b; font-size:10px;")
-                    row["stamps"].append((stamp, ""))
-                column.addLayout(footer)
-                self.reset_labels.append((reset, bucket.resets_at))
-                row["buckets"].append((summary, bar, reset))
-            for balance in account.balances:
-                # Decimal stays Decimal/string; no float conversion, cap or currency sum.
-                def amount(value):
-                    return format(value, "f") if isinstance(value, Decimal) and value.is_finite() and value >= 0 else "UNKNOWN"
-                text = f"{config.redact(balance.currency)} · 余额 {amount(balance.total)}\n赠送 {amount(balance.granted)} · 充值 {amount(balance.topped_up)}"
-                # Typed numbers can resemble phone/ID patterns; still mask exact credentials.
-                label = self.label(column, text, personal=False)
-                row["balances"].append(label)
-            if not account.buckets and not account.balances:
-                row["empty_label"] = self.label(column, "未配置余额查询密钥" if account.provider == "deepseek" and state == "unconfigured" else "余额 UNKNOWN" if account.provider == "deepseek" else "尚无可读取额度 · UNKNOWN")
-            if not account.buckets:
-                origin = "DeepSeek 官方余额" if account.provider == "deepseek" else "Orca 账号缓存"
-                stamp = self.label(column, origin + " · " + updated)
+        if label is None:
+            label = self.label(container, text)
+            setattr(self, name, label)
+        else:
+            label.setText(text)
+            if container.indexOf(label) < 0:
+                container.addWidget(label)
+        label.show()
+
+    def _create_account_row(self, provider):
+        frame = QFrame(self.home_layout.parentWidget())
+        frame.setStyleSheet("QFrame { background:#fffaf5; border-radius:10px; }")
+        column = QVBoxLayout(frame)
+        column.setContentsMargins(6, 5, 6, 5)
+        column.setSpacing(3)
+        column.setSizeConstraint(QLayout.SetMinimumSize)
+        title = QHBoxLayout()
+        icon = QLabel()
+        icon.setFixedSize(24, 24)
+        icon.setAlignment(Qt.AlignCenter)
+        icon.setStyleSheet("background:#e9dbf4; border-radius:7px; font-weight:700;")
+        title.addWidget(icon)
+        heading = self.label(title, "", selectable=False)
+        title.setStretchFactor(heading, 1)
+        heading.setStyleSheet("font-weight:700;")
+        state_label = self.label(title, "", selectable=False)
+        state_label.setWordWrap(False)
+        state_label.setStyleSheet("font-size:11px; color:#81756b;")
+        column.addLayout(title)
+        return {"provider": provider, "status": "unknown", "buckets": [], "balances": [], "frame": frame,
+                "column": column, "icon": icon, "heading": heading, "state_label": state_label,
+                "stamps": [], "bar_colors": [], "bucket_widgets": [], "bucket_stamps": [],
+                "empty_label": None, "origin_stamp": None, "stale_label": None}
+
+    def _resize_account_row(self, row, account):
+        column = row["column"]
+        while len(row["buckets"]) > len(account.buckets):
+            row["buckets"].pop()
+            row["bar_colors"].pop()
+            row["bucket_stamps"].pop()
+            widget = row["bucket_widgets"].pop()
+            column.removeWidget(widget)
+            self._discard_account_widget(widget)
+        while len(row["buckets"]) < len(account.buckets):
+            widget = QWidget()
+            content = QVBoxLayout(widget)
+            content.setContentsMargins(0, 0, 0, 0)
+            content.setSpacing(3)
+            content.setSizeConstraint(QLayout.SetMinimumSize)
+            band = QHBoxLayout()
+            summary = self.label(band, "")
+            summary.setStyleSheet("font-size:11px; font-weight:600;")
+            bar = QProgressBar()
+            bar.setFixedHeight(8)
+            bar.setRange(0, 1000)
+            bar.setTextVisible(False)
+            bar.setMinimumWidth(75)
+            bar.setMaximumWidth(180)
+            band.addWidget(bar, 1)
+            content.addLayout(band)
+            footer = QHBoxLayout()
+            reset = self.label(footer, "")
+            reset.setStyleSheet("color:#81756b; font-size:10px;")
+            footer.setStretchFactor(reset, 1)
+            stamp = None
+            if not row["buckets"]:
+                stamp = self.label(footer, "")
+                stamp.setWordWrap(False)
                 stamp.setStyleSheet("color:#81756b; font-size:10px;")
-                row["stamps"].append((stamp, origin + " · "))
-            if account.message:
-                frame.setToolTip(html.escape(config.redact(account.message)))
-            row["stale_label"] = self.label(column, "上次快照，已过时")
-            row["stale_label"].setVisible(state == "stale")
-            (self.money_layout if account.provider == "deepseek" or account.balances else self.accounts_layout).addWidget(frame)
-            frame.show()
-            self.account_rows.append(row)
-        if snapshot is not None and not snapshot.accounts:
-            self.label(self.accounts_layout, "暂无账号额度 · UNKNOWN")
-        if not any(row["provider"] == "deepseek" or row["balances"] for row in self.account_rows):
-            self.money_placeholder = self.label(self.money_layout, "未配置余额查询密钥" if not configured else "余额 UNKNOWN · 等待查询")
-        self.update_countdowns()
+            content.addLayout(footer)
+            column.insertWidget(1 + len(row["buckets"]), widget)
+            row["bucket_widgets"].append(widget)
+            row["bucket_stamps"].append(stamp)
+            row["buckets"].append((summary, bar, reset))
+            row["bar_colors"].append(None)
+        while len(row["balances"]) > len(account.balances):
+            label = row["balances"].pop()
+            column.removeWidget(label)
+            self._discard_account_widget(label)
+        while len(row["balances"]) < len(account.balances):
+            label = self.label(column, "", personal=False)
+            column.insertWidget(1 + len(row["buckets"]) + len(row["balances"]), label)
+            row["balances"].append(label)
+        empty = not account.buckets and not account.balances
+        if empty and row["empty_label"] is None:
+            row["empty_label"] = self.label(column, "")
+        elif not empty and row["empty_label"] is not None:
+            label, row["empty_label"] = row["empty_label"], None
+            column.removeWidget(label)
+            self._discard_account_widget(label)
+        if not account.buckets and row["origin_stamp"] is None:
+            row["origin_stamp"] = self.label(column, "")
+            row["origin_stamp"].setStyleSheet("color:#81756b; font-size:10px;")
+        elif account.buckets and row["origin_stamp"] is not None:
+            label, row["origin_stamp"] = row["origin_stamp"], None
+            column.removeWidget(label)
+            self._discard_account_widget(label)
+        if row["stale_label"] is None:
+            row["stale_label"] = self.label(column, "")
+        # Moving only these trailing controls keeps new bucket/balance rows ahead
+        # of them when a provider's observed structure grows.
+        trailing = [label for label in (row["empty_label"], row["origin_stamp"], row["stale_label"]) if label is not None]
+        for position, label in enumerate(trailing, 1 + len(row["buckets"]) + len(row["balances"])):
+            if column.indexOf(label) != position:
+                column.removeWidget(label)
+                column.insertWidget(position, label)
+        row["stamps"] = []
+        for index, stamp in enumerate(row["bucket_stamps"]):
+            if stamp is not None:
+                row["stamps"].append((stamp, ""))
+        if row["origin_stamp"] is not None:
+            origin = "DeepSeek 官方余额" if account.provider == "deepseek" else "Orca 账号缓存"
+            row["stamps"].append((row["origin_stamp"], origin + " · "))
 
     def _update_account_rows(self, snapshot, error):
         statuses = {"ok": "正常", "unavailable": "不可用 · UNKNOWN", "unconfigured": "未配置 · UNKNOWN", "error": "失败 · UNKNOWN", "stale": "过时 · 待刷新"}
-        self.reset_labels = []
-        for row, account in zip(self.account_rows, snapshot.accounts if snapshot else ()):
+        for row, account in zip(self.account_rows, snapshot.accounts):
             state = "stale" if error and (account.buckets or account.balances) else account.status
             row["status"] = state
+            row["icon"].setText({"codex": "C", "grok": "G", "cursor": "Cu", "claude": "Cl", "deepseek": "D"}.get(account.provider, "A"))
             row["heading"].setText(config.redact(account.label))
             row["state_label"].setText(statuses.get(state, "UNKNOWN"))
             row["frame"].setToolTip(html.escape(config.redact(account.message)))
+            row["stale_label"].setText("上次快照，已过时")
             row["stale_label"].setVisible(state == "stale")
             try:
                 updated = "更新时间 UNKNOWN" if account.updated_at is None else "更新 " + datetime.fromtimestamp(account.updated_at).strftime("%m-%d %H:%M")
@@ -481,7 +581,10 @@ class CompanionPanel(QDialog):
                 text = f"{bucket.name} · 剩余 {100-value:g}% · 已用 {value:g}%" if known else f"{bucket.name} · 剩余 UNKNOWN · 已用 UNKNOWN"
                 summary.setText(config.redact(text))
                 bar.setAccessibleName(config.redact(text))
-                bar.setValue(round(value * 10) if known else 0)
+                if known:
+                    bar.setValue(round(value * 10))
+                else:
+                    bar.reset()
                 bar.setVisible(known)
                 color = "#b7aea6" if state == "stale" else "#ae5962" if known and value >= 95 else "#ad6d39" if known and value >= 80 else "#79b69c"
                 if color != row["bar_colors"][index]:
@@ -493,11 +596,9 @@ class CompanionPanel(QDialog):
                     return format(value, "f") if isinstance(value, Decimal) and value.is_finite() and value >= 0 else "UNKNOWN"
                 text = f"{config.redact(balance.currency)} · 余额 {amount(balance.total)}\n赠送 {amount(balance.granted)} · 充值 {amount(balance.topped_up)}"
                 label.setText(config.redact(text, personal=False))
-            if row["empty_label"]:
+            if row["empty_label"] is not None:
                 row["empty_label"].setText("未配置余额查询密钥" if account.provider == "deepseek" and state == "unconfigured" else "余额 UNKNOWN" if account.provider == "deepseek" else "尚无可读取额度 · UNKNOWN")
-        if self.money_placeholder:
-            self.money_placeholder.setText("未配置余额查询密钥" if not self._balance_configured else "余额 UNKNOWN · 等待查询")
-        self.update_countdowns()
+
 
     def showEvent(self, event):
         self.update_countdowns()
@@ -509,11 +610,12 @@ class CompanionPanel(QDialog):
         super().hideEvent(event)
 
     @staticmethod
-    def label(layout, text, *, personal=True):
+    def label(layout, text, *, personal=True, selectable=True):
         label = QLabel(config.redact(text, personal=personal))
         label.setTextFormat(Qt.PlainText)
         label.setWordWrap(True)
-        label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        if selectable:
+            label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         layout.addWidget(label)
         return label
 

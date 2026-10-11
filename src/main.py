@@ -759,12 +759,17 @@ class MonsterApp(QObject):
             self.panel.settings.message.setText(message)
             return
         if "DEEPSEEK_API_KEY" in values:
+            # Clear old-source data before source construction/reconfiguration;
+            # even a failure here must not leave old credentials' values accessible.
+            self.account_snapshot = None
+            self.account_error = ""
+            self.account_refreshing = True
+            self._render_accounts()
             try:
                 from .accounts import DeepSeekBalanceSource
                 if self.account_monitor:
                     self.account_monitor.reconfigure(deepseek_source=DeepSeekBalanceSource(config.deepseek_api_key()))
                     # 上一份余额来自旧 key，保存后不能再当作新账号余额展示。
-                    self.account_snapshot = None
                     self.action_quota()
                 else:
                     self._start_account_monitor()
