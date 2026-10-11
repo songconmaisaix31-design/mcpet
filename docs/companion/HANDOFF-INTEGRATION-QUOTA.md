@@ -147,3 +147,118 @@ git diff --cached --check
 - 原C从checkpoint干净FF修本域，集成只普通merge后续精确tip，再最终full/native。
   root负责最终FF、真实Orca只读缓存、DSkey存在时只读余额、真实单实例启动与人工验收。
   checkpoint不宣称真实余额/订单、最终交付或全产品通过。
+
+## 2026-10-12 C/A 返修后的实际组合 review basis
+
+**本节为追加证据，仍不是最终交付。** 上述 checkpoint 的所有首RED、GREEN、NOT_RUN
+均保留其原版本界限。root明确交回独占时段后，本轮完成普通合并、旧联合、新真实组合、
+唯一一次完整pytest和实际六图；性能仍RED，只发布供原C干净FF的review basis。
+原会话/worktree/branch不变，不新建Worker，不写任何领域或测试协议/时序/断言。
+
+### lineage / 已合入 root 计划
+
+起始 `bf5ff01ca8de33ad417eb7fd1cacd64030177d5b` 干净。独立ls-remote逐一核对指定tip，
+fetch后按要求普通merge，无冲突：
+
+| 顺序 | 精确交付 tip | 本轮 merge SHA |
+|---|---|---|
+| C | `d037c5cf6b384d4930dbadef97b0240881978b73` | `c8d3bb97777939d0768554125974445c4fe72d01` |
+| A | `7d06474e4cbbf86d0517cc94f2b8c088c08532e5` | `ed834e2d52fa9da8e938b06615a78bdbac4f1f2e` |
+| root文档 | `cfde794493c3054aef88ca6afdd755918639940c` | `e1824f729ee4f0fc6bcb31ee3db22cbba95821df` |
+| root后续文档 | `7fec18b930559804b01ad785d5dc4bca44ec3f09` | `fa779ff604721ffaef068f5699765031ac4c4f6b` |
+
+最后root文档在动态验证结束后按新指令fetch/独立核对/普通merge，只追加计划，不改业务。
+本轮动态验证代码基线为 `e1824f729ee4f0fc6bcb31ee3db22cbba95821df`；后续只有计划与本文。
+root7fec保留为review basis祖先，可由root最后FF；未合回root。
+
+领域代码：C `876ae0c8632ded4b172dfac35be5184ad1295bda`；A
+`538e25e73c111d0c3e664ec3f69d536b7639ae0b` /
+`476066cbbca5ff54e90d0858a5fa2ab4daeae13f` /
+`ca3cf5f73c1df58eaf9164a4d0df7bf6f95dc3ba`；B仍为原发布实现。
+已读取三份HANDOFF和root最新追加计划。A71适用/双角色native/原bench GREEN，C71适用/
+实际30 action_quota3.7535ms GREEN，均不覆盖其旧/新联合RED及原轨full NOT_RUN。
+四份旧接线/组合测试相对checkpoint零diff；原150/50ms、frame推进、TTL、四入口、writer1、
+QThread/Win32回收及整体退出门槛原样，未预热/延后heartbeat/等TTL/改调度。
+
+### 实际受控环境与命令
+
+本轮证据根：
+`C:/Users/DW/AppData/Local/Temp/mcpet-integration-quota-review-44589ca99b8b4bf8905beb5585dd82e5`。
+`run.py`只是TEMP里的标准subprocess串行启动辅助，不是产品依赖/调度系统。子环境用
+字面量allowlist，不复制凭证/代理；TEMP/TMP/data/HOME/USERPROFILE/APPDATA/LOCALAPPDATA
+均为本轮新目录；mock token/key、不存在的三类roots/config、watch_processes=0。
+`guard/sitecustomize.py`硬拒Python socket真实网络、真实Orca account CLI及证据根外.env读取。
+测试自己的MockTransport/受控可pickle账号源照常，Qt协议使用自己的QLocalServer。
+未读用户.env/凭证/既有会话/聊天/日志/ledger，不扫描17GB根；无--showlocals/环境输出。
+
+每条运行创建新RUN_NAME，完整命令/exit/wall在各自command.json，原result.log不覆盖：
+
+```powershell
+$quotaPython = 'C:/Users/DW/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe'
+$quotaReview = 'C:/Users/DW/AppData/Local/Temp/mcpet-integration-quota-review-44589ca99b8b4bf8905beb5585dd82e5'
+& $quotaPython "$quotaReview/run.py" old-joint -m pytest tests/test_companion_integration.py -q -s --basetemp '{run}/pytest'
+& $quotaPython "$quotaReview/run.py" new-combination -m pytest tests/test_dual_pet_quota_integration.py -q -s --basetemp '{run}/pytest'
+& $quotaPython "$quotaReview/run.py" full-once -m pytest -q --basetemp '{run}/pytest'
+& $quotaPython "$quotaReview/run.py" native-six tests/test_dual_pet_quota_integration.py --screenshots '{run}/screenshots'
+& $quotaPython "$quotaReview/run.py" compile -m compileall -q src tests
+git diff 7fec18b930559804b01ad785d5dc4bca44ec3f09 HEAD --check
+git diff --cached --check
+git merge-base --is-ancestor 7fec18b930559804b01ad785d5dc4bca44ec3f09 HEAD
+```
+
+动态运行全部串行，仅本轨有探针；root/A/B/C无动态测试。原startup normal/active/
+external-quit、duplicate及A/B/C适用回归均在这一次完整pytest中通过，不额外挑绿重跑。
+
+### 本轮首 RED 与独立结果
+
+| 运行 | 实际结果与未执行界限 |
+|---|---|
+| `old-joint/result.log` | **1 failed /17.61s /exit1**。heartbeat795.87ms>150（911ticks）、firstpanel703.67ms、stop8.2874ms<50、errors=[]。自动start/working/真实touch-double-click-drag/方向/休息/位置操作、完成1/usage110、信号5/3、四入口Win32恢复、writer1、两reader、QThread false前置断言通过。heartbeat后的整体8s/PID回收/锁删除/位置重启断言 **NOT_RUN**，不补推。 |
+| `new-combination/result.log` | **1 passed /1 failed /22.26s /exit1**。完整行为/帧推进/持久化/退出契约GREEN，heartbeat2526.44ms>150（816ticks）RED。firstpanel474.66ms，phase work2687.08/duplicate503.11/held-refresh21.28/new-generation109.57/exit-query79.54/exit-task103.99ms。stop7.6913ms<50，postduplicate2.675937s<8，quit-to-reaped0.932078s<8；body/launcher1224/31980/43236，writer1、unreaped=[]、锁删除、restart true/deepseek/thread false。network0/errors[]。 |
+| `full-once/result.log` | **2 failed /450 passed /182.31s /exit1**（launcher wall184.239s），唯一一次完整运行，无skip/warning汇总。仅原旧联合heartbeat545.93ms（824ticks，firstpanel465.72ms、stop10.9947ms）及新组合heartbeat1038.21ms失败。新组合完整契约/有限回收及全部其他适用项通过。旧联合heartbeat后的原后置断言仍NOT_RUN。full中新组合firstpanel未在pytest失败报告保留，准确值UNKNOWN，不能拿独立轮值替代。 |
+| `native-six/result.log` | **exit0 /wall15.886s**。实际合并六图/真实两monitor/受控源/帧推进/四入口/退出契约通过；Windows/DPR1.5，network0/errors[]，writer1，body/launcher37496/38360/43320、unreaped=[]、锁移除、重启DeepSeek/位置/休息/闲逛通过。stop3.7929ms，postduplicate2.055199s、quit-to-reaped0.718156s。heartbeat502.83ms、firstpanel377.83ms仍RED；截图入口没有执行heartbeat性能assert，exit0不冒称性能GREEN。 |
+| `compile/command.json`、全分支diff | **compileall src tests exit0**（wall0.955s）；含新文件的全分支diffcheck/cached check通过。root后续文档merge后再核对全分支diff/祖先关系，不重复动态验证。 |
+
+新组合真实默认AgentMonitor/AccountMonitor与top-level受控源，没有Monitor stub或旧overlay。
+当前四入口恢复矩形均 `[1485,389,2557,1525]`、Qt非minimized且Win32非iconic/可见；
+最小化前置状态iconic=true、rect[-32000,-32000,-31763,-31961]。新源generation丢弃、
+singleflight三次query/金额版本[1,1,2]、Cursor独立[20,35.5,90]、Decimal和未过期greet拖拽
+在新组合完整契约断言中通过；源与日志值都是夹具，不表示用户任务/真实账号余额。
+
+### 实际六图 / root 审阅
+
+图片目录：`native-six/screenshots/`，文件为home.png、home-bottom.png、home-deepseek.png、
+sessions.png、mcd.png、settings.png；均 **1050×1080，原生DPR1.5**，只grab本探针自己的Qt。
+使用实际合并A素材与C/B接线，无跨worktree overlay；六图全部view_image查看。
+
+root随后明确确认已实际审阅六图，DeepSeek首页另按original完整重看，**视觉通过**：
+双角色真实preview与选中配色、Codex session/weekly、Cursor monthly/两桶完整百分比、
+Grok有效0/Claude UNKNOWN、独立CNY Decimal、会话/麦当劳/设置均可读。底部滚动能读
+`123.456789012345678901`，金额无任意百分比尺度。数值标题标「受控夹具」，不是live；
+设置字段只显示配置状态，没有凭证回填。原Pixso真实设计证据与本轮原生图各自成立，
+不把这些截图当Pixso新操作、真实订单/余额或全产品验收。
+
+### 有界退出 / slot 交回 / remaining RED
+
+`pid-recheck.json`以OpenProcess(SYNCHRONIZE)/WaitForSingleObject仅复查本轮记录的15个
+受控PID（含独立/全套/截图及重启marker）：1224/12600/15440/18028/31792/31980/35784/
+37464/37496/38360/40972/42824/43236/43320/44244，**still_running=[]**。
+新组合与截图的三reader原父断言已执行并通过，退出时活动SerialTasks/阻塞账号源有限
+结束、QThread关闭、锁删除、偏好重启均核对。独立旧联合及full旧联合的原后置NOT_RUN
+不被这次独立PID复查或新组合GREEN覆盖。
+
+剩余领域：C `src/main.py::action_panel` / `src/pet/dialogs.py` 首show/同步激活仍超过预算，
+原旧联合独立复现。新组合work阶段含C首show和A连续角色切换，阶段总值不是单函数profile；
+A最后正常点击麦麦set164.059ms等既有剩余样本保留，不把组合总gap归于唯一模块。
+冷激活/新结构卡片问题退原C，角色必要解码/切换问题若经分段定位退原A，集成不领域修复。
+原C当前仅静态方案，root计划保留下一轮按实际结构增删/清空字段的边界，未冒称已实施。
+
+本轮只有本文追加（另普通merge root计划），没有生产胶水或测试变更。普通commit/push、
+独立ls-remote=HEAD、工作树干净后用orca-cli通知root精确review tip及 **slot idle**；
+所有Qt/pytest/native/perf探针已有限结束，不再重复full或动态测试。root7fec已包含，
+供原C后续干净FF返修；集成停止等待其精确tip及root再次明确返还时段。
+本轮完整pytest确实执行且RED，前节checkpoint full NOT_RUN仍是历史事实，不改成GREEN。
+
+未重复10sbench/17GB扫描，未进行真人账户/Orca cache/DS余额、模型/MCP网络、账号写、
+用户GUI/常驻启动、安装包/自启动或第三方插件；root目前未FF/启动/真实只读采样。
+性能两门槛未通过，不能称最终交付或全套/全产品完成。
