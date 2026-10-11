@@ -31,6 +31,8 @@ C：唯一面板可爱温暖奶油色+圆角卡片，兼容 DPR1.5 和小屏滚�
 
 ## 验收与边界
 
+2026-10-12 C 接线决策：B 的新 AccountMonitor 增补公共 reconfigure(*, orca_source=None, deepseek_source=None)，None 表示保留；正在执行的有界只读查询可完成，但更换源后旧源结果不作为新凭据结果发布，pending refresh 合并，始终同一个监控对象/至多一个活动查询。reconfigure 不阻塞 GUI，不重新构造另一个 monitor；C 保存 key 后调用它再 refresh，UI 显示刷新中直到新源快照。可增加 stopped 信号用于验证回收，退出仍不在 GUI wait/join。旧 tests/test_app_actions.py、tests/test_main_startup.py、tests/test_companion_integration.py 的默认账号源离线注入由唯一集成 Worker 接线，保留所有旧断言与门槛；C 仅写新自域测试并禁网络。
+
 正确 WorkBuddy Python；隔离 MCPET_DATA_DIR/TEMP 与受控 generic logs。适用测试+完整 pytest+compileall src tests+diff --check；保留每轮首 RED，修复后独立 GREEN。新组合测试真实 Qt、切两角色、重启持久化/拖拽/TTL、额度未知/失败/stale/Cursor分桶/Decimal、刷新合并、shutdown/进程回收；mock 网络只证明契约。原联合 heartbeat<150ms/stop<50ms、单 usage writer、四入口恢复不可放宽。DPR1.5 原生截图首页/设置与双角色；动画透明、无空白帧与锚点抖动探针。
 
 主轨最终普通 FF、审图、只读实测 Orca cache、DeepSeek 有已配置 key 时余额 GET（不输出 secret，没 key 明示未实测），优雅重启现用户实例复验。严禁 Worker 操作用户 GUI49784/launcher38676/monitor23860/48728、读取 .env/凭证/既有会话、17GB日志根或 ledger、真实模型/MCP账号写操作。素材公开仓库下载允许；不安装/运行第三方 DSH 插件。Pixso 连接与设计输出需实际工具证据，未完成则单列限制，不能用本地 Qt 图冒充 Pixso。
