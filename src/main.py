@@ -436,7 +436,11 @@ class MonsterApp(QObject):
         self.panel.mcd_result.setText(self._business_status)
         label = self.tasks.active[4] if self.tasks.active else "排队中"
         self.panel.set_busy(self.tasks.busy, label)
-        self.panel.show()
+        # show() 不会清除 WindowMinimized；所有入口都须恢复同一个窗口。
+        if self.panel.isMinimized():
+            self.panel.showNormal()
+        else:
+            self.panel.show()
         self.panel.raise_()
         self.panel.activateWindow()
 

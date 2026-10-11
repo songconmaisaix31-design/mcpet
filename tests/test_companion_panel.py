@@ -90,6 +90,19 @@ def test_panel_signals_true_context_unknown_stale_and_failure(monster):
     assert monster.monitor.starts == 1
 
 
+@pytest.mark.parametrize("action_index,page", [(0, "home"), (1, "sessions"), (2, "mcd"), (3, "settings")])
+def test_minimized_panel_reopens_from_each_tray_menu_tab(monster, action_index, page):
+    monster.action_panel()
+    panel = monster.panel
+    panel.showMinimized()
+    QApplication.processEvents()
+    assert panel.isMinimized()
+    monster.tray.contextMenu().actions()[action_index].trigger()
+    assert monster.panel is panel and panel.isVisible() and not panel.isMinimized()
+    assert panel.tabs.currentIndex() == panel.pages[page]
+    assert monster.monitor.starts == 1 and not monster.tasks.busy
+
+
 def test_settings_cancel_blank_retain_clear_save_and_no_second_monitor(monster, monkeypatch):
     saved = []
     def save(values):
