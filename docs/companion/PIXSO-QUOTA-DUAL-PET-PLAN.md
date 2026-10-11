@@ -49,3 +49,15 @@ C：唯一面板可爱温暖奶油色+圆角卡片，兼容 DPR1.5 和小屏滚�
 当前 root terminal 为 term_2a23bbea-71c5-4f99-b15f-77e5b8ca591b；A term_7ec38c47-7c51-4aa8-b2f2-dac9374fb8a8、B term_465fe177-ce16-48ab-98a8-7388246699ff、C term_f6e5acc2-570f-4908-a1e7-0c85933a05e1。原会话 A=01a12b90-062a-7f70-b3a5-595326746751、B=01a12b90-ae7e-7610-a359-446106d5f5d9、C=01a12b90-c2c2-7cf3-ade5-5dd6a0f77166、集成=01a12baa-554e-7d32-8835-e1865e39d601。
 
 A 已普通 push，root 独立 ls-remote exit0 确认 8b7da5c9d396a0e14b77f4e2b7ad5c844c0c4a1e，A 通知同 SHA/干净并停止，未新增代码或重复完整测试。当前 Orca 账号 home 的 Pixso OAuth 后续浏览器确认成功，实际 app-server mcpServerStatus/list: authStatus=oAuth、toolsError=null、tools_count=24；50 秒父命令等待超时与浏览器 wait url 不支持已单列，最终以回调 Authentication complete 和实际 MCP 状态为准。未导出/复制密钥。仍待 B/C 收尾、原唯一集成和主轨最终运行验收；只读进程核对已无先前用户 GUI49784/launcher38676/监控23860/48728，也未找到 -m src.main 常驻实例，最终启动前需再次核对。
+
+## 原生审图与串行复验追加
+
+当前账号 Pixso 后续真实 fetch_context 成功读取本次新文件（未选中节点、无 schema/map 导出）；无模型 turn，无额外设计修改。
+
+C 新紧凑布局 cold quit 首 RED 149.35ms，profile 108.84ms（panel.hide 65.71ms、退出气泡 41.74ms），随后 85ms/71ms 诊断也保留；不是账号 stop 的阻塞结论。C 改为 quit 同步拒绝新动作/stop现监控，SerialTasks 安全结束信号再统一关闭原窗口/面板，原50ms gate保持；需补实际活动请求有限结束/窗口关闭/QThread与进程回收，不能只测提前返回。首借 A native 20s monitor timeout、network_calls0、worker_stoppedtrue保留，诊断补错误信息且未延长预算。
+
+root 实际 view_image 审 native-compact 三份主页，发现 Codex 已用16.25%与 Cursor 两桶文字被窄 summary 裁切，退回原 C；这一版是视觉 RED，29适用 PASS 不等于可验收。v4 限制 bar 占宽并让 summary/reset 获得完整空间，未继续缩字体；加入700/560真实 heightForWidth 可读性断言。root 已审六张 v4 图，Codex16.25%、Cursor20%/90%、四 provider、金额/币种、双角色真实预览均清楚，其他三页视觉通过。图在 C:/Users/DW/AppData/Local/Temp/mcpet-c-quota-final-1791751045265/native-compact-v4/；DPR1.5、network_calls0、errors[]、worker_stoppedtrue；A8b7da5c只读overlay，无merge/复制。仍是受控夹具，不代表真实账户/任务完成。C30适用 PASS/32.18s、stop4.3066ms后明确测试空闲，暂做静态/Handoff。
+
+B 窗口返修 f77cbbee6fc7720b742f56c9fc5fa578118ece9d，含实际 session:null；62解析 GREEN。首完整5failed/396passed/211.43s：三类whole-exit时限、旧联合heartbeat1135ms、旧duplicate未命中，保留且不改跨域；CPU76%只为样本，原因未确定。C明确空闲后B串行账号82passed/32.33s，无门槛/Monitor修改。主轨要求再一轮原计划完整pytest、compile/diff、push/remote核对，之后交回C最终完整与联合测试；测试结果不得混成全套GREEN。仅用既有消息协调时段，无并行性能探针。B诊断曾误用showlocals带出继承环境，B已清理其诊断行，不再使用或转发，root不继续读取该类原始环境诊断。
+
+唯一集成 Worker 待三轨精确远端最终 tip/停止后恢复原会话。其可接线旧 tests/test_app_actions.py、tests/test_main_startup.py、tests/test_companion_integration.py 的 AccountMonitor stub，以防默认真实余额/Orca访问；保留旧断言与heartbeat150ms/stop50ms/四入口/单writer。新 tests/test_dual_pet_quota_integration.py 应真实 Qt+AgentMonitor+AccountMonitor、顶层可pickle受控源，验三个read worker的有限回收以及一个usage writer；各域问题退原 Worker。root按最终联合结果再FF/审原生图/真实只读额度/单实例启动，不以当前分轨结果声明组合完成。
