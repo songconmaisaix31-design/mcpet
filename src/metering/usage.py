@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -33,9 +33,6 @@ from .pricing import PricingTable, cost_usd, load_pricing
 STATE_SCHEMA = 1
 DEFAULT_WINDOW_HOURS = 5.0          # 厂商限流主窗口
 DAILY_KEEP_DAYS = 95                # 与 LLMPET 一致
-# 去重记录保留期。只服务「同一轮内的流式修正」，跨天就没有意义了；
-# 保留 3 天是给跨天仍在跑的长任务留余量。
-RECORD_KEEP_DAYS = 3
 
 
 def _now() -> float:
@@ -70,8 +67,12 @@ class ScanResult:
     truncated: int = 0
     elapsed_ms: int = 0
     providers: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    cancelled: bool = False
 
     def describe(self) -> str:
+        if self.errors:
+            return "UNKNOWN：" + "；".join(self.errors)
         if not self.providers:
             return "没有可用的数据源"
         return (
@@ -97,6 +98,11 @@ class UsageSnapshot:
     unknown_models: list[str] = field(default_factory=list)
     pricing_source: str = "内置"
     sources: list[str] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+
+    @property
+    def status(self) -> str:
+        return "KNOWN" if self.has_data and self.sources and not self.errors else "UNKNOWN"
 
     @property
     def has_data(self) -> bool:
@@ -104,7 +110,7 @@ class UsageSnapshot:
 
 
 class UsageMeter:
-    """增量用量台账。线程内使用，不做并发保护（桌宠是单线程定时器驱动）。"""
+    """增量用量台账。单一 owner 使用；AgentMonitor 中由唯一用量进程持有。"""
 
     def __init__(
         self,
@@ -136,6 +142,7 @@ class UsageMeter:
         #   unknown   —— 连家族都没命中，落到 default，只能当数量级参考
         self._estimated: set[str] = set()
         self._unknown: set[str] = set()
+        self._errors: list[str] = []
 
         self._load()
 
@@ -143,10 +150,12 @@ class UsageMeter:
     def _load(self) -> None:
         try:
             raw = json.loads(self.state_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
+        except FileNotFoundError:
             return
+        except (OSError, ValueError) as exc:
+            raise RuntimeError("用量台账读取失败，保留原文件") from exc
         if not isinstance(raw, dict) or raw.get("schemaVersion") != STATE_SCHEMA:
-            return
+            raise RuntimeError("用量台账结构或版本未知，保留原文件")
         self.cursors = _int_map(raw.get("cursors"))
         self.records = _record_map(raw.get("records"))
         self.daily = _day_map(raw.get("daily"))
@@ -166,6 +175,12 @@ class UsageMeter:
         diag = raw.get("diagnostics")
         if isinstance(diag, dict):
             self.diagnostics.update(diag)
+        self._estimated.update(raw.get("estimatedModels", []))
+        self._unknown.update(raw.get("unknownModels", []))
+        # Older state files did not persist confidence. Recover conservatively.
+        for models in self.by_model_by_day.values():
+            for model in models:
+                self._remember_confidence(model)
 
     def _save(self) -> None:
         payload = {
@@ -179,48 +194,58 @@ class UsageMeter:
             "recent": self.recent,
             "carried": self.carried,
             "diagnostics": self.diagnostics,
+            "estimatedModels": sorted(self._estimated),
+            "unknownModels": sorted(self._unknown),
         }
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.state_path.with_suffix(".tmp")
         try:
-            tmp.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+            with tmp.open("w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False)
             os.replace(tmp, self.state_path)
         except OSError:
             try:
                 tmp.unlink()
             except OSError:
                 pass
+            raise
 
     # ------------------------------------------------------------ 扫描
-    def scan(self, *, persist: bool = True) -> ScanResult:
+    def scan(self, *, persist: bool = True, cancelled: Callable[[], bool] | None = None) -> ScanResult:
         started = time.perf_counter()
         result = ScanResult()
         now = _now()
+        seen_files: set[str] = set()
 
         for provider in self.providers:
             result.providers.append(provider.id)
             try:
-                batches = list(provider.iter_usage(self.cursors))
-            except Exception:  # provider 崩了不该拖垮整个台账
-                continue
-            for batch in batches:
-                result.files += 1
-                if batch.truncated:
-                    result.truncated += 1
-                    self._drop_records_for_file(batch.path)
-                for record in batch.records:
-                    delta, corrected = self._absorb(record, now)
-                    if corrected:
-                        result.corrections += 1
-                    # 注意用 any(delta.values()) 而不是 `if not delta`：
-                    # delta 是固定四个键的字典，全零时它仍然「非空」，
-                    # 用 `not delta` 会把没增长的记录也计进 records。
-                    if not any(delta.values()):
-                        continue
-                    result.records += 1
-                    self._accumulate(record, delta, now)
-                # 偏移最后写：先记账再推进，中途崩溃最多重放，不会漏
-                self.cursors[batch.path] = batch.offset
+                for batch in provider.iter_usage(self.cursors):
+                    if cancelled and cancelled():
+                        result.cancelled = True
+                        break
+                    seen_files.add(batch.path)
+                    if batch.truncated:
+                        result.truncated += 1
+                        self._drop_records_for_file(batch.path)
+                    for record in batch.records:
+                        delta, corrected = self._absorb(record, now)
+                        if corrected:
+                            result.corrections += 1
+                        if not any(delta.values()):
+                            continue
+                        result.records += 1
+                        self._accumulate(record, delta, now)
+                    self.cursors[batch.path] = batch.offset
+            except Exception as exc:
+                result.errors.append(f"{provider.id}: {type(exc).__name__}: {exc}")
+            if result.cancelled:
+                break
+
+        result.files = len(seen_files)
+        self._errors = list(result.errors)
+        if result.errors:
+            self.diagnostics.setdefault("firstFailure", result.errors[0])
 
         self._prune(now)
         result.elapsed_ms = int((time.perf_counter() - started) * 1000)
@@ -253,16 +278,20 @@ class UsageMeter:
                 delta[name] = 0
         return delta, corrected
 
-    def _accumulate(self, record: UsageRecord, delta: dict[str, int], now: float) -> None:
-        row, exact = self.pricing.row_for(record.model)
-        if not exact and record.model:
+    def _remember_confidence(self, model: str) -> None:
+        _, exact = self.pricing.row_for(model)
+        if not exact:
             # 精确行没命中，再看是「家族估算」还是「完全未知」
             from .pricing import family_for
 
-            if family_for(record.model) == "default":
-                self._unknown.add(record.model)
+            if family_for(model) == "default":
+                self._unknown.add(model or "unknown")
             else:
-                self._estimated.add(record.model)
+                self._estimated.add(model)
+
+    def _accumulate(self, record: UsageRecord, delta: dict[str, int], now: float) -> None:
+        row, _ = self.pricing.row_for(record.model)
+        self._remember_confidence(record.model)
 
         cost = cost_usd(
             row,
@@ -309,9 +338,8 @@ class UsageMeter:
         window_start = now - self.window_hours * 3600
         self.recent = [row for row in self.recent if row[0] >= window_start]
 
-        record_cutoff = now - RECORD_KEEP_DAYS * 86400
-        for key in [k for k, v in self.records.items() if float(v.get("_ts", 0)) < record_cutoff]:
-            self.records.pop(key, None)
+        # Stable message keys must survive retention: an old message may be
+        # copied to another log or corrected later. Cursors alone cannot dedup it.
 
         # 日粒度超期 → 滚进 carried，终生口径因此不会因为清理而变小
         cutoff_day = day_key(now - DAILY_KEEP_DAYS * 86400)
@@ -361,6 +389,7 @@ class UsageMeter:
             unknown_models=sorted(self._unknown),
             pricing_source=self.pricing.source,
             sources=[p.id for p in self.providers],
+            errors=list(self._errors),
         )
 
     # 外推的最小观测时长。只有 1 分钟数据就线性外推到 5 小时，会得到
@@ -379,7 +408,7 @@ class UsageMeter:
         now = _now()
         elapsed = max(0.0, now - snapshot.window_started)
         window_seconds = self.window_hours * 3600
-        sample_ok = elapsed >= self.MIN_PROJECTION_SECONDS
+        sample_ok = snapshot.window.tokens > 0 and not snapshot.errors and elapsed >= self.MIN_PROJECTION_SECONDS
         basis = max(self.MIN_PROJECTION_SECONDS, elapsed)
         rate = snapshot.window.tokens / basis
         projected = rate * window_seconds

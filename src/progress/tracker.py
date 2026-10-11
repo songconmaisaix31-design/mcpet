@@ -68,6 +68,11 @@ class ProgressSnapshot:
     live_processes: dict[str, int] = field(default_factory=dict)
     sampled_at: float = 0.0
     process_sampling: bool = False
+    errors: list[str] = field(default_factory=list)
+
+    @property
+    def status(self) -> str:
+        return "KNOWN" if self.has_data and not self.errors else "UNKNOWN"
 
     @property
     def active(self) -> list[SessionProgress]:
@@ -147,11 +152,13 @@ class ProgressTracker:
 
         by_session: dict[tuple[str, str], ProgressRecord] = {}
         sources: list[str] = []
+        errors: list[str] = []
         for provider in self.providers:
             sources.append(provider.id)
             try:
                 records = list(provider.iter_progress())
-            except Exception:
+            except Exception as exc:
+                errors.append(f"{provider.id}: {type(exc).__name__}: {exc}")
                 continue
             for record in records:
                 key = (record.source, record.session_id)
@@ -180,4 +187,5 @@ class ProgressTracker:
             live_processes=live,
             sampled_at=moment,
             process_sampling=self.watch_processes,
+            errors=errors,
         )

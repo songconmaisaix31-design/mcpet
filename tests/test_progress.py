@@ -209,3 +209,17 @@ def test_report_lists_sessions_with_source_and_state():
     assert "干活中" in text
     assert "50%" in text
     assert "滞后" in text        # 必须说明这是日志推导，不是实时推送
+
+
+def test_provider_failure_explicit_unknown():
+    snapshot = ProgressTracker([BrokenProvider("bad", [])]).snapshot()
+    assert snapshot.status == "UNKNOWN"
+    assert snapshot.errors == ["bad: RuntimeError: provider 挂了"]
+
+
+def test_stale_work_unknown_not_completed():
+    now = time.time()
+    snapshot = ProgressTracker([FakeProvider("a", [rec("a", "s", now - 7200, state="working")])]).snapshot(now=now)
+    assert snapshot.sessions[0].record.state == "working"
+    assert snapshot.sessions[0].record.completed_at == 0
+    assert "UNKNOWN" in bubble(snapshot)

@@ -74,7 +74,9 @@ def build_meter(
     """
     from ..config import usage_window_hours
 
-    resolved = roots or resolve_roots()
+    from ..config import agent_config_path
+
+    resolved = roots or resolve_roots(config_path=agent_config_path())
     providers = build_providers(resolved)
     override = pricing_override if pricing_override is not None else default_pricing_override()
     return UsageMeter(

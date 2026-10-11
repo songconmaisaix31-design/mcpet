@@ -40,7 +40,7 @@ def reminder_level(snapshot: UsageSnapshot, projected: float) -> str:
     阈值是**本机经验值**，不是厂商配额——所以档位只用于「要不要提一句」，
     不用来宣称「你还能用多少」。
     """
-    if not snapshot.has_data:
+    if not snapshot.has_data or snapshot.errors:
         return "unknown"
     if snapshot.window.calls == 0:
         return "idle"
@@ -54,7 +54,9 @@ def reminder_level(snapshot: UsageSnapshot, projected: float) -> str:
 def bubble(snapshot: UsageSnapshot, projected: float, sample_ok: bool) -> str:
     """桌宠气泡：一句话。没有数据时如实说没有，不编。"""
     if not snapshot.has_data:
-        return "还没读到任何 Agent 的用量。"
+        return "UNKNOWN：还没读到任何 Agent 的用量。"
+    if snapshot.errors:
+        return "UNKNOWN：用量读取失败，现有台账不代表当前完整用量。"
     if snapshot.window.calls == 0:
         return (
             f"近 {snapshot.window_hours:g} 小时没动过。"
@@ -128,6 +130,8 @@ def report(
     """完整报告。CLI 与详情面板共用。"""
     lines: list[str] = []
     lines.append(f"数据源：{', '.join(snapshot.sources) or '无可用数据源'}")
+    lines.append(f"观测状态：{snapshot.status}")
+    lines.extend(f"读取失败：{error}" for error in snapshot.errors)
     lines.append("")
 
     lines.extend(_totals_lines(f"近 {snapshot.window_hours:g} 小时（滚动窗口）", snapshot.window))
@@ -174,5 +178,6 @@ def report(
         lines.append(f"    未识别模型（已按默认单价兜底）：{shown}{more}")
     lines.append("")
     lines.append("口径说明：以上是本机日志的 token 台账，**不等于厂商账单**。")
+    lines.append("    历史用量不是厂商账号余额，也不能推导剩余配额。")
     lines.append("    仅统计本机留存日志覆盖的范围；日志被清理的部分不在此列。")
     return "\n".join(lines)
