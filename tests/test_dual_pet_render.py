@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 import pytest
-from PySide6.QtCore import QEvent, QPoint, QPointF, Qt
+from PySide6.QtCore import QEvent, QPoint, QPointF, Qt, QTimer
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
@@ -218,6 +218,22 @@ def test_saved_current_character_reuses_supplied_sheet_without_reload(pet, monke
         assert not restored.canvas.pixmap().isNull()
     finally:
         restored.close()
+
+
+def test_switch_with_same_cadence_preserves_live_timer_and_advances_in_callback(pet):
+    pet.set_activity("working")
+    before_deadline, before_timer = pet._next_frame, pet._anim.timerId()
+    observed = []
+    def click():
+        pet.set_character("deepseek")
+        observed.append((pet._next_frame, pet._anim.timerId()))
+        before = pet._index
+        QTest.qWait(110)  # Existing native combination's actual nested timer path.
+        observed.append(pet._index != before)
+    QTimer.singleShot(0, click)
+    QTest.qWait(180)
+    assert observed[0] == (before_deadline, before_timer)
+    assert observed[1]
 
 
 def native_probe():

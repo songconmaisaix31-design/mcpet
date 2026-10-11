@@ -7,6 +7,8 @@ import hashlib
 import json
 import subprocess
 import sys
+import struct
+import zlib
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -22,6 +24,32 @@ CLIPS = {
 UPSTREAM_SHA = "92662190cdd4dee05e38a5151584cc6254cd7a43"
 SIZE = 192
 COLUMNS = 12
+
+
+def write_runtime_png(path, image):
+    """RGBA PNG, filter zero, fast deflate. Avoid costly row unfiltering at load.
+
+    PNG chunks/CRC are the standard file format, not additional cache metadata.
+    """
+    rgba = image.convertToFormat(QImage.Format_RGBA8888)
+    data, stride = bytes(rgba.constBits()), rgba.bytesPerLine()
+    raw = b"".join(b"\0" + data[y * stride:y * stride + rgba.width() * 4]
+                   for y in range(rgba.height()))
+    def chunk(kind, payload):
+        return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload))
+    path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR",struct.pack(">IIBBBBB",rgba.width(),rgba.height(),8,6,0,0,0))
+                     + chunk(b"IDAT",zlib.compress(raw,1)) + chunk(b"IEND",b""))
+    if QImage(str(path)).convertToFormat(QImage.Format_RGBA8888) != rgba:
+        raise RuntimeError("runtime PNG pixels changed")
+
+
+def maimai_cache():
+    directory = Path(__file__).resolve().parent.parent / "longniang"
+    image = QImage(str(directory / "spritesheet.webp"))
+    if image.isNull() or not image.hasAlphaChannel():
+        raise RuntimeError("invalid original maimai atlas")
+    write_runtime_png(directory / "spritesheet-runtime.png", image)
+    print(json.dumps({"same_pixels": True, "bytes": (directory / "spritesheet-runtime.png").stat().st_size}))
 
 
 def write_pages(destination, state, atlas, count):
@@ -165,4 +193,9 @@ def main():
 
 
 if __name__ == "__main__":
-    repack() if sys.argv[1:2] == ["--repack"] else main()
+    if sys.argv[1:2] == ["--maimai"]:
+        maimai_cache()
+    elif sys.argv[1:2] == ["--repack"]:
+        repack()
+    else:
+        main()

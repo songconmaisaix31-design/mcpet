@@ -121,3 +121,21 @@ def test_alpha_validation_keeps_sampling_threshold_and_empty_cell_semantics():
     image.setPixelColor(17, 1, QColor(10, 20, 30, 255))  # Off the existing 4px sample grid.
     sheet = SpriteSheet(image, 3, 1, 8, 8, row_of={"idle": 0}, frames_by_row={0: 3})
     assert sheet._empty_cells() == ["idle#0", "idle#2"]
+
+
+def test_maimai_runtime_cache_is_all_same_pixels_and_is_the_loaded_source(monkeypatch):
+    directory = Path(__file__).resolve().parents[1] / "assets/longniang"
+    source = QImage(str(directory / "spritesheet.webp")).convertToFormat(QImage.Format_RGBA8888)
+    runtime = QImage(str(directory / "spritesheet-runtime.png")).convertToFormat(QImage.Format_RGBA8888)
+    assert not runtime.isNull() and runtime.hasAlphaChannel()
+    assert runtime.size() == source.size()
+    assert bytes(runtime.constBits()) == bytes(source.constBits())
+    loaded = []
+    original = SpriteSheet.load
+    def load(cls, image_path, **kwargs):
+        loaded.append(Path(image_path).name)
+        return original(image_path, **kwargs)
+    monkeypatch.setattr(SpriteSheet, "load", classmethod(load))
+    sheet = load_character("maimai")
+    assert loaded == ["spritesheet-runtime.png"]
+    assert sheet.image.convertToFormat(QImage.Format_RGBA8888) == source

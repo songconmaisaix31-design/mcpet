@@ -20,7 +20,8 @@ def load_character(character_id: str) -> SpriteSheet:
         return AnimationSheet(ASSETS / "dsh-deepseek")
     directory = ASSETS / "longniang"
     try:
-        sheet = SpriteSheet.load(directory / "spritesheet.webp", pet_json=directory / "pet.json",
+        runtime = directory / "spritesheet-runtime.png"
+        sheet = SpriteSheet.load(runtime if runtime.exists() else directory / "spritesheet.webp", pet_json=directory / "pet.json",
                                  rows_json=directory / "sprite-rows.json")
         if getattr(sheet, "validation_issues", None):
             raise SpriteLoadError("麦麦图集校验失败")

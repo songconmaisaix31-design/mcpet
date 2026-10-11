@@ -218,15 +218,21 @@ class PetWindow(QWidget):
         presented = frames[index]
         if presented.isNull():
             raise SpriteLoadError("角色动作为空")
+        delay = resolve_frame_delay(sheet)
+        preserve_clock = self._anim.isActive() and delay == self._frame_delay_ms
         self._index = index
         self.sheet, self._character_id = sheet, character_id
-        self._frame_delay_ms = resolve_frame_delay(sheet)
+        self._frame_delay_ms = delay
         self._cache = {self.machine.state: frames}
         self._visual_cache = {key: frames}
         self._visual_key, self._current_state, self._frames = key, self.machine.state, frames
         self.canvas.setPixmap(presented)
-        self._next_frame = time.monotonic() + self._frame_delay_ms / 1000
-        if self.isVisible():
+        # Character selection preserves the current cadence too. Restarting an
+        # active timer with the same interval postpones its next frame, and on
+        # Windows can prevent delivery inside the current Qt timer callback.
+        if not preserve_clock:
+            self._next_frame = time.monotonic() + self._frame_delay_ms / 1000
+        if self.isVisible() and not preserve_clock:
             self._anim.start(self._frame_delay_ms)
         self._save_preferences()
 
