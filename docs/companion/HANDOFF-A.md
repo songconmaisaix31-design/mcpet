@@ -1,5 +1,55 @@
 # 轨 A：画面与本机宠物行为交接
 
+## 原轨返修：用户交互优先于前台 TTL（2026-10-12）
+
+- 继续原 worktree / 分支 `songconmaisaix31-design/mcpet-pet-20261011`；返修起点 `5c96e7846f9ca06700938f98f826ea1a17c5285f`。
+- 返修实现及回归 Commit：**`835df319613517d1dc7c6b8782a3f9a6f0385173`**。可合并最终 tip 为本分支包含本节的文档提交，使用 `git log -1 --format=%H -- docs/companion/HANDOFF-A.md` / `git rev-parse HEAD` 查到完整 SHA；通知主 Agent 与集成者时提供该完整最终 tip。普通 merge 整条 A 分支，不 cherry-pick 单一测试，不合并其他轨到 A。
+- 本次仅修改 A 域 `states.py`、`window.py`、`bench_render.py`、三个原 A 测试文件和本文。联合测试仅只读，未在集成 worktree 写入或执行 merge。
+
+### 首失败与修复规则
+
+用户提供的联合测试 `C:/Users/DW/orca/workspaces/mcpet/mcpet-companion-integration-20261011/tests/test_companion_integration.py:227` 首失败 **1 failed / 5.18s**，诊断复跑 **1 failed / 5.03s**：单击触摸 → 双击聊天 → 关闭/重开 → 按下移动 40px 时，预期 run-right，实际 greet。用户确认联合测试前面的真实 Qt / 真实 AgentMonitor start、working、usage、completion 已通过；这是集成者提供的证据，本轨未重跑或冒领整个联合验收。
+
+原 A 只在 mouseMove 中调用普通 set_state(run-right)，其优先级低于 touch 的 greet；显式休息也只修改基态，会被现存前台 TTL 阻挡。新增真实 Qt 手势回归后，本轨首次 **9 failed / 14 deselected / 1.25s，exit 1**：
+
+- `test_touch_chat_reopen_then_drag_before_touch_ttl` 同样复现实际 greet 而非 run-right；没有等触摸 TTL，只等待系统单击/双击判定窗口。
+- `test_explicit_drag_and_rest_override_foreground_without_renewal` 的 greet/happy/coupon/progress/remind/error/waiting 七个参数均阻挡显式拖拽。
+- `test_rest_wake_and_drag_keep_latest_base_when_touch_expires` 在触摸 TTL 内开启休息，实际仍 greet 而非 sleeping。
+
+修复采用独立用户交互状态：**达到阈值的拖拽 > 显式休息 > 未到期前台事件 > 最新后台基态**。没有提高普通 run 状态的全局优先级，没有仅清 greet：
+
+- `PetStateMachine.state` 显示交互状态，普通事件继续在内部按原优先级聚合；`set_interaction` 保留通知及其原截止时间，不续期。低优先 set_state 依然不能取消或续期高优先通知，原回归继续通过。
+- 达到拖拽阈值后立即呈现跑动；后台巡检、事件到期、甚至新通知都不能改掉正在进行的手势。释放后恢复显式休息，或恢复仍未到期的前台事件；过期事件不复活，恢复最近后台基态。1px 抖动和真实反向规则保持不变。
+- set_resting(True) 立即 sleeping，取消尚未判定的单击并隐藏当前气泡；后台仍更新基态，不能唤醒。休息期间可拖拽，释放后继续 sleeping。set_resting(False) 解除交互状态，恢复尚未到期的通知或最新基态；通知原 TTL 不变。原 A/C 公共接口签名保持不变。
+- 添加真实 atlas 回归，断言拖拽加载 run-right 行、canvas 内容正确、后台刷新和 1px 反向不归零帧号；增加休息/唤醒、事件在手势中到期、等待事件在休息中 clear、低于阈值不取消触摸、待判单击被显式休息取消的断言。
+
+### 本次验证
+
+```powershell
+$petPython = 'C:/Users/DW/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe'
+$env:QT_QPA_PLATFORM = 'windows'
+$env:PYTHONIOENCODING = 'utf-8'
+$env:MCPET_DATA_DIR = Join-Path $env:TEMP 'mcpet-A-repair-targeted-20261011'
+& $petPython -m pytest tests/test_pet_behavior.py tests/test_states.py tests/test_window_render.py tests/test_spritesheet.py -q
+$env:MCPET_DATA_DIR = Join-Path $env:TEMP 'mcpet-A-repair-full-20261011'
+& $petPython -m pytest -q
+& $petPython -m compileall -q src/pet/window.py src/pet/states.py scripts/bench_render.py tests/test_pet_behavior.py tests/test_states.py tests/test_window_render.py
+git diff --check
+$env:MCPET_DATA_DIR = Join-Path $env:TEMP 'mcpet-A-repair-bench-20261011'
+& $petPython scripts/bench_render.py 10
+```
+
+- 返修第一批定向：**62 passed / 6.09s，exit 0**；再补三项真实帧/休息/事件状态回归后，完整原 A 分支：**237 passed / 8.43s，exit 0，无 skip、无 warning**。
+- compileall、git diff --check：exit 0。
+- 真实 Windows bench：**DPR 1.5；10s 125 帧、12.5fps、平均/中位 80.0ms、78.8..81.1ms、标准差 0.5ms、0 卡顿，exit 0**。本次基准明确从尚未过期的 greet 开始拖拽：120 个 Qt mouseMove、1px 反向和后台刷新仍仅 `['run-right']`，8/8 帧推进、0 误点击，0.20ms/事件。
+- 未读 .env / 凭证，未请求网络模型/MCP或账号写操作；本机测试数据全部隔离。只执行授权的 Git push 和本机 Orca 通知。
+
+### 集成者下一步与边界
+
+主/root `term_0dcc55fd-ccc4-4567-be46-3d441ca0ec24` 和集成者 `term_d599456d-aadb-4268-8d9c-f26901b8cf3f` 收到最终 tip 后，在唯一集成 worktree 普通 merge A 新 tip，并重跑未提交的联合测试。首失败保留，新的 green 是另外一条证据。**本轨未运行联合测试、不宣称整体验收 green**；物理多屏/休眠/主观观感等原有限制仍有效。下方首轮交接中 C 接线问题是当时的基线事实，本次不核定其他轨当前解决情况。
+
+---
+
 日期：2026-10-11。唯一 Worker，在 `C:/Users/DW/orca/workspaces/mcpet/mcpet-pet-20261011` 完成；未派发其他 Agent，未做集成。
 
 - 分支：`songconmaisaix31-design/mcpet-pet-20261011`
