@@ -28,6 +28,13 @@ README 中的书面授权说明截图，存放于本目录。
 
 ## 3. 代码参考
 
+### 新增角色：DeepSeek 娘 `assets/dsh-deepseek/`
+
+- 用户指定来源：[PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet)，固定上游 SHA `92662190cdd4dee05e38a5151584cc6254cd7a43`。
+- 上游随仓库提供 **MIT**，版权 `Copyright (c) 2026 PC2005-cloud`；完整许可证随素材保留于 `assets/dsh-deepseek/LICENSE`。未另行声称作者身份或官方品牌授权。
+- 仅复用九个必要透明 WebM 动作，离线转成现有 PySide6 播放的无损固定格 WebP 缓存；右跑由左跑镜像。未安装/运行 DSH 插件或复制聊天/模型/账号实现。
+- 原文件、SHA256、规格、alpha/固定裁框、工具与复现步骤见 `assets/dsh-deepseek/manifest.json` 和 `SOURCE.md`。该角色由用户选择切换，麦麦仍复用既有 longniang 授权素材。
+
 | 对象 | 借鉴了什么 | 处理方式 |
 |---|---|---|
 | `kmjs1915/CeTaPet-AI-DeskTopPet-DeepSeek` | 托盘常驻 + 状态机 + 气泡 + 拖拽的**架构** | 代码为本项目重写（Python / PySide6），未复制其源码文件 |

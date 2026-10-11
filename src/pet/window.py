@@ -18,6 +18,8 @@ from .spritesheet import SpriteSheet
 from .states import PetStateMachine
 from .behavior import RoamingBehavior, clamp_position
 from .preferences import PetPreferences
+from .characters import CHARACTER_IDS, load_character
+from .spritesheet import SpriteLoadError
 
 DEFAULT_SIZE = 180
 DEFAULT_FRAME_DELAY_MS = 80
@@ -96,6 +98,14 @@ class PetWindow(QWidget):
         self._activity_state = "idle"
         self._preferences = PetPreferences()
         saved = self._preferences.load()
+        self._character_id = (sheet.meta.get("character_id", "maimai") if sheet else "maimai")
+        if saved.get("character_id") in CHARACTER_IDS:
+            try:
+                sheet = load_character(saved["character_id"])
+                self._character_id = saved["character_id"]
+            except SpriteLoadError:
+                self._preferences.error = "无法恢复角色，使用默认素材"
+        self._frame_delay_ms = resolve_frame_delay(sheet)
         self.roaming_enabled = saved.get("roaming") is True
         self.resting = saved.get("resting") is True
         self._behavior = RoamingBehavior()
@@ -186,6 +196,42 @@ class PetWindow(QWidget):
 
     # ---------- 素材 ----------
 
+    @property
+    def character_id(self) -> str:
+        return self._character_id
+
+    def set_character(self, character_id: str) -> None:
+        if character_id == self.character_id and self.sheet is not None:
+            return
+        sheet = load_character(character_id)
+        # Prepare real current-state frames before changing any visible or saved
+        # state, so a broken asset leaves the previous character fully usable.
+        key = (sheet.row_for(self.machine.state), sheet.frame_count(self.machine.state),
+               self.pet_size, self.devicePixelRatioF())
+        frames = self._scaled_frames(sheet, self.machine.state, key[3])
+        if not frames or any(frame.isNull() for frame in frames):
+            raise SpriteLoadError("角色动作为空")
+        old_count = max(1, len(self._frames))
+        self._index = (self._index * len(frames) // old_count) % len(frames)
+        self.sheet, self._character_id = sheet, character_id
+        self._frame_delay_ms = resolve_frame_delay(sheet)
+        self._cache = {self.machine.state: frames}
+        self._visual_cache = {key: frames}
+        self._visual_key, self._current_state, self._frames = key, self.machine.state, frames
+        self.canvas.setPixmap(frames[self._index])
+        self._next_frame = time.monotonic() + self._frame_delay_ms / 1000
+        if self.isVisible():
+            self._anim.start(self._frame_delay_ms)
+        self._save_preferences()
+
+    def _scaled_frames(self, sheet: SpriteSheet, state: str, dpr: float) -> list[QPixmap]:
+        frames = [frame.scaled(round(self.pet_size * dpr), round(self.pet_size * dpr),
+                               Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                  for frame in sheet.frames(state)]
+        for frame in frames:
+            frame.setDevicePixelRatio(dpr)
+        return frames
+
     def set_spritesheet(self, sheet: SpriteSheet) -> None:
         self.sheet = sheet
         self._frame_delay_ms = resolve_frame_delay(sheet)
@@ -193,7 +239,8 @@ class PetWindow(QWidget):
         self._visual_cache.clear()
         self._visual_key = None
         self._current_state = None
-        self.set_state(self.machine.state, force=True)
+        self._character_id = sheet.meta.get("character_id", "maimai")
+        self._load_frames(self.machine.state, force=True)
 
     def _render_placeholder(self) -> None:
         """没有素材时的兜底：一张透明底，保证程序不崩。"""
@@ -224,19 +271,18 @@ class PetWindow(QWidget):
         frames = self._visual_cache.get(key)
         if frames is None:
             try:
-                frames = [
-                    frame.scaled(
-                        round(self.pet_size * key[3]),
-                        round(self.pet_size * key[3]),
-                        Qt.KeepAspectRatio,
-                        Qt.SmoothTransformation,
-                    )
-                    for frame in self.sheet.frames(state)
-                ]
-                for frame in frames:
-                    frame.setDevicePixelRatio(key[3])
+                frames = self._scaled_frames(self.sheet, state, key[3])
             except (ValueError, RuntimeError):
                 frames = []
+            self._visual_cache[key] = frames
+            # Two sequences bound decoded/scaled memory, including DPR changes.
+            while len(self._visual_cache) > 2:
+                oldest = next(iter(self._visual_cache))
+                del self._visual_cache[oldest]
+            retained = {id(value) for value in self._visual_cache.values()}
+            self._cache = {name: value for name, value in self._cache.items() if id(value) in retained}
+        else:
+            self._visual_cache.pop(key)
             self._visual_cache[key] = frames
         self._cache[state] = frames
 
@@ -382,7 +428,8 @@ class PetWindow(QWidget):
         area = screen.availableGeometry()
         self._preferences.save({"position": [self.x(), self.y()], "screen": screen.name(),
                                 "available_geometry": [area.x(), area.y(), area.width(), area.height()],
-                                "roaming": self.roaming_enabled, "resting": self.resting})
+                                "roaming": self.roaming_enabled, "resting": self.resting,
+                                "character_id": self.character_id})
 
     def moveEvent(self, event):  # noqa: N802
         super().moveEvent(event)
