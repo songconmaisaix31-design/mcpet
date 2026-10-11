@@ -23,6 +23,12 @@ STATE_PRIORITY: dict[str, int] = {
     "happy": 2,
     "greet": 2,
     "idle": 1,
+    # 拖拽中的跑动。故意与 idle 同优先级：pick_state 用的是 `>=`，
+    # 同优先级即「后设置的赢」——拖拽时能切进跑动，松手 set_state("idle") 又能切回来。
+    # （之前这里漏了这两项，默认优先级 0 < idle 的 1，导致拖拽时状态永远切不过去，
+    #   宠物一直播待机动画，看起来就是「拖动时画面不动」。）
+    "run-right": 1,
+    "run-left": 1,
     "sleeping": 0,
 }
 
