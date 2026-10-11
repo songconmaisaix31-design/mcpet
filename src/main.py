@@ -23,7 +23,7 @@ from .mcd_mcp.guards import OrderGuard, OrderAuditEntry
 from .mcd_mcp.skill import validate_arguments
 from .mcd_mcp import tools as T
 from .nutrition.ledger import NutritionLedger
-from .pet.dialogs import OrderConfirmDialog, NutritionSelectDialog, CompanionPanel
+from .pet.dialogs import OrderConfirmDialog, NutritionSelectDialog, CompanionPanel, character_preview
 from .pet.spritesheet import SpriteLoadError, SpriteSheet
 from .pet.tray import PetTray
 from .pet.window import PetWindow
@@ -280,7 +280,7 @@ class MonsterApp(QObject):
 
     def _icon(self):
         if hasattr(self, "window") and hasattr(self.window, "character_id") and self.sheet:
-            return QIcon(self.sheet.frame("idle", 0))
+            return QIcon(character_preview(self.sheet))
         icon = config.PROJECT_ROOT / "assets" / "icon.png"
         if icon.exists():
             return QIcon(str(icon))
@@ -532,7 +532,6 @@ class MonsterApp(QObject):
             return
         if self.account_monitor:
             self.account_refreshing = True
-            self.account_error = ""
             self._render_accounts()
             self.account_monitor.refresh()
         else:
