@@ -221,3 +221,120 @@ git diff --check
   精确核对并发送root，不在文件内伪造自身commit hash。
 - 测试已有限结束，最终仅允许唯一集成 Worker 普通merge；remaining heartbeat RED待组合后
   如仍复现退回原C。真实账号/用户GUI验收未执行，主轨负责。
+
+## 2026-10-12 冷显示 / 配额刷新领域返修 basis
+
+本节追加历史，不覆盖以上首次 RED。原 WT/branch 未重建，先确认干净，从
+`1b2b08ed0dcd5790a11a14d70bc1fbf8d1d83488` fetch 后 FF 已发布集成 checkpoint
+`bf5ff01ca8de33ad417eb7fd1cacd64030177d5b`，完整读其 `HANDOFF-INTEGRATION-QUOTA.md`。
+本 basis 因该 FF 已包含 A/B；C 没有合并其他轨或改动其领域。
+本轮代码提交 **`876ae0c8632ded4b172dfac35be5184ad1295bda`**，只改
+`src/main.py`、`src/pet/dialogs.py`、`tests/test_quota_panel.py`。
+本追加另作文档提交；最终 tip 由 push 后独立 ls-remote 核对，不在文件内写自身 SHA。
+
+### 已实施的 C 修复与契约
+
+- 同一冻结 snapshot 的刷新/重开只更新状态文字和倒计时，不删除再建所有账号行。
+  新 snapshot 若 provider/桶数/金额行数相同，则原位更新来源名称、状态/错误说明、
+  时间戳、桶名称/值/UNKNOWN/警示颜色、reset、精确 Decimal/币种、stale 提示。
+  结构改变仍重建；换 key 的 main 路径仍把 account_snapshot 清为 None，立即隐藏并
+  deleteLater 旧卡片，仅显示等待查询，不冒用旧余额。保留真实源每次发布。
+- 同一角色 `_sync_panel` 不重复 setStyleSheet；选择按钮状态仍重新同步，以保留失败回滚。
+- `character_preview(sheet)` 对 A 的 AnimationSheet 读取已有公开 `image`（原始 idle 首帧），
+  转 QPixmap 给原托盘和 88px 预览；普通 SpriteSheet 保留 frame('idle',0)。没有额外 decode、
+  预热、atlas 缓存或 A 文件改动，避免 C 在工作动画和 idle atlas 之间触发淘汰/重载。
+  自域回归验证真实 QImage/QPixmap 显示及不调用 frame、不改变活动 atlas；不是模型/账号证据。
+- 查询失败后的刷新保留原错误/过时标记并立即显示“刷新中”，只有新 snapshot 成功才恢复正常。
+  B AccountMonitor 同对象 reconfigure/refresh/singleflight 契约保持；没有第二个 monitor。
+- 没有改 action_panel 的同步 showNormal/show/raise_/activateWindow，非 Windows 路径保持。
+  没有延后激活/heartbeat、等待 TTL、删旧断言、改预算、操作其他用户 GUI 或全局系统设置。
+
+### 冷进程对照：发现与未解决项
+
+唯一证据根：`C:/Users/DW/AppData/Local/Temp/mcpet-c-perf-1791754262774`。
+`cold_baseline.py` 每个 case 为独立进程，空 QDialog 和面板同 700×720/最小560、同字体、
+真实 Windows DPR1.5；heartbeat 在创建/显示前开始，计入构造/原生窗口创建/激活/最小化。
+不含监控或账号联网。日志分别保留；这些是诊断，不是原联合 GREEN。
+
+| 日志 | 原始样本 ms / 结论边界 |
+|---|---|
+| cold-bare.log | 空窗口 construct0.23 / show336.71 / minimize64.03 / heartbeat555.35。面板/账号不是该空窗口阻塞的必要条件。 |
+| cold-panel.log | 面板 construct62.95 / show309.60 / minimize85.23 / heartbeat571.23；Expose70.38。不能据此排除面板成本。 |
+| cold-frameless.log、cold-no-shadow.log、cold-custom.log | show295.85 /310.71 /392.11，均未解决；未采用这些样式改动。 |
+| cold-no-activate.log | show78.49，Qt activateWindow249.95，heartbeat571.46；成本移动，不是可删激活的证据。 |
+| cold-native-activate.log / cold-native-activate-detail.log | 首整段原生激活236.04；细分 SetForegroundWindow156.03，own_foreground=true，heartbeat399.10。仍超过原门槛。 |
+| cold-native-local.log | SetActiveWindow269.37，随后 SetFocus0.55 / SetForegroundWindow0.35，heartbeat721.13。成本跟随首次激活。 |
+| cold-native-wndproc.log | 仅 subclass 自有 HWND 计时，结束前恢复 WndProc：WM_ACTIVATE159.05、同期 WM_GETOBJECT45.35；show166.99 / native setup40.46 / heartbeat416.15。尚不能认定根因，也未关闭可访问性。 |
+
+所有原生 API 对照只作用于自己创建的窗口；own_foreground 读值不当成人工前台/键盘焦点验收。
+未找到可保持同步用户激活语义且满足原预算的稳定原生替代，所以**未实施 Windows 激活适配**。
+首次 native show 仍属 C 待定位限制，不归因 AccountMonitor，也不凭 API 返回值宣称完成。
+
+### 本轮首次 RED / 单列 GREEN
+
+| 路径 / 命令 | 结果 |
+|---|---|
+| targeted.log；quota_panel/companion_panel/settings | 首命令遗漏 basetemp 父目录：6 passed /27 setup errors /0.92s，WinError3。执行命令错误，修正 mkdir 后重跑；与既有 helper setup refresh 环境失败分列。 |
+| targeted-fixed/result.log；同三文件 | 33 passed /35.31s；实际30 action_quota3.83ms、stop2.82ms。独立活动退出 heartbeat141.22 /首panel120.22；仅这次单项样本 GREEN。 |
+| old-joint/result.log；原 test_companion_integration.py -q -s | **1 failed /10.41s**；heartbeat383.09>150 /首panel294.02 /stop5.6404<50。四入口 visible/正常rect/非iconic、拖拽/writer1/thread停止/errors[]前置通过；heartbeat后的原顶层PID/锁/重启断言 NOT_RUN。 |
+| new-combination/result.log；原 test_dual_pet_quota_integration.py -q -s | **1 passed /1 failed /21.61s**。完整契约/退出通过，性能RED：heartbeat2290.13 /首panel436.85。work2609.64 /duplicate445.21 /held-refresh15.50 /new-generation62.52；stop2.1838、quit-to-reaped0.8317s、unreaped=[]/lock移除/重启通过、network0/errors[]。 |
+| profile-combination.log、profile-combination/profile-observe.json | 单次原协议函数计时，完整契约断言通过，heartbeat1702.53 /首panel287.94仍RED；当时未把性能 assert 放入诊断父脚本，不冒称两测试通过。C _icon260.89 /新结构set_accounts486.66；A set_character544.90/380.83/135.66，定位后才追加 idle预览/原位更新修复。 |
+| targeted-row-preview/result.log | **1 failed /34 passed /40.58s**：新增测试错误地把隐藏待deleteLater旧标签计为可见余额。修正为卡片隐藏/实际布局等待查询；没有扩大预算。该次独立退出heartbeat135.26，仅样本GREEN，不替代全套。 |
+| applicable-final/result.log；下列七文件 | **71 passed /51.97s**。实际30 action_quota3.7535ms、stop4.4362ms；包括同结构新源全字段/UNKNOWN/精确金额更新、错误stale恢复、换key清卡片、静态预览/托盘不淘汰atlas、保存取消/拒绝新动作/活动任务有限退出。独立退出回收2子进程/锁/快速移动保存位置/重启通过；其 heartbeat168.79 /首panel147.89 **仍为性能RED**，此退出测试不替代原性能门槛。 |
+| profile-after-c-fix.log、profile-after-c-fix/profile-observe.json | 修复后单次真实两monitor/三受控source进程原协议诊断，**exit1**：顶层契约首先失败 role_frames_advanced=false；后续 heartbeat assert NOT_RUN，测得heartbeat3261.51 /首panel765.25明确RED。work4329.47 /duplicate394.82 /held19.85 /newgeneration137.26。四入口内部恢复断言执行，network0/errors[]；回收观测unreaped=[]、lock移除、重启probe断言通过、stop1.8346/quit-to-reaped0.8563s，不冒称完整契约GREEN。 |
+
+后诊断中，C `_icon` 已为 **0.477/0.315/0.145ms**；同快照 set_accounts **0.040–0.534ms**，
+30次实际 UI 路由回归独立成立。A set_character **637.36/1203.02/589.41ms**，后续 _scaled_frames
+**220–358ms**，交给原 A，不改领域。首次 panel.show **559.27ms**，换 key 后新结构卡片
+重建 **425.16ms** 仍是 C remaining RED；普通同结构更新复用不冒称解决结构重建或首次显示。
+样本运行耗时波动，未将 CPU、字体、WM_GETOBJECT 或账号 worker 判定为唯一根因。
+
+### 重现命令 / 收尾
+
+```powershell
+$quotaPython = 'C:/Users/DW/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe'
+$quotaRepair = 'C:/Users/DW/AppData/Local/Temp/mcpet-c-perf-1791754262774'
+$quotaRun = "$quotaRepair/<新RUN_NAME>"
+New-Item -ItemType Directory -Force -Path "$quotaRun/tmp" | Out-Null
+$env:TEMP = "$quotaRun/tmp"
+$env:TMP = $env:TEMP
+$env:MCPET_DATA_DIR = "$quotaRun/data"
+$env:QT_QPA_PLATFORM = 'windows'
+$env:QT_SCALE_FACTOR = '1' # 本机实际DPR1.5
+$env:PYTHONIOENCODING = 'utf-8'
+$env:MCD_MCP_TOKEN = 'mock-token-only'
+$env:STEPFUN_API_KEY = 'mock-key-only'
+$env:DEEPSEEK_API_KEY = ''
+$env:MCPET_WATCH_PROCESSES = '0'
+$env:MCPET_AGENT_ROOTS = "claude=$quotaRun/absent-claude,codex=$quotaRun/absent-codex,generic=$quotaRun/absent-generic"
+$env:MCPET_CONFIG_PATH = "$quotaRun/absent-config.json"
+& $quotaPython -m pytest tests/test_quota_panel.py tests/test_settings.py tests/test_companion_panel.py tests/test_app_actions.py tests/test_main_startup.py tests/test_dialogs.py tests/test_config.py -q -s --basetemp "$quotaRun/pytest"
+# 新RUN_NAME，各自串行；原日志对应本节表格。
+& $quotaPython -m pytest tests/test_companion_integration.py -q -s --basetemp "$quotaRun/pytest"
+& $quotaPython -m pytest tests/test_dual_pet_quota_integration.py -q -s --basetemp "$quotaRun/pytest"
+# 分段原生诊断脚本存证于TEMP，不复制到A/B/集成测试域：
+& $quotaPython "$quotaRepair/cold_baseline.py" bare
+& $quotaPython "$quotaRepair/cold_baseline.py" native-wndproc
+& $quotaPython "$quotaRepair/profile_combination.py" --run "$quotaRun"
+& $quotaPython -m compileall -q src tests
+git diff bf5ff01ca8de33ad417eb7fd1cacd64030177d5b --check
+git diff --cached --check
+```
+
+实际各 pytest 使用独立 basetemp，TEMP/MCPET_DATA_DIR 为本证据根新造 data/tmp；原生子协议
+再显式限定其新造 inbox，并硬拒绝 parent/worker 网络，未读真实日志或任何凭证文件。
+`compile-final.log` exit0；全分支含新文件与 cached diff check 均 exit0。
+未改旧/新集成 test 的断言、时序、协议或 B 刷新接口；30次真实 action_quota 在 C 自域另测。
+
+依据 root 最新“最终可完成安全适用/compile/diff+Handoff/push供A接续”协调，
+**本返修完整 pytest NOT_RUN**，组合核心仍 RED，不能宣称完成。不对同版无变化全套挑GREEN。
+原 v4 六图布局/配色/idle首帧外观没有改变，按允许复用其已审 DPR1.5 视觉证据；本轮未重新
+出六图，最终组合 native 截图/真实账号/人工前台键盘语义验收仍待后轨/主轨。
+历史首RED与所有TEMP对照保留，独立运行日志为对应样本依据；不保证早期复用路径的汇总JSON
+永不覆盖，不以另一次同名JSON值改写首次样本。
+
+测试/原生探针已有限结束（最后三受控进程44788/43264/44812回收观测无残留）。
+不改主计划、A/B文件、集成tests，不合回root；最终 push/ls-remote精确tip/干净后通过
+[orca-cli](C:/Users/DW/.agents/skills/orca-cli/SKILL.md) 通知 root
+`term_2a23bbea-71c5-4f99-b15f-77e5b8ca591b` 和唯一集成
+`term_7a4e4c11-2813-49cd-8879-43311e269929`，交回独占时段并停止，供原 A 接续。
