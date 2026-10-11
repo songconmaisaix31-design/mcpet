@@ -85,3 +85,15 @@ C 最终远端 tip 1b2b08ed0dcd5790a11a14d70bc1fbf8d1d83488，代码 cde12f86d33
 原A从C已发布basis d037c5c干净FF接续，当前独占测试时段，root/C/集成均不跑动态探针。分段确认整idle解码268ms、必要working解码308ms、麦麦透明校验325ms，而单帧缩放最大3.34ms；PNG小分页及透明校验优化正在原A域实施，保持同像素/固定cell/节奏/同步失败事务/有界缓存。旧/新联合首RED及role帧推进失败保留，未宣称通过。返回麦麦原WebP解码仍有305ms样本。
 
 write_paths最小增补：仅原A可新增 assets/longniang/spritesheet-runtime.png，作为现有spritesheet.webp的同像素无损运行缓存；源WebP、pet.json、sprite-rows.json及其他轨资产保持，许可/转换依据写原A已拥有的assets/CREDITS.md和HANDOFF。是否使用必须实测像素/alpha一致、冷解码和内存，并通过原A的characters.py接线，不让A改C/main。此项是减少已测得的必要源解码成本，不是预热或新目录/角色框架。原A仍不能改main/dialogs/accounts/旧或新集成测试。最终唯一集成除普通merge C/A返修tip外，还需普通merge包含本追加的root文档tip，保证主轨最后可FF，领域RED继续退原Owner。
+
+## A 发布返修、合并审图与 C 下一轮界限
+
+原A返修最终远端7d06474e4cbbf86d0517cc94f2b8c088c08532e5，root独立ls-remote确认，原A干净且已交回测试时段。代码538e25e/476066c/ca3cf5f：94 PNG分页与独立预览、同节奏活动timer/deadline保留、alpha字节校验、麦麦同像素stored PNG。71适用通过/21.01s，原10s bench和双角色native通过；发布新组合完整契约与帧推进通过，但heartbeat829.28ms/首391.90ms仍RED，旧483.55ms/首397.53ms仍RED，原A本轮完整NOT_RUN。正常点击stored PNG解码118.466ms/切换164.059ms、同版WebP对照288.028ms/330.345ms；较大磁盘体积换解码CPU，不能称所有角色切换已低于150ms。不存在先前候选_reload_frames/resizeEvent重载；记录该候选未成立，不作为修复证据。
+
+唯一集成已普通合并C d037、A 7d06474和root cfde794，merge分别c8d3bb97777939d0768554125974445c4fe72d01、ed834e2d52fa9da8e938b06615a78bdbac4f1f2e、e1824f729ee4f0fc6bcb31ee3db22cbba95821df，无代码/协议/断言修改。本轮独立旧联合首RED heartbeat795.87ms/首703.67ms/stop8.2874ms，heartbeat后整体退出/PID/锁/重启NOT_RUN；新组合完整行为与退出契约通过，heartbeat2526.44ms仍RED。按用户明确要求执行唯一一次完整pytest：450 passed、2 failed/182.31s，两个失败均为原heartbeat门槛，旧545.93ms、新1038.21ms。不得以450通过宣称全套或产品验收通过。
+
+root实际审阅本轮native-six/screenshots六张1050×1080原生图，DeepSeek首页另按original完整复看：双角色、Codex session/weekly、Cursor monthly与两桶完整百分比、Grok有效0/Claude UNKNOWN、独立CNY Decimal及四页视觉通过。证据在C:/Users/DW/AppData/Local/Temp/mcpet-integration-quota-review-44589ca99b8b4bf8905beb5585dd82e5；实际合并的真实监控/受控源、无网络，账号值明确夹具，非live。性能RED保留，root尚未FF、真实额度采样或常驻启动。集成完成compile/diff、有限回收、push/精确remote后发布review basis并交空闲，不重复同版全套挑GREEN。
+
+原C已仅静态提出下一轮方案，未修改或启动探针：首次实际快照才创建provider行；换key同步清所有旧文本、金额、时间、tooltip/accessibility、进度条和倒计时引用，暂存有限的已清空隐藏行；新快照仅增删真实变化provider及桶/金额行并完整更新字段，真实空快照清除缺席行，保持UNKNOWN/stale/Decimal与560/700可读性。不得预建示例卡、保留旧key可见值或累积历史对象。只有集成发布精确basis且明确slot idle后，root再给原C干净FF及本域实现/验证授权；目前动态测试仍由唯一集成独占。
+
+首次激活尚无确定根因。C后续可在自有TEMP/自有HWND补同段wall/thread CPU和消息嵌套关联，以区分实际计算和等待；不能把空窗口336ms推成系统根因、禁用accessibility/改全局设置、操作其他窗口/进程，或通过延后激活/移动心跳/预热/放宽150与50ms规避。仍保持四入口真实前台恢复语义，领域修复归原C，原A/B与集成不越域。
