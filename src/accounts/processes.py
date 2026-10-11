@@ -52,28 +52,49 @@ class ProcessFamily:
         kernel.OpenProcess.restype = wintypes.HANDLE
         kernel.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
         kernel.AssignProcessToJobObject.restype = wintypes.BOOL
+        kernel.IsProcessInJob.argtypes = [wintypes.HANDLE, wintypes.HANDLE,
+                                         ctypes.POINTER(wintypes.BOOL)]
+        kernel.IsProcessInJob.restype = wintypes.BOOL
         kernel.CloseHandle.argtypes = [wintypes.HANDLE]
         kernel.CloseHandle.restype = wintypes.BOOL
         job = kernel.CreateJobObjectW(None, None)
         if not job:
             raise OSError("cannot create account worker job")
-        process_handle = None
         try:
             limits = ExtendedLimits()
             limits.BasicLimitInformation.LimitFlags = 0x2000  # JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
             if not kernel.SetInformationJobObject(job, 9, ctypes.byref(limits), ctypes.sizeof(limits)):
                 raise OSError("cannot set account worker job limits")
-            process_handle = kernel.OpenProcess(0x0101, False, pid)  # SET_QUOTA | TERMINATE
-            if not process_handle or not kernel.AssignProcessToJobObject(job, process_handle):
-                raise OSError("cannot own account worker process family")
             self._kernel = kernel
             self._handle = job
+            self.attach(pid)
         except Exception:
             kernel.CloseHandle(job)
+            self._handle = None
             raise
+
+    def attach(self, pid: int) -> None:
+        """Own the actual Python PID too, before it may start CLI descendants.
+
+        Windows venv redirectors can create Python before Process.start returns.
+        The readiness handshake supplies the real PID, closing that launch race.
+        """
+        if sys.platform != "win32":
+            self.pid = pid  # observe() established its POSIX session before readiness
+            return
+        from ctypes import wintypes, byref
+        kernel = self._kernel
+        process_handle = kernel.OpenProcess(0x1101, False, pid)  # SET_QUOTA | TERMINATE | QUERY_LIMITED
+        if not process_handle:
+            raise OSError("cannot open account worker process")
+        try:
+            owned = wintypes.BOOL()
+            if not kernel.IsProcessInJob(process_handle, self._handle, byref(owned)):
+                raise OSError("cannot check account worker ownership")
+            if not owned.value and not kernel.AssignProcessToJobObject(self._handle, process_handle):
+                raise OSError("cannot own account worker process family")
         finally:
-            if process_handle:
-                kernel.CloseHandle(process_handle)
+            kernel.CloseHandle(process_handle)
 
     def close(self) -> None:
         if self._handle is not None:

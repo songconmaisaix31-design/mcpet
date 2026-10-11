@@ -245,6 +245,29 @@ def test_actual_sources_are_spawn_safe_with_fixture_cli_and_no_key(tmp_path):
         close_monitor(monitor)
 
 
+def test_actual_worker_pid_is_owned_before_first_query(monkeypatch):
+    import src.accounts.monitor as monitor_module
+    from src.accounts.processes import ProcessFamily
+    attached = []
+
+    class RecordingFamily(ProcessFamily):
+        def attach(self, pid):
+            super().attach(pid)
+            attached.append(pid)
+
+    monkeypatch.setattr(monitor_module, "ProcessFamily", RecordingFamily)
+    monitor = AccountMonitor(orca_source=FixtureOrca(), deepseek_source=FixtureDeepSeek())
+    snapshots = []
+    monitor.snapshot_ready.connect(snapshots.append)
+    try:
+        monitor.start()
+        pump_until(lambda: snapshots)
+        assert len(attached) >= (2 if sys.platform == "win32" else 1)
+        assert all(isinstance(pid, int) and pid > 0 for pid in attached)
+    finally:
+        close_monitor(monitor)
+
+
 def test_successful_zero_unavailable_is_published_as_fact():
     monitor = AccountMonitor(orca_source=FixtureOrca(), deepseek_source=FixtureMoney("6"))
     monitor._active = True

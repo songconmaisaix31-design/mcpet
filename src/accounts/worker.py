@@ -17,7 +17,7 @@ def observe(connection) -> None:
         os.setsid()
     sources = None
     try:
-        connection.send("ready")
+        connection.send(("ready", os.getpid()))
         while True:
             request = connection.recv()
             if request is None:

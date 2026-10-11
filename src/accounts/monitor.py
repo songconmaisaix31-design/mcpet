@@ -172,8 +172,11 @@ class AccountMonitor(QObject):
                                 raise TimeoutError("worker startup")
                         if self._stopping.is_set():
                             break
-                        if connection.recv() != "ready":
+                        readiness = connection.recv()
+                        if (not isinstance(readiness, tuple) or len(readiness) != 2 or
+                                readiness[0] != "ready" or type(readiness[1]) is not int or readiness[1] <= 0):
                             raise RuntimeError("invalid worker startup")
+                        family.attach(readiness[1])
                     replacement = sources if applied_generation != generation else None
                     connection.send((generation, replacement))
                     applied_generation = generation
