@@ -66,4 +66,3 @@ def test_deepseek_exact_secret_redacted_even_without_sk_prefix(monkeypatch):
     assert config.redact("unsaved-fixture", token="unsaved-fixture") == "***"
     assert config.redact("123.456789012345678901", personal=False) == "123.456789012345678901"
     assert "arbitrary-fixture-key" not in config.redact("arbitrary-fixture-key", personal=False)
-

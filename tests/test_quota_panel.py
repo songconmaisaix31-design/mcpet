@@ -418,4 +418,3 @@ def test_native_active_exit_reaps_children_releases_lock_and_saves_position(tmp_
         if primary.poll() is None:
             primary.terminate()
             primary.wait(timeout=5)
-
