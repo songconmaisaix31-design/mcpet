@@ -84,3 +84,42 @@ $env:QT_SCALE_FACTOR = '1'
 - A `src/pet/window.py` 的单击气泡还曾有“双击我可以聊天”旧文案。主轨已恢复原 A 只修该文案，C 不等待、不改 A 文件，后续由集成者普通合入 A 文案 tip。
 - 原唯一集成者按主轨安排先 FF `de4691f`，再普通 merge C 最终 tip 与 A 文案 tip；C 不自行集成。主轨启动新版供用户操作属于后续人工 / 集成验收；本次隔离测试实例均已退出。
 - 完成通知使用已读 [orca-cli skill](C:/Users/DW/.agents/skills/orca-cli/SKILL.md)，目标 `term_0dcc55fd-ccc4-4567-be46-3d441ca0ec24`。最终通知含 push tip 与截图路径；CLI input_accepted 只代表输入接受，不伪称新 turn 已启动。
+
+## 实际启动返修 · 最小化恢复（2026-10-12）
+
+### 基线与实际首失败
+
+- 恢复原 C 分支时工作区干净；`git fetch origin` 后 `git merge --ff-only 64b7b87b51dc14ba5ec4df1e4c1ce197cf71b9aa` 成功。读取最新 SESSION-PANEL-PLAN 实际启动补遗，没有自行集成。
+- 主轨报告的真实 RED 单独保留：FF `ea32a40`、`pythonw` / `Start-Process -WindowStyle Hidden` 正常启动后，右键 / 第二实例激活没有恢复小窝。launcher53316、GUI17912、monitor51320/56516；日志0错误。只读 HWND11079244：title=麦麦小窝、visible=true、IsIconic=true、DPI逻辑边界 `(-21333,-21333,-21175,-21307)`。实际双击自动化当时未可靠确认，先前315 green没有覆盖该情况。
+- C 没有操作上述用户 GUI、launcher 或 monitor；只在自己的 TEMP / pytest 隔离实例验证。
+- 本地首 RED 复现命令：下述环境下 `& $py -m pytest tests/test_companion_integration.py -q -s`，**1 failed in4.97s**。新增回归先让真实 Qt 面板 `showMinimized()`，再从真正的第二进程触发既有 QLocalServer 激活。
+- 首失败断言：`assert state['visible'] and not state['minimized']`（入口 duplicate）。旧实现仍为 `minimized=true,visible=true,iconic=true,native_visible=true,rect=[-32000,-32000,-31763,-31961]`；子探针 exit1、任务线程已停止。这是原生物理边界，和主轨的 DPR1.5 逻辑边界口径不同；没有通过强制 Win32 恢复掩盖问题。
+
+### 修复与新回归
+
+- 实现提交：`4acf2fb0f073131a1c65cb78f30b20193df75f66`，`fix(app): restore minimized companion panel from every entry`。仅 main 与两份 C 测试；没有修改 A/B。
+- 统一 `action_panel` 在 `isMinimized()` 时调用 `showNormal()`，其他状态仍 `show()`，随后沿用 raise / activate。未最小化的最大化状态不会被普通打开强制还原；没有延迟显示、等待 TTL 或新增 monitor。
+- 原生联合回归覆盖：最小化 → 真正第二进程 / QLocalServer 激活；最小化 → 实际 Qt 托盘 `activated` 信号；最小化 → 真实右键 popup / QAction；最小化 → Qt 双击事件。每个入口断言同一面板复用、Qt visible / 非最小化、只读 Win32 `IsIconic=false` / visible=true，以及 frameGeometry 与屏幕工作区相交。
+- 另加四个菜单页签回归，分别实际 trigger 托盘 QAction，从最小化恢复到 home / sessions / mcd / settings，保持唯一 monitor 和无业务任务。
+- Win32 helper 只读取本探针自己 widget.winId 的 IsIconic / IsWindowVisible / GetWindowRect，不枚举或操作其他窗口。
+
+### 最终验证命令与 GREEN
+
+```powershell
+$py = 'C:/Users/DW/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe'
+$env:MCPET_DATA_DIR = Join-Path $env:TEMP 'mcpet-panel-minimize-signal-final-20261012'
+$env:QT_QPA_PLATFORM = 'offscreen' # 联合测试子进程明确改为 windows。
+$env:QT_SCALE_FACTOR = '1'
+$env:PYTHONIOENCODING = 'utf-8'
+& $py -m pytest tests/test_app_actions.py tests/test_companion_panel.py tests/test_companion_integration.py tests/test_main_startup.py tests/test_dialogs.py tests/test_config.py tests/test_chat.py tests/test_skill.py tests/test_stepfun.py -q -s
+$env:MCPET_DATA_DIR = Join-Path $env:TEMP 'mcpet-panel-minimize-complete-final-20261012'
+& $py -m pytest -q -o faulthandler_timeout=30
+& $py -m compileall -q src tests
+git diff --check
+```
+
+- 适用 **70 passed in23.53s**；完整 **319 passed in33.90s**；compileall / diff check exit0。首针对性修复后 **10 passed in9.55s**，首完整复测 **319 passed in31.66s**，随后强化托盘实际 signal 再跑以上最终全套。
+- 最后适用原生 windows 联合：四入口都恢复到 `minimized=false,iconic=false,visible=true,native_visible=true,rect=[1695,419,2557,1525]`，并通过工作区相交断言。单实例保持两个扫描子进程 / 一个 writer；活动任务退出、位置持久化 / 恢复、拖拽门槛和明确完成事件仍通过。
+- `max_tick_gap_ms=132.43 <150`、`heartbeat_ticks=475`、`stop_ms=3.73 <50`；`panel_open_ms=[108.79,7.44,1.58,13.83,8.32,5.59,5.71]`。原心跳 / 拖拽 / 退出门槛没有放宽，线程和子进程已回收，errors=[]。
+- 探针构造前禁用饭点补触发 / dotenv，源目录全部明确为受控 TEMP 或不存在目录，真实默认 B monitor 保留；无模型 / MCP 网络、凭证文件、已有用户聊天或真实日志根读取。
+- 这轮 GREEN 证明隔离原生 Qt 的恢复路径，不代替 GUI17912 的用户验收。原集成者需普通 merge 新 C tip；主轨按已授权安排优雅退出并重启原用户实例，再验证实际右键 / 托盘 / 第二实例恢复。C 不操作该实例，不自行合回 root；push 后通知原 root 终端并停止。
