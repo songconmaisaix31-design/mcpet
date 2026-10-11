@@ -506,3 +506,153 @@ git diff --cached --check
 通过[orca-cli](C:/Users/DW/.agents/skills/orca-cli/SKILL.md)向root与原集成通知精确tip，
 交回独占时段并停止。输入accepted不冒充接收者已读或开始合并。
 不合回root，不改用户正在使用的GUI/凭证/日志/系统设置，不发真实模型/MCP账号请求。
+
+## 2026-10-12 仅 TEMP 两类诊断与上一 minor 运行时候选追加
+
+起始及业务基准保持 **`36001485cb03b940c4d3f2eeee5b40915943865f`**，原分支
+`songconmaisaix31-design/mcpet-app-20261011`。本追加仅修改本文，未改业务、requirements、
+A/B、自域或集成测试、断言/预算。下列首 RED 不覆盖上文任何历史失败。
+最终文档 tip 由普通 commit/push 后的独立 ls-remote 回执确定，不在文件内写自身 SHA。
+
+两个完整证据根：
+
+- `C:/Users/DW/AppData/Local/Temp/mcpet-c-page-diag-1791759666421`：
+  `RESULTS.md`、`focus_ownership.py`、`prepare_focus.py`、`prepare_pages.py`、
+  `page_probe.py`、`summary.json`、`style-diff.json`、`equivalence.json`。
+- `C:/Users/DW/AppData/Local/Temp/mcpet-c-qt-minor-1791760074760`：
+  `RESULTS.md`、`install_runtime.py`、`prepare_probe.py`、`runtime_probe.py`、
+  `summary.json`、`installation/install.log`、`installation/command.json`。
+
+统一正确 Python：`C:/Users/DW/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe`，
+实测 Python3.13.14 AMD64。runner 使用字面量隔离环境、新 TEMP/MCPET_DATA_DIR、私有
+HOME/APPDATA、受控源与网络/凭证读取 guard；不打印继承环境、不读取用户凭证/真实日志/
+ledger，不操作用户GUI/其他进程/全局系统设置。各运行 command.json 保存实际 argv、
+退出码及耗时，result.log 原样保存失败；不是 live 账号/真实模型/MCP业务验收。
+
+### 四入口一次前台归属诊断：仍 RED
+
+`focus-ownership/result.log` 保留原重复实例/托盘/右键 QAction/双击四入口，原激活请求、
+条件观察上限、精确 foreground 断言及连续10ms心跳未改。
+调用返回及约1504–1509ms观察时，四入口均分类为 **foreign**，并非观察到 own 不同 HWND。
+GetWindowThreadProcessId 仅临时比较是否本进程，随后清零；没有记录外部 PID/HWND/threadID，
+没有枚举或读取外部窗口 title/class/content。仅归属 own 才检查自有 HWND/GA_ROOT/
+GA_ROOTOWNER 关系，该分支本次没有执行。
+
+四入口 visible=true、iconic=false、正常屏内rect、Qt active=true；本GUI线程原生键盘
+焦点归属、Qt字段焦点、受控键入均true。activeChanged 从真实动作开始分别
+19.2915/22.2654/40.8151/66.3379ms。精确 foreground 仍false，原断言 exit1 **RED**，
+没有以 OR/skip/删除断言换绿；max heartbeat1231.8453ms亦RED。stop0.5596ms<50，
+errors[]、QThread=false、重复启动子进程有限回收为独立GREEN事实。
+QTest/QMouseEvent 不构成OS last-input或普通用户前台测试，Windows前台权限/根因仍UNKNOWN。
+
+### 未访问页 shell 单冷进程配对：没有实施懒页依据
+
+`pages-reference`/`pages-shell` 各完成一次；Qt/PySide6均6.12.0、Windows、DPR1.5。
+控制代码仅TEMP：从原构造函数保留全部首页及四个tab/scroll/page shell，仅移除未请求
+sessions/mcd/settings内部widgets；用非QWidget状态适配器承接原 main.action_panel 的
+非当前页接线，首页活动逻辑保持原实现。当前页仍同步构造，正常 show/raise/activate，
+不预热、不推后激活/心跳、不删首页数据、额度/金额、选择属性或可访问性。
+真实A素材/预览和实际B冻结DTO显示同一受控快照，监控为明确UI stub，非真实监控组合。
+
+| wall / GUI-thread CPU（ms） | 原版 | shell |
+| --- | --- | --- |
+| 构造 | 29.1893 / 31.25 | 21.6428 / 15.625 |
+| account渲染 | 35.2131 / 31.25 | 66.9716 / 62.5 |
+| show | 410.7618 / 281.25 | 574.1284 / 421.875 |
+| action总计 | 486.6262 / 343.75 | 678.2418 / 515.625 |
+| WM_ACTIVATE inclusive | 308.8195 / 187.5 | 317.2405 / 171.875 |
+| 内嵌(-4) WM_GETOBJECT | 122.8328 / 78.125 | 122.1599 / 78.125 |
+| max heartbeat | 601.0772 | 829.3257 |
+| stop | 8.9825 | 11.7892 |
+
+保留两次原 heartbeat<150 断言RED/exit1；stop<50、errors[]、面板/桌宠关闭、
+QThread停止、两monitor各stop一次分别GREEN。WM嵌套值不能相加，不识别外部查询客户端。
+CPU来自GetThreadTimes（API时钟resolution100ns，实测计费段常为15.625ms倍数），
+小CPU差异不是精细因果证据。该单对照没有显示改善，候选到此停止；没有实施业务懒页。
+不能证明未访问页完全无影响，也不能据此认定Qt/Windows/外部系统根因。
+
+首页70 widgets/45 labels，数据、UNKNOWN/Decimal、provider顺序、角色/preview、
+尺寸/font/DPR、选择/accessibility/tooltip均相同；offpage descendants42/16/23变为0/0/0，
+QTable1→0、QPlainText2→0。原始 stylesheet 等价断言**首RED保留**于summary.json及工具输出：
+TEMP inspect.getsource/textwrap.dedent 改变多行CSS字面量缩进，非渲染声明变更。
+静态 `style-diff.json` 逐行保存两字符串：均21行，line2–20前导空格12→8，
+line21尾部空白8→4，line1未变，长度1643→1563（仅少80空格）。
+全部变更行lstrip(' ')后相同，全部非空白字符相同，CSS语义等价；
+不能冒充原字符串断言通过，未为修该断言重跑Qt。
+prepare-first-red.log另保留嵌套字符串SyntaxError（Qt启动前的TEMP构造错误，已修），
+不计为应用测试/性能失败。三个诊断进程各有限退出，guard网络尝试计数均0。
+
+### 隔离6.11.2官方wheel候选：两版仍超150，不pin
+
+root在下载前更正6.11.0为[官方PyPI6.11.2](https://pypi.org/project/PySide6/6.11.2/)，
+仅安装/测试该旧版；没有下载6.11.0、换源或安装其他候选。
+仅新TEMP `runtime6112` target，四包严格同6.11.2；安装33.8165s、exit0：
+
+```text
+python -m pip --isolated install --only-binary=:all: --target <minor根>/runtime6112 --index-url https://pypi.org/simple --timeout 20 --retries 1 --disable-pip-version-check --no-input --no-cache-dir PySide6==6.11.2 shiboken6==6.11.2 PySide6_Essentials==6.11.2 PySide6_Addons==6.11.2
+```
+
+外层180s有限timeout，PIP_CONFIG_FILE=NUL、私有TEMP/HOME，未改WorkBuddy现有
+site-packages、PATH/系统proxy/全局Qt配置/requirements，未安装第三方插件。
+官方cp310-abi3-win_amd64 wheel适配实际PythonABI。
+原样保留pip依赖warning：既有pyside6-pdf/pyside6-webengine6.12.0.140依赖6.12对应包；
+这些扩展没有装入target或在样本导入。安装网络仅官方PyPI/pythonhosted，无账号网络。
+
+基线前置校验两次错误原样保留，均在QApplication构造前，没有show样本：
+
+- `qt612/result.log`：缺少PySide6元包metadata；既有实际模块存在且版本6.12.0。
+  基线元包metadata记录null，实际PySide6/shiboken/qVersion及存在的三个metadata仍严格6.12.0；
+  candidate四metadata仍强制全部存在且6.11.2。
+- `qt612-sample/result.log`：误把嵌入式support虚拟__file__计作磁盘模块而触发路径断言。
+  两版support.signature/feature的伪路径解析到cwd，但实体文件不存在，非读取repo源。
+  后续将所有字符串记录，实体文件与nonfile路径分列；实体模块及DLL归属仍严格校验。
+
+另保留prepare-first-red.log中TEMP guard mkdir重复构造FileExistsError。
+上述preflight导入过Qt库，故不能声称未受此前库读取/OS-cache影响的纯净首读对照，
+不是有意预热，也没有在完成性能样本后重测挑GREEN。每个版本仅一个完整正常首页样本。
+
+`qt612-observed` 与 `qt6112` 顺序独立新进程，运行同一runtime_probe.py，唯一控制变量为
+导入前显式sys.path首位target。原完整四页/home数据/角色/尺寸/样式/选择/可访问性/正常
+action_panel/show/activate/连续心跳不变，无shell或装饰控制。
+两版首页所有字段（包括原始CSS字符串）静态比较**全true**，DPR1.5，700x720逻辑尺寸。
+实际PySide6/Qt/shiboken分别6.12.0与6.11.2；candidate四包metadata全6.11.2。
+现存PySide/support/shiboken模块与本进程Qt6Core/Gui/Widgets/Network DLL均分别位于
+原WorkBuddy site-packages或target；完整本地路径在data/runtime.json，未混入另一版实体。
+
+| wall / GUI-thread CPU（ms） | 6.12.0 | 6.11.2 |
+| --- | --- | --- |
+| 构造 | 74.1522 / 78.125 | 48.3437 / 46.875 |
+| account渲染 | 68.3748 / 62.5 | 57.6777 / 62.5 |
+| show | 455.3726 / 281.25 | 395.4577 / 281.25 |
+| raise | 3.0705 / 0 | 4.6057 / 0 |
+| 显式activate | 0.8114 / 0 | 0.9781 / 15.625 |
+| action总计 | 620.5556 / 453.125 | 519.2468 / 421.875 |
+| WM_ACTIVATE inclusive | 321.5478 / 171.875 | 260.3408 / 187.5 |
+| 内嵌(-4) WM_GETOBJECT | 130.6005 / 62.5 | 114.7008 / 78.125 |
+| max heartbeat | 801.9684 | 668.6364 |
+| stop | 8.7795 | 8.2751 |
+
+两版完成样本原150ms心跳断言均RED/exit1，原50ms stop断言分别GREEN；
+errors[]、QThread=false、面板/桌宠关闭、两monitor各stop一次，guard网络尝试0。
+WM inclusive不可嵌套相加，CPU计费粒度限制同上。最终初显原生foreground/Qtactive/
+焦点与正常rect成立，不替代四入口OS last-input/human acceptance。
+6.11.2仍明显超门槛，按root停止候选，未自行pin版本或认定Qt/系统根因。
+
+### 命令、验证层级与停止
+
+上述根内run.py均保存字面量隔离环境；实际有限命令如下（不得复用现存run目录覆盖证据）：
+
+```text
+python <page根>/run.py focus-ownership <page根>/focus_ownership.py
+python <page根>/run.py pages-reference <page根>/page_probe.py reference
+python <page根>/run.py pages-shell <page根>/page_probe.py shell
+python <minor根>/run.py qt612-observed <minor根>/runtime_probe.py 612
+python <minor根>/run.py qt6112 <minor根>/runtime_probe.py 6112
+```
+
+本次业务未变，引用上轮 `mcpet-c-lifecycle-1791758072944/compile` 的
+`python -m compileall -q src tests` exit0，不再运行compile/Qt/focus/联合/pytest。
+**新旧联合与完整pytest本追加NOT_RUN**，不是全套通过；根因仍UNKNOWN，
+单对照、夹具/界面观测、真实账号/人工验收继续分列。
+root明确后续派发；原C仅做本文docs diffcheck、普通commit/push、独立ls-remote与status，
+通知最终文档tip后停止。所有本轮安装/前置/native子进程已有限结束，slot idle。
