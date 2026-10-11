@@ -6,9 +6,15 @@ Token 录入不写入项目目录，写到用户目录并尽量收权限。
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from datetime import datetime
+from decimal import Decimal
+import math
+import html
+import time
+
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtCore import QUrl
-from PySide6.QtGui import QDesktopServices
+from PySide6.QtGui import QDesktopServices, QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QDialog,
@@ -20,7 +26,7 @@ from PySide6.QtWidgets import (
     QFormLayout, QLineEdit, QComboBox, QDoubleSpinBox, QPlainTextEdit, QPushButton,
     QApplication,
     QWidget, QFrame, QHBoxLayout, QTabWidget, QScrollArea, QTableWidget,
-    QTableWidgetItem, QHeaderView, QAbstractItemView,
+    QTableWidgetItem, QHeaderView, QAbstractItemView, QProgressBar, QLayout,
 )
 
 from .. import config
@@ -44,6 +50,16 @@ class SettingsForm(QWidget):
         self.clear_token = QCheckBox("明确清除已保存的 MCP 凭证")
         form.addRow("麦当劳 MCP Token", token)
         form.addRow("", self.clear_token)
+        deepseek = QLineEdit()
+        deepseek.setEchoMode(QLineEdit.Password)
+        self.fields["DEEPSEEK_API_KEY"] = deepseek
+        self.clear_deepseek = QCheckBox("明确清除已保存的 DeepSeek 凭证")
+        self.clear_credentials = {"MCD_MCP_TOKEN": self.clear_token, "DEEPSEEK_API_KEY": self.clear_deepseek}
+        form.addRow("DeepSeek 余额 Key", deepseek)
+        form.addRow("", self.clear_deepseek)
+        self_hint = QLabel("DeepSeek Key 仅查询官方余额，不发送聊天或模型请求。")
+        self_hint.setWordWrap(True)
+        form.addRow(self_hint)
         city = QLineEdit()
         self.fields["MCPET_CITY"] = city
         form.addRow("所在城市", city)
@@ -83,37 +99,41 @@ class SettingsForm(QWidget):
     def reset(self):
         import os
         for key, field in self.fields.items():
-            field.setText("" if key == "MCD_MCP_TOKEN" else os.environ.get(key, "北京" if key == "MCPET_CITY" else ""))
-        self.fields["MCD_MCP_TOKEN"].setPlaceholderText("已配置 · 留空保留" if os.environ.get("MCD_MCP_TOKEN") else "未配置 · 可选填")
-        self.clear_token.setChecked(False)
+            field.setText("" if key in self.clear_credentials else os.environ.get(key, "北京" if key == "MCPET_CITY" else ""))
+        for key, clear in self.clear_credentials.items():
+            self.fields[key].setPlaceholderText("已配置 · 留空保留" if os.environ.get(key) else "未配置 · 可选填")
+            clear.setChecked(False)
         self.message.setText("\n".join(config.root_warnings({key: field.text() for key, field in self.fields.items()})))
 
     def submit(self):
-        values = {key: field.text().strip() for key, field in self.fields.items() if key != "MCD_MCP_TOKEN"}
-        token = self.fields["MCD_MCP_TOKEN"].text().strip()
-        if token or self.clear_token.isChecked():
-            values["MCD_MCP_TOKEN"] = "" if self.clear_token.isChecked() else token
+        values = {key: field.text().strip() for key, field in self.fields.items() if key not in self.clear_credentials}
+        for key, clear in self.clear_credentials.items():
+            token = self.fields[key].text().strip()
+            if token or clear.isChecked():
+                values[key] = "" if clear.isChecked() else token
         self.save_requested.emit(values)
 
 
 class CompanionPanel(QDialog):
     """唯一非模态小窝；只展示日志观测，不向原 Agent 会话注入请求。"""
     action_requested = Signal(str)
+    character_requested = Signal(str)
 
     def __init__(self, sheet=None, parent=None):
         super().__init__(parent, Qt.Window)
+        self.setFont(QFont("Microsoft YaHei UI", 9))
         self.setWindowTitle("麦麦小窝")
         self.setModal(False)
-        self.setMinimumSize(340, 390)
         screen = parent.screen() if parent else QApplication.primaryScreen()
         area = screen.availableGeometry()
-        self.resize(min(560, area.width() - 40), min(700, area.height() - 50))
+        self.setMinimumSize(min(560, area.width() - 40), min(560, area.height() - 50))
+        self.resize(min(700, area.width() - 40), min(720, area.height() - 50))
         self.setStyleSheet("""
-            QDialog { background:#fff8ee; color:#493b49; font-family:'Microsoft YaHei UI'; font-size:13px; }
-            QLabel { color:#493b49; background:transparent; }
+            QDialog { background:#fff8ee; color:#493d36; font-family:'Microsoft YaHei UI'; font-size:13px; }
+            QLabel { color:#493d36; background:transparent; }
             QLabel#title { font-size:24px; font-weight:700; color:#934f2d; }
-            QLabel#subtitle { color:#826d80; }
-            QFrame#card { background:#f1eafa; border:1px solid #e6daed; border-radius:16px; }
+            QLabel#subtitle { color:#81756b; }
+            QFrame#card { background:#fff0df; border:1px solid #eedfd1; border-radius:16px; }
             QTabWidget::pane { border:0; }
             QTabBar::tab { background:#f1e9df; padding:10px 15px; margin:2px; border-radius:10px; }
             QTabBar::tab:selected { background:#ffd8b6; color:#743c23; }
@@ -125,50 +145,92 @@ class CompanionPanel(QDialog):
             QHeaderView::section { background:#ece1f5; border:0; padding:6px; color:#594665; }
             QScrollArea,QScrollArea>QWidget>QWidget { background:transparent; border:0; }
             QCheckBox { spacing:8px; }
+            QComboBox { background:#fffdfa; border:1px solid #e0d4dd; border-radius:8px; padding:5px; }
+            QProgressBar { border:0; background:#e5daec; border-radius:4px; height:8px; }
+            QProgressBar::chunk { background:#b99bd5; border-radius:4px; }
         """)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 14, 18, 14)
+        layout.setContentsMargins(20, 14, 20, 14)
+        layout.setSpacing(12)
         header = QHBoxLayout()
-        preview = QLabel()
-        preview.setFixedSize(88, 88)
-        if sheet:
-            preview.setPixmap(sheet.frame("idle", 0).scaled(88, 88, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        else:
-            preview.setText("麦麦")
-            preview.setAlignment(Qt.AlignCenter)
-        header.addWidget(preview)
+        self.preview = QLabel()
+        self.preview.setFixedSize(88, 88)
+        self.preview.setAlignment(Qt.AlignCenter)
+        self._preview_sheet = None
         words = QVBoxLayout()
         title = QLabel("麦麦小窝")
         title.setObjectName("title")
         words.addWidget(title)
-        subtitle = QLabel("陪你看会话活动，也记得好好吃饭。")
+        subtitle = QLabel("陪你把今天慢慢做好")
         subtitle.setObjectName("subtitle")
         subtitle.setWordWrap(True)
         words.addWidget(subtitle)
+        self.character_message = QLabel()
+        self.character_message.setTextFormat(Qt.PlainText)
+        self.character_message.setWordWrap(True)
         header.addLayout(words, 1)
+        refresh = QPushButton("刷新额度")
+        refresh.clicked.connect(lambda: self.action_requested.emit("quota"))
+        header.addWidget(refresh)
         layout.addLayout(header)
         self.tabs = QTabWidget()
         layout.addWidget(self.tabs, 1)
         self.pages = {}
         self.buttons = {}
-        for key, label in (("home", "陪伴"), ("sessions", "会话"), ("mcd", "麦当劳"), ("settings", "设置")):
+        for key, label in (("home", "小窝"), ("sessions", "会话"), ("mcd", "麦当劳"), ("settings", "设置")):
             page = QWidget()
             column = QVBoxLayout(page)
             column.setContentsMargins(3, 10, 3, 6)
+            column.setSpacing(12)
+            column.setSizeConstraint(QLayout.SetMinimumSize)
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
             scroll.setWidget(page)
             self.pages[key] = self.tabs.addTab(scroll, label)
             setattr(self, key + "_layout", column)
-        card = self.card(self.home_layout, "今天也一起慢慢来")
-        self.label(card, "桌宠跟随本机 Agent 日志显示工作、等待与异常。上下文占用不是任务完成百分比；日志停更也不代表成功。")
-        self.roaming_button = self.button(card, "闲逛", "roaming", checkable=True)
-        self.resting_button = self.button(card, "休息 / 唤醒", "resting", checkable=True)
-        self.visibility_button = self.button(card, "显示 / 隐藏桌宠", "visibility")
-        self.button(card, "看看会话活动", "progress")
-        note = self.card(self.home_layout, "留一点轻松给自己")
-        self.label(note, "单击摸摸麦麦，拖动找个舒服的位置。双击打开这个小窝；关掉小窝，麦麦仍会陪伴。")
-        self.button(note, "安全退出 McPet", "quit")
+        hero = self.card(self.home_layout, "")
+        self.character_card = hero.parentWidget()
+        hero_row = QHBoxLayout()
+        hero_row.addWidget(self.preview)
+        hero_words = QVBoxLayout()
+        self.character_name = self.label(hero_words, "麦麦")
+        self.character_name.setStyleSheet("font-size:18px; font-weight:700;")
+        self.character_activity = self.label(hero_words, "会话状态 UNKNOWN · 等待本机日志")
+        self.character_buttons = {}
+        self.character_choices = QHBoxLayout()
+        self.character_choices.addStretch()
+        hero_words.addLayout(self.character_choices)
+        hero_words.addWidget(self.character_message)
+        hero_row.addLayout(hero_words, 1)
+        hero.addLayout(hero_row)
+        quota = self.card(self.home_layout, "账号剩余额度")
+        self.quota_status = self.label(quota, "UNKNOWN · 等待账号快照")
+        self.accounts_layout = QVBoxLayout()
+        quota.addLayout(self.accounts_layout)
+        self.account_rows = []
+        self.reset_labels = []
+        self._quota_snapshot = None
+        self.buttons["quota"] = refresh
+        money = self.card(self.home_layout, "DeepSeek API 余额")
+        self.money_layout = QVBoxLayout()
+        money.addLayout(self.money_layout)
+        money_header = QHBoxLayout()
+        self.button(money_header, "去设置", "settings")
+        money_header.addStretch()
+        money.addLayout(money_header)
+        self.quota_timer = QTimer(self)
+        self.quota_timer.setInterval(30_000)
+        self.quota_timer.timeout.connect(self.update_countdowns)
+        card = self.card(self.home_layout, "陪伴控制")
+        controls = QHBoxLayout()
+        self.roaming_button = self.button(controls, "闲逛", "roaming", checkable=True)
+        self.resting_button = self.button(controls, "休息 / 唤醒", "resting", checkable=True)
+        self.visibility_button = self.button(controls, "显示 / 隐藏桌宠", "visibility")
+        card.addLayout(controls)
+        extras = QHBoxLayout()
+        self.button(extras, "看看会话活动", "progress")
+        self.button(extras, "安全退出 McPet", "quit")
+        card.addLayout(extras)
         self.home_layout.addStretch()
         session = self.card(self.sessions_layout, "Agent 会话 · 日志观测")
         self.progress_status = self.label(session, "UNKNOWN · 正在等待本机日志快照")
@@ -217,10 +279,164 @@ class CompanionPanel(QDialog):
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
         self.set_business_state(False, False)
+        self.set_character("maimai", "麦麦", sheet, ())
+
+    def set_character(self, character_id, name, sheet, choices):
+        self.character_name.setText(name)
+        blue = character_id == "deepseek"
+        self.character_card.setStyleSheet("QFrame#card { background:" + ("#eaf4fb" if blue else "#fff0df") + "; }")
+        for identifier, label in choices or ((character_id, name),):
+            if identifier not in self.character_buttons:
+                button = QPushButton(label)
+                button.setCheckable(True)
+                button.clicked.connect(lambda checked=False, value=identifier: self.character_requested.emit(value))
+                button.setMaximumWidth(160)
+                self.character_choices.insertWidget(self.character_choices.count() - 1, button)
+                self.character_buttons[identifier] = button
+            button = self.character_buttons[identifier]
+            button.setChecked(identifier == character_id)
+            button.setEnabled(bool(choices))
+            button.setStyleSheet("QPushButton:checked { background:" + ("#72aad7" if identifier == "deepseek" else "#ed9864") + "; }")
+        if sheet is not self._preview_sheet:
+            self._preview_sheet = sheet
+            self.preview.clear()
+            if sheet:
+                self.preview.setPixmap(sheet.frame("idle", 0).scaled(88, 88, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        if not sheet:
+            self.preview.setText(name)
+        self.resting_button.setText("唤醒" + name if self.resting_button.isChecked() else "让" + name + "休息")
 
     @staticmethod
-    def label(layout, text):
-        label = QLabel(config.redact(text))
+    def reset_text(resets_at, now):
+        if resets_at is None or not math.isfinite(resets_at):
+            return "重置时间 UNKNOWN"
+        seconds = resets_at - now
+        if seconds <= 0:
+            return "重置时间已到 · 等待刷新"
+        minutes = math.ceil(seconds / 60)
+        days, remainder = divmod(minutes, 1440)
+        hours, minutes = divmod(remainder, 60)
+        return "距重置 " + (f"{days}天 " if days else "") + (f"{hours}小时 " if hours else "") + f"{minutes}分钟"
+
+    def update_countdowns(self, now=None):
+        now = time.time() if now is None else now
+        for label, reset in self.reset_labels:
+            label.setText(self.reset_text(reset, now))
+
+    def set_accounts(self, snapshot, error="", refreshing=False):
+        self._quota_snapshot = snapshot
+        status = "Orca 账号缓存 · 刷新中 · 保留上次快照" if refreshing and snapshot else "Orca 账号缓存 · 刷新中 · 等待账号快照" if refreshing else "Orca 账号缓存 · 各窗口分别计量"
+        if error:
+            status = "UNKNOWN · " + error + (" · 保留上次快照（过时）" if snapshot else "")
+        if snapshot is None and not refreshing and not error:
+            status = "UNKNOWN · 等待账号快照"
+        self.quota_status.setText(config.redact(status))
+        # Only snapshots change the card structure; countdown ticks update labels alone.
+        for container in (self.accounts_layout, self.money_layout):
+            while container.count():
+                item = container.takeAt(0)
+                if item.widget():
+                    item.widget().hide()
+                    item.widget().deleteLater()
+        self.account_rows, self.reset_labels = [], []
+        statuses = {"ok": "正常", "unavailable": "不可用 · UNKNOWN", "unconfigured": "未配置 · UNKNOWN", "error": "失败 · UNKNOWN", "stale": "过时 · 待刷新"}
+        for account in snapshot.accounts if snapshot else ():
+            frame = QFrame()
+            frame.setStyleSheet("QFrame { background:#fffaf5; border-radius:10px; }")
+            column = QVBoxLayout(frame)
+            column.setContentsMargins(6, 5, 6, 5)
+            column.setSpacing(3)
+            column.setSizeConstraint(QLayout.SetMinimumSize)
+            title = QHBoxLayout()
+            icon = QLabel({"codex": "C", "grok": "G", "cursor": "Cu", "claude": "Cl", "deepseek": "D"}.get(account.provider, "A"))
+            icon.setFixedSize(24, 24)
+            icon.setAlignment(Qt.AlignCenter)
+            icon.setStyleSheet("background:#e9dbf4; border-radius:7px; font-weight:700;")
+            title.addWidget(icon)
+            heading = QLabel(config.redact(account.label))
+            heading.setTextFormat(Qt.PlainText)
+            heading.setWordWrap(True)
+            heading.setStyleSheet("font-weight:700;")
+            title.addWidget(heading, 1)
+            state = "stale" if error and (account.buckets or account.balances) else account.status
+            state_label = QLabel(statuses.get(state, "UNKNOWN"))
+            state_label.setStyleSheet("font-size:11px; color:#81756b;")
+            state_label.setTextFormat(Qt.PlainText)
+            title.addWidget(state_label)
+            column.addLayout(title)
+            row = {"provider": account.provider, "status": state, "buckets": [], "balances": [], "frame": frame}
+            try:
+                updated = "更新时间 UNKNOWN" if account.updated_at is None else "更新 " + datetime.fromtimestamp(account.updated_at).strftime("%m-%d %H:%M")
+            except (ValueError, OverflowError, OSError):
+                updated = "更新时间 UNKNOWN"
+            for index, bucket in enumerate(account.buckets):
+                value = bucket.used_percent
+                known = value is not None and math.isfinite(value) and 0 <= value <= 100
+                text = f"{bucket.name} · 剩余 {100-value:g}% · 已用 {value:g}%" if known else f"{bucket.name} · 剩余 UNKNOWN · 已用 UNKNOWN"
+                band = QHBoxLayout()
+                summary = self.label(band, text)
+                summary.setStyleSheet("font-size:11px; font-weight:600;")
+                bar = QProgressBar()
+                bar.setFixedHeight(8)
+                bar.setRange(0, 1000)
+                bar.setTextVisible(False)
+                bar.setValue(round(value * 10) if known else 0)
+                bar.setStyleSheet("QProgressBar::chunk { background:" + ("#b7aea6" if state == "stale" else "#ae5962" if known and value >= 95 else "#ad6d39" if known and value >= 80 else "#79b69c") + "; }")
+                bar.setAccessibleName(config.redact(text))
+                band.addWidget(bar, 1)
+                bar.setMinimumWidth(75)
+                bar.setMaximumWidth(180)
+                column.addLayout(band)
+                bar.setVisible(known)  # 未知额度不画假 0% 空条；先归入父布局。
+                footer = QHBoxLayout()
+                reset = self.label(footer, "")
+                reset.setStyleSheet("color:#81756b; font-size:10px;")
+                footer.setStretchFactor(reset, 1)
+                if index == 0:
+                    stamp = self.label(footer, updated)
+                    stamp.setWordWrap(False)
+                    stamp.setStyleSheet("color:#81756b; font-size:10px;")
+                column.addLayout(footer)
+                self.reset_labels.append((reset, bucket.resets_at))
+                row["buckets"].append((summary, bar, reset))
+            for balance in account.balances:
+                # Decimal stays Decimal/string; no float conversion, cap or currency sum.
+                def amount(value):
+                    return format(value, "f") if isinstance(value, Decimal) and value.is_finite() and value >= 0 else "UNKNOWN"
+                text = f"{config.redact(balance.currency)} · 余额 {amount(balance.total)}\n赠送 {amount(balance.granted)} · 充值 {amount(balance.topped_up)}"
+                # Typed numbers can resemble phone/ID patterns; still mask exact credentials.
+                label = self.label(column, text, personal=False)
+                row["balances"].append(label)
+            if not account.buckets and not account.balances:
+                self.label(column, "未配置余额查询密钥" if account.provider == "deepseek" and state == "unconfigured" else "余额 UNKNOWN" if account.provider == "deepseek" else "尚无可读取额度 · UNKNOWN")
+            if not account.buckets:
+                origin = "DeepSeek 官方余额" if account.provider == "deepseek" else "Orca 账号缓存"
+                self.label(column, origin + " · " + updated).setStyleSheet("color:#81756b; font-size:10px;")
+            if account.message:
+                frame.setToolTip(html.escape(config.redact(account.message)))
+            if state == "stale":
+                self.label(column, "上次快照，已过时")
+            (self.money_layout if account.provider == "deepseek" or account.balances else self.accounts_layout).addWidget(frame)
+            frame.show()
+            self.account_rows.append(row)
+        if snapshot is not None and not snapshot.accounts:
+            self.label(self.accounts_layout, "暂无账号额度 · UNKNOWN")
+        if not any(row["provider"] == "deepseek" or row["balances"] for row in self.account_rows):
+            self.label(self.money_layout, "未配置余额查询密钥" if not config.deepseek_api_key() else "余额 UNKNOWN · 等待查询")
+        self.update_countdowns()
+
+    def showEvent(self, event):
+        self.update_countdowns()
+        self.quota_timer.start()
+        super().showEvent(event)
+
+    def hideEvent(self, event):
+        self.quota_timer.stop()
+        super().hideEvent(event)
+
+    @staticmethod
+    def label(layout, text, *, personal=True):
+        label = QLabel(config.redact(text, personal=personal))
         label.setTextFormat(Qt.PlainText)
         label.setWordWrap(True)
         label.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -235,6 +451,8 @@ class CompanionPanel(QDialog):
         column.setContentsMargins(14, 12, 14, 12)
         heading = cls.label(column, title)
         heading.setStyleSheet("font-weight:700; font-size:15px;")
+        if not title:
+            heading.hide()
         layout.addWidget(frame)
         return column
 
@@ -281,6 +499,12 @@ class CompanionPanel(QDialog):
         sessions = snapshot.sessions if snapshot else []
         self.session_table.setRowCount(len(sessions))
         states = {"working": "工作中", "thinking": "思考中", "needsinput": "待输入", "waiting": "等待", "idle": "空闲", "done": "已完成", "error": "异常", "failed": "失败"}
+        if sessions:
+            first = sessions[0]
+            state = "UNKNOWN · 日志过时" if first.stale or error else states.get(first.record.state, "UNKNOWN")
+            self.character_activity.setText(config.redact(first.record.source + " · " + state))
+        else:
+            self.character_activity.setText("会话状态 UNKNOWN · 等待本机日志")
         for row, session in enumerate(sessions):
             record = session.record
             state = states.get(record.state, record.state or "UNKNOWN")
@@ -506,12 +730,12 @@ class SettingsDialog(QDialog):
         layout.addWidget(hint)
         form = QFormLayout()
         self.fields, self.clear_credentials = {}, {}
-        labels = {"MCD_MCP_TOKEN": "麦当劳 MCP Token", "STEPFUN_API_KEY": "StepFun Key",
+        labels = {"MCD_MCP_TOKEN": "麦当劳 MCP Token", "STEPFUN_API_KEY": "StepFun Key", "DEEPSEEK_API_KEY": "DeepSeek 余额 Key",
                   "MCPET_CITY": "城市", "MCPET_AGENT_ROOT_CLAUDE": "Claude 日志目录",
                   "MCPET_AGENT_ROOT_CODEX": "Codex 日志目录", "MCPET_AGENT_ROOT_GENERIC": "通用日志目录"}
         for key in config.SETTINGS_KEYS:
             edit = QLineEdit()
-            if key in {"MCD_MCP_TOKEN", "STEPFUN_API_KEY"}:
+            if key in {"MCD_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY"}:
                 edit.setEchoMode(QLineEdit.Password)
                 edit.setPlaceholderText("已配置（留空保留）" if os.environ.get(key) else "未配置")
                 clear = QCheckBox("清除此凭证")
