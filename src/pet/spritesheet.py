@@ -128,6 +128,28 @@ class SpriteSheet:
     def frames(self, state: str) -> list[QPixmap]:
         return [self.frame(state, i) for i in range(self.frame_count(state))]
 
+    def anchor_bounds(self, state: str, alpha_threshold: int = 32) -> list[tuple[int, int, int, int] | None]:
+        """Audit only. Full fixed cells remain untouched, preserving jumps and poses.
+
+        Coordinates are cell-local inclusive alpha bounds; no per-frame crop/scale.
+        """
+        result = []
+        row = self.row_for(state)
+        for index in range(self.frame_count(state)):
+            cell = self.image.copy(QRect(index * self.cell_width, row * self.cell_height,
+                                         self.cell_width, self.cell_height))
+            cell = cell.convertToFormat(QImage.Format_RGBA8888)
+            data = bytes(cell.constBits())
+            stride = cell.bytesPerLine()
+            left, top, right, bottom = cell.width(), cell.height(), -1, -1
+            for y in range(cell.height()):
+                for x in range(cell.width()):
+                    if data[y * stride + x * 4 + 3] > alpha_threshold:
+                        left, top = min(left, x), min(top, y)
+                        right, bottom = max(right, x), max(bottom, y)
+            result.append(None if right < 0 else (left, top, right, bottom))
+        return result
+
     # ---------- 校验（对齐 longniang 的 QA 思路） ----------
 
     def validate(self) -> list[str]:
