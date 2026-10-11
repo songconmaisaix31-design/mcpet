@@ -75,3 +75,13 @@ C 最终远端 tip 1b2b08ed0dcd5790a11a14d70bc1fbf8d1d83488，代码 cde12f86d33
 冷show分段显示数据约1–5ms、构造28–74ms/layout12–14ms，首次show主导；字体合并、全局过滤、owner、样式、报告方块字符、accessibility对照未消除RED，没有确定根因。全部仅TEMP诊断，未预热或扩大业务。组合后如仍复现交回原C，不能调大门槛、等待TTL或移动心跳计时规避。v4六图视觉通过依然只是受控fixture/只读A overlay。
 
 三轨最终tip均已远端核对、停止，现恢复原唯一集成会话01a12baa-554e-7d32-8835-e1865e39d601（原worktree/branch，当前干净7a828d0e）。先FF本主轨计划，再普通merge A8b7da5c、Bfa96c578、C1b2b08ed；接旧测试账号离线stub并新增真实Qt/AgentMonitor/AccountMonitor组合测试，保留全部原断言/预算。先独立联合验证，若领域RED明确Handoff原Owner；胶水外不得修改领域代码。root最终FF/真实账号缓存读取/启动仍未执行。
+
+## 集成检查点、C 消重与 A 渲染返修
+
+唯一集成普通merge A/B/C SHA分别47c6ebc612f2163d3f8bcaf15044d31fdf514839、4b0c996b5a36ba8177a4bd79321ac928d81329b4、8161099c0938f9c3c420580c82da47ad7a11a1d5；已发布检查点bf5ff01ca8de33ad417eb7fd1cacd64030177d5b，root独立远端核对。旧联合首RED heartbeat545.25ms/首panel458.47ms/stop3.3559ms，后置PID/锁/重启NOT_RUN；新组合更正协议后1 passed/1 failed，真实两monitor/三reader回收/单writer/四入口/双角色/换源/Decimal契约通过，heartbeat2739.76ms仍RED。旧接线22通过，完整及六图留返修后；Handoff保存所有首次失败及测量界限。
+
+原C从检查点FF后发布d037c5cf6b384d4930dbadef97b0240881978b73（代码876ae0c8632ded4b172dfac35be5184ad1295bda），root独立远端核对。71适用通过、实际30次action_quota3.7535ms、icon0.15–0.48ms，同结构新快照原位更新、错误刷新保留stale/换key清旧卡片；compile/diff通过。C保持同步激活语义，不采用预热或延后计时；空窗口show336.71ms、首次激活多种对照仍超门槛，没有确定系统根因。旧联合383.09ms/首294.02ms、新组合2290.13ms；最后诊断role_frames_advanced=false、heartbeat3261.51ms/首765.25ms；C native show559.27ms/新结构重建425.16ms仍未解决，完整NOT_RUN，v4视觉复用。C已停止且三受控PID无残留。
+
+原A从C已发布basis d037c5c干净FF接续，当前独占测试时段，root/C/集成均不跑动态探针。分段确认整idle解码268ms、必要working解码308ms、麦麦透明校验325ms，而单帧缩放最大3.34ms；PNG小分页及透明校验优化正在原A域实施，保持同像素/固定cell/节奏/同步失败事务/有界缓存。旧/新联合首RED及role帧推进失败保留，未宣称通过。返回麦麦原WebP解码仍有305ms样本。
+
+write_paths最小增补：仅原A可新增 assets/longniang/spritesheet-runtime.png，作为现有spritesheet.webp的同像素无损运行缓存；源WebP、pet.json、sprite-rows.json及其他轨资产保持，许可/转换依据写原A已拥有的assets/CREDITS.md和HANDOFF。是否使用必须实测像素/alpha一致、冷解码和内存，并通过原A的characters.py接线，不让A改C/main。此项是减少已测得的必要源解码成本，不是预热或新目录/角色框架。原A仍不能改main/dialogs/accounts/旧或新集成测试。最终唯一集成除普通merge C/A返修tip外，还需普通merge包含本追加的root文档tip，保证主轨最后可FF，领域RED继续退原Owner。
