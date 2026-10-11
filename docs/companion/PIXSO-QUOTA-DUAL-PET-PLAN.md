@@ -97,3 +97,13 @@ root实际审阅本轮native-six/screenshots六张1050×1080原生图，DeepSeek
 原C已仅静态提出下一轮方案，未修改或启动探针：首次实际快照才创建provider行；换key同步清所有旧文本、金额、时间、tooltip/accessibility、进度条和倒计时引用，暂存有限的已清空隐藏行；新快照仅增删真实变化provider及桶/金额行并完整更新字段，真实空快照清除缺席行，保持UNKNOWN/stale/Decimal与560/700可读性。不得预建示例卡、保留旧key可见值或累积历史对象。只有集成发布精确basis且明确slot idle后，root再给原C干净FF及本域实现/验证授权；目前动态测试仍由唯一集成独占。
 
 首次激活尚无确定根因。C后续可在自有TEMP/自有HWND补同段wall/thread CPU和消息嵌套关联，以区分实际计算和等待；不能把空窗口336ms推成系统根因、禁用accessibility/改全局设置、操作其他窗口/进程，或通过延后激活/移动心跳/预热/放宽150与50ms规避。仍保持四入口真实前台恢复语义，领域修复归原C，原A/B与集成不越域。
+
+## C 卡片生命周期发布与限定诊断
+
+唯一集成已发布review basis 7ffeebd03179a2796cb88fb73e52929d22bbca6c，包含root 7fec18b930559804b01ad785d5dc4bca44ec3f09（merge fa779ff604721ffaef068f5699765031ac4c4f6b），远端与工作树核对一致，全部动态探针结束。实际合并六图已审，完整450通过/2失败仍非最终交付。
+
+原C从该basis发布36001485cb03b940c4d3f2eeee5b40915943865f（业务0c4c5f80bd291a3faeb16b8ccb61e545601c7c5a），root独立ls-remote确认。旧隐藏标签36降至0、实际provider复用0至5、新快照205.2712降至86.831ms是成对样本；全量清旧文本/可访问内容/进度条/倒计时、真实结构增减及空快照释放已有自域回归。最终C自域41通过/1失败67.69s，唯一新增Windows前台断言仍失败；旧联合heartbeat646.03ms/首542.64ms/stop6.5979ms，新组合1通过/1失败23.68s、heartbeat2934.91ms/首621.34ms/stop8.2941ms，真实行为及有限回收通过，原门槛仍RED。本轮完整仓库及更新六图NOT_RUN，所有首失败和探针修正保留在HANDOFF-C-QUOTA-PANEL.md及mcpet-c-lifecycle-1791758072944。
+
+新增前台测试使用程序信号和QTest直接输入，当前Qt active、本GUI线程焦点及Qt输入为true，但特定panel HWND与原生前台不等。微软SetForegroundWindow和Qt activateWindow文档均有后台激活限制；未证明此探针具有真实用户last-input/前台权限，不能凭Qt输入推成人工键盘验收，也不能凭该差异直接认定产品缺陷。保持新增首RED与全部原断言；不采用删测试、skip、替代断言或全局抢焦点刷绿。
+
+root重新把独占时段交原C，仅授权两项TEMP诊断：一次原四入口观察，分类前台句柄为本进程/其他/null；只有归属本进程才比自有HWND及root/owner关联，不记录外部PID/窗口内容。另做原版与仅保留未访问页tab shell的冷新进程单对照，保持真实home/数据/角色/尺寸/样式/DPR、正常show/activate、连续心跳与可访问性，观察未访问sessions/mcd/settings控件是否造成首home显示成本。该控制仅TEMP，不预热、不延后当前页或激活、不修改业务/原协议；没有改善即停止候选。有明确改善后root再决定本域最小按需页面实施，每页首次实际访问仍须计同步耗时与连续心跳。当前原A/B/唯一集成继续静态等待，root不跑动态探针、不FF或启动常驻实例。
