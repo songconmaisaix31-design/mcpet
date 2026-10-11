@@ -107,3 +107,7 @@ root实际审阅本轮native-six/screenshots六张1050×1080原生图，DeepSeek
 新增前台测试使用程序信号和QTest直接输入，当前Qt active、本GUI线程焦点及Qt输入为true，但特定panel HWND与原生前台不等。微软SetForegroundWindow和Qt activateWindow文档均有后台激活限制；未证明此探针具有真实用户last-input/前台权限，不能凭Qt输入推成人工键盘验收，也不能凭该差异直接认定产品缺陷。保持新增首RED与全部原断言；不采用删测试、skip、替代断言或全局抢焦点刷绿。
 
 root重新把独占时段交原C，仅授权两项TEMP诊断：一次原四入口观察，分类前台句柄为本进程/其他/null；只有归属本进程才比自有HWND及root/owner关联，不记录外部PID/窗口内容。另做原版与仅保留未访问页tab shell的冷新进程单对照，保持真实home/数据/角色/尺寸/样式/DPR、正常show/activate、连续心跳与可访问性，观察未访问sessions/mcd/settings控件是否造成首home显示成本。该控制仅TEMP，不预热、不延后当前页或激活、不修改业务/原协议；没有改善即停止候选。有明确改善后root再决定本域最小按需页面实施，每页首次实际访问仍须计同步耗时与连续心跳。当前原A/B/唯一集成继续静态等待，root不跑动态探针、不FF或启动常驻实例。
+
+后续限定诊断（TEMP mcpet-c-page-diag-1791759666421）：四入口前台均属于其他进程，本项目可见/非最小化/Qt active/本线程焦点/直接Qt键入通过，特定原生前台断言继续RED；未记录外部PID/HWND，没有证明Windows激活权限或人工输入。原版show410.7618ms、未访问页shell574.1284ms；action486.6262/678.2418ms、heartbeat601.0772/829.3257ms均RED，退出与线程关闭完成。首页数据、角色、尺寸、字体、选择及可访问文本一致；CSS原字符串比较因AST提取缩进不同而首次失败，静态核对非空白内容相同。原断言与两份样本保留，不用单对照宣称页面构造完全无影响，没有实施按需页面的依据，此候选停止。
+
+root下一项只授权原C隔离运行时对照：当前实测PySide/Qt6.12.0与上一minor最新官方补丁6.11.2各一个新进程正常home冷显示样本。官方PyPI release history已核实6.11.2/2026-08-18、6.12.0/2026-10-08；早先6.11.0候选更正，若尚未下载仅用6.11.2，若已开始旧候选则保留唯一版本避免重复。只在新TEMP用官方binary wheels/严格同版shiboken及Essentials/Addons，有限网络等待和重试，不改变WorkBuddy现有site-packages、系统PATH/代理/Qt配置，不修改requirements或业务代码。须记录实际版本/模块路径排除混装，源码、真实home数据、角色、尺寸/DPR/样式、正常show/activate、连续心跳和150/50门槛完全相同。仍RED即停止版本候选；若明确改善且满足预算，root再派原联合验证，不凭一对样本认作Qt根因或直接pin。独占动态时段仍归原C，其他轨保持静态。
