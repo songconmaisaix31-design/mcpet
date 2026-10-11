@@ -27,7 +27,7 @@ COLUMNS = 12
 
 
 def write_runtime_png(path, image):
-    """RGBA PNG, filter zero, fast deflate. Avoid costly row unfiltering at load.
+    """RGBA PNG, filter zero, stored deflate. Avoid inflate/unfilter CPU at load.
 
     PNG chunks/CRC are the standard file format, not additional cache metadata.
     """
@@ -38,7 +38,7 @@ def write_runtime_png(path, image):
     def chunk(kind, payload):
         return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", zlib.crc32(kind + payload))
     path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR",struct.pack(">IIBBBBB",rgba.width(),rgba.height(),8,6,0,0,0))
-                     + chunk(b"IDAT",zlib.compress(raw,1)) + chunk(b"IEND",b""))
+                     + chunk(b"IDAT",zlib.compress(raw,0)) + chunk(b"IEND",b""))
     if QImage(str(path)).convertToFormat(QImage.Format_RGBA8888) != rgba:
         raise RuntimeError("runtime PNG pixels changed")
 

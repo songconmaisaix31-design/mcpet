@@ -10,6 +10,7 @@
 | 来源 | `caritivememory-ops/chatgpt-longniang` |
 | 文件 | `spritesheet.webp`（1536×2288）、`pet.json`、`sprite-rows.json`（由上游 `pet_request.json` 生成） |
 | 规格 | 8 列 × 11 行，单元 192×208，`spriteVersionNumber: 2`，11 个动作行 |
+| 运行缓存 | `spritesheet-runtime.png`：从原 WebP 无损转存、相同全部像素/alpha/尺寸，filter=0 + stored deflate；原 WebP 和两份元数据保持。仅 characters.py 的实际选择加载使用，不预热或保留非活动角色像素；转换入口为 `assets/dsh-deepseek/convert.py --maimai`。PNG磁盘14,060,903字节，解码像素仍14,057,472字节；性能取舍见 A Handoff。 |
 | **授权状态** | **已取得原作者授权**（2026-10-10，由本项目作者联系确认） |
 | 用途 | 工程占位形象。**最终交付前替换为原创麦当劳主题素材** |
 
