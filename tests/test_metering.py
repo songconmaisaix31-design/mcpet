@@ -411,3 +411,28 @@ def test_corrupt_existing_ledger_not_overwritten(tmp_path):
     with pytest.raises(RuntimeError, match="保留原文件"):
         UsageMeter([], state_path=state)
     assert state.read_text() == "broken"
+
+
+def test_codex_mid_file_model_survives_incremental_scan_and_restart(tmp_path):
+    from src.agentbridge.providers.codex import CodexProvider
+    root = tmp_path / "logs"
+    root.mkdir()
+    path = root / "session.jsonl"
+    def event():
+        return {"type": "event_msg", "timestamp": time.time(), "payload": {"type": "token_count", "info": {
+            "last_token_usage": {"input_tokens": 10, "output_tokens": 2}}}}
+    entries = [{"type": "turn_context", "payload": {"model": "gpt-5.5"}}, event(),
+               {"type": "turn_context", "payload": {"model": "gpt-6"}}, event()]
+    path.write_text("".join(json.dumps(e) + "\n" for e in entries), encoding="utf-8")
+    state = tmp_path / "usage.json"
+    meter = UsageMeter([CodexProvider([root])], state_path=state)
+    meter.scan()
+    assert meter.model_hints[str(path)] == "gpt-6"
+    with path.open("a", encoding="utf-8") as h:
+        h.write(json.dumps(event()) + "\n")
+    reopened = UsageMeter([CodexProvider([root])], state_path=state)
+    assert reopened.scan().records == 1
+    buckets = reopened.by_model_by_day[day_key(time.time())]
+    assert buckets["gpt-5.5"]["tokens"] == 12
+    assert buckets["gpt-6"]["tokens"] == 24
+    assert reopened.scan().records == 0

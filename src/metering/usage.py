@@ -129,6 +129,7 @@ class UsageMeter:
         self.backfill_days = int(backfill_days)
 
         self.cursors: dict[str, int] = {}
+        self.model_hints: dict[str, str] = {}
         self.records: dict[str, dict[str, float]] = {}
         self.daily: dict[str, dict[str, float]] = {}
         self.by_model_by_day: dict[str, dict[str, dict[str, float]]] = {}
@@ -145,6 +146,10 @@ class UsageMeter:
         self._errors: list[str] = []
 
         self._load()
+        for provider in self.providers:
+            restore = getattr(provider, "set_model_hints", None)
+            if callable(restore):
+                restore(self.model_hints)
 
     # ------------------------------------------------------------ 持久化
     def _load(self) -> None:
@@ -157,6 +162,9 @@ class UsageMeter:
         if not isinstance(raw, dict) or raw.get("schemaVersion") != STATE_SCHEMA:
             raise RuntimeError("用量台账结构或版本未知，保留原文件")
         self.cursors = _int_map(raw.get("cursors"))
+        hints = raw.get("modelHints", {})
+        if isinstance(hints, dict):
+            self.model_hints = {str(k): v for k, v in hints.items() if isinstance(v, str)}
         self.records = _record_map(raw.get("records"))
         self.daily = _day_map(raw.get("daily"))
         self.by_model_by_day = _nested_map(raw.get("byModelByDay"))
@@ -186,6 +194,7 @@ class UsageMeter:
         payload = {
             "schemaVersion": STATE_SCHEMA,
             "cursors": self.cursors,
+            "modelHints": self.model_hints,
             "records": self.records,
             "daily": self.daily,
             "byModelByDay": self.by_model_by_day,
@@ -220,6 +229,9 @@ class UsageMeter:
         for provider in self.providers:
             result.providers.append(provider.id)
             try:
+                restore = getattr(provider, "set_model_hints", None)
+                if callable(restore):
+                    restore(self.model_hints)
                 for batch in provider.iter_usage(self.cursors):
                     if cancelled and cancelled():
                         result.cancelled = True
@@ -228,6 +240,7 @@ class UsageMeter:
                     if batch.truncated:
                         result.truncated += 1
                         self._drop_records_for_file(batch.path)
+                        self.model_hints.pop(batch.path, None)
                     for record in batch.records:
                         delta, corrected = self._absorb(record, now)
                         if corrected:
@@ -237,6 +250,8 @@ class UsageMeter:
                         result.records += 1
                         self._accumulate(record, delta, now)
                     self.cursors[batch.path] = batch.offset
+                    if batch.model_hint:
+                        self.model_hints[batch.path] = batch.model_hint
             except Exception as exc:
                 result.errors.append(f"{provider.id}: {type(exc).__name__}: {exc}")
             if result.cancelled:

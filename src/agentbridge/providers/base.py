@@ -45,6 +45,7 @@ class UsageBatch:
     offset: int = 0
     records: list[UsageRecord] = field(default_factory=list)
     truncated: bool = False   # 文件变小被重读，调用方可据此记一笔诊断
+    model_hint: str = ""       # Model in effect at this cursor, when the provider reports it.
 
 
 @runtime_checkable

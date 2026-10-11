@@ -78,6 +78,11 @@ class CodexProvider:
 
     def __init__(self, roots: list[Path]) -> None:
         self._roots = [Path(r) for r in roots]
+        self._model_hints: dict[str, str] = {}
+
+    def set_model_hints(self, hints: dict[str, str]) -> None:
+        """Restore the model at each persisted cursor, including mid-file turns."""
+        self._model_hints = dict(hints)
 
     def roots(self) -> list[Path]:
         return list(self._roots)
@@ -93,7 +98,10 @@ class CodexProvider:
                     yield UsageBatch(path=key, offset=offset)
                     continue
                 truncated = size < offset
-                model = _model_hint(path)
+                # Old ledgers without a cursor model cannot establish which
+                # turn produced an incremental event. Use UNKNOWN, not the
+                # first turn's model. A new turn_context supplies real evidence.
+                model = _model_hint(path) if not offset or truncated else self._model_hints.get(key, "")
                 for entries, new_offset in iter_offset_batches(path, offset):
                     records = []
                     for line_offset, entry in entries:
@@ -103,8 +111,10 @@ class CodexProvider:
                         if record is not None:
                             records.append(record)
                     yield UsageBatch(
-                        path=key, offset=new_offset, records=records, truncated=truncated
+                        path=key, offset=new_offset, records=records, truncated=truncated,
+                        model_hint=model,
                     )
+                    self._model_hints[key] = model
                     truncated = False
 
     def _to_record(
