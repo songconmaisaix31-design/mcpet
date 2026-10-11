@@ -67,3 +67,11 @@ B 窗口返修 f77cbbee6fc7720b742f56c9fc5fa578118ece9d，含实际 session:null
 B 最终远端 tip fa96c57801d705f21b400f6f5271745d9914d421，解析实现 f77cbbee6fc7720b742f56c9fc5fa578118ece9d；root 独立 ls-remote exit0 确认，B 通知工作区干净、停止且无测试探针。串行账号适用82 passed/32.33s；最终完整1 failed/400 passed/110.65s，仅旧联合 heartbeat417.81ms>150，stop42.8088ms<50、首panel_open332.09ms、errors=[]；原因未认定，不能称全套GREEN。账号全部Windows退出与旧duplicate本轮通过；compileall/diff检查通过。首完整5 failed/396 passed/211.43s及其他首次RED保留于HANDOFF-B-QUOTA.md。
 
 root 已将独占测试时段交回原 C：活动任务有限退出、原联合、最终完整、compile/diff及精确push/remote交接。v4六图已视觉通过，C无需另改装饰；旧联合若失败只Handoff，保留门槛与领域界限。等待C最终远端tip和停止后，再恢复原唯一集成Worker，完成真实双角色+账号监控组合、离线测试接线与最终性能验证。
+
+## C 最终交接与统一集成派发
+
+C 最终远端 tip 1b2b08ed0dcd5790a11a14d70bc1fbf8d1d83488，代码 cde12f86d330039b4d3e89e4313daabb251c9e46（功能 eb6858e7c5c98c541fed62224f48ed8c6d1a322a），root独立ls-remote确认；C已停止/干净/无探针。适用66 passed/55.81s；独立真实原生活动退出1 passed/11.67s，stop3.7113ms、两spawn回收/锁删除/位置与休息闲逛重启恢复通过。最终完整1 failed/340 passed/103.99s，仅旧联合heartbeat554.15ms>150，首panel467.37ms、stop5.1700ms；不能称全套GREEN。首次联合439.24/345.08/stop9.5934、错root诊断和cached EOF diff RED均保留；后续普通空行提交、compile及含新文件全分支diff通过。
+
+冷show分段显示数据约1–5ms、构造28–74ms/layout12–14ms，首次show主导；字体合并、全局过滤、owner、样式、报告方块字符、accessibility对照未消除RED，没有确定根因。全部仅TEMP诊断，未预热或扩大业务。组合后如仍复现交回原C，不能调大门槛、等待TTL或移动心跳计时规避。v4六图视觉通过依然只是受控fixture/只读A overlay。
+
+三轨最终tip均已远端核对、停止，现恢复原唯一集成会话01a12baa-554e-7d32-8835-e1865e39d601（原worktree/branch，当前干净7a828d0e）。先FF本主轨计划，再普通merge A8b7da5c、Bfa96c578、C1b2b08ed；接旧测试账号离线stub并新增真实Qt/AgentMonitor/AccountMonitor组合测试，保留全部原断言/预算。先独立联合验证，若领域RED明确Handoff原Owner；胶水外不得修改领域代码。root最终FF/真实账号缓存读取/启动仍未执行。
