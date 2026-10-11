@@ -1,0 +1,209 @@
+{
+  "upstream_sha": "92662190cdd4dee05e38a5151584cc6254cd7a43",
+  "cell_size": 192,
+  "columns": 12,
+  "frame_delay_ms": 80,
+  "source_union_alpha32": [
+    120,
+    6,
+    469,
+    336
+  ],
+  "fixed_crop": [
+    111,
+    0,
+    366,
+    360
+  ],
+  "animations": {
+    "idle": {
+      "file": "idle.webp",
+      "frames": 126,
+      "source": "待机呼吸休闲.webm",
+      "source_sha256": "deb965d05a85dacf5ff4a20faa757846f0d11679598c3ec578a5571487660395",
+      "native_frames": 241,
+      "native_bottom_range": 1,
+      "native_center_range": 38.0,
+      "native_first_bounds": [
+        213,
+        63,
+        425,
+        329
+      ],
+      "native_last_bounds": [
+        213,
+        65,
+        426,
+        329
+      ]
+    },
+    "run-left": {
+      "file": "run-left.webp",
+      "frames": 126,
+      "source": "原地左转奔跑.webm",
+      "source_sha256": "79882aedd7b77caaacce1a34dece68e2f001a3dbfa5f9d049c1ce2fc04518d52",
+      "native_frames": 241,
+      "native_bottom_range": 19,
+      "native_center_range": 82.5,
+      "native_first_bounds": [
+        210,
+        64,
+        427,
+        329
+      ],
+      "native_last_bounds": [
+        211,
+        62,
+        426,
+        329
+      ]
+    },
+    "working": {
+      "file": "working.webp",
+      "frames": 126,
+      "source": "工作状态-忙碌点按.webm",
+      "source_sha256": "b5d702e0c04adb7b255ac702001c24da36c8bf95efc891f693f4976986ab2435",
+      "native_frames": 241,
+      "native_bottom_range": 0,
+      "native_center_range": 21.5,
+      "native_first_bounds": [
+        217,
+        64,
+        420,
+        330
+      ],
+      "native_last_bounds": [
+        218,
+        63,
+        421,
+        330
+      ]
+    },
+    "thinking": {
+      "file": "thinking.webp",
+      "frames": 126,
+      "source": "工作状态-思考冒泡.webm",
+      "source_sha256": "b4a36cfa28ea5d7089e362a01972c6e880297c6dcd0d39f1994efd889a3c1be5",
+      "native_frames": 241,
+      "native_bottom_range": 1,
+      "native_center_range": 13.5,
+      "native_first_bounds": [
+        215,
+        64,
+        424,
+        329
+      ],
+      "native_last_bounds": [
+        215,
+        64,
+        424,
+        330
+      ]
+    },
+    "greet": {
+      "file": "greet.webp",
+      "frames": 126,
+      "source": "点击回应-元气挥手.webm",
+      "source_sha256": "48cd729ccdcf746369942ea954d242e9afdd5643e1dac3827fa5e67450eb8776",
+      "native_frames": 241,
+      "native_bottom_range": 0,
+      "native_center_range": 8.5,
+      "native_first_bounds": [
+        213,
+        63,
+        424,
+        329
+      ],
+      "native_last_bounds": [
+        213,
+        64,
+        424,
+        329
+      ]
+    },
+    "happy": {
+      "file": "happy.webp",
+      "frames": 126,
+      "source": "工作状态-雀跃庆祝.webm",
+      "source_sha256": "3ff681051a0bb4f152d7535d64b7f3194c30298bf56d41e521216a278f135d3e",
+      "native_frames": 241,
+      "native_bottom_range": 36,
+      "native_center_range": 23.0,
+      "native_first_bounds": [
+        214,
+        63,
+        424,
+        329
+      ],
+      "native_last_bounds": [
+        214,
+        63,
+        424,
+        329
+      ]
+    },
+    "error": {
+      "file": "error.webp",
+      "frames": 61,
+      "source": "工作状态-垂头叹气冒汗.webm",
+      "source_sha256": "ab00c844e62221905574b4c070e0d7b6fa14fb2afa1064c27a160f10e25f7196",
+      "native_frames": 118,
+      "native_bottom_range": 0,
+      "native_center_range": 32.0,
+      "native_first_bounds": [
+        217,
+        64,
+        425,
+        329
+      ],
+      "native_last_bounds": [
+        213,
+        76,
+        419,
+        329
+      ]
+    },
+    "sleeping": {
+      "file": "sleeping.webp",
+      "frames": 126,
+      "source": "原地小憩沉眠.webm",
+      "source_sha256": "31d4a6b36a29b2a4fe097384173d3bbeb3fa2f40f526b13191791456bf7507a1",
+      "native_frames": 241,
+      "native_bottom_range": 4,
+      "native_center_range": 8.0,
+      "native_first_bounds": [
+        215,
+        64,
+        426,
+        326
+      ],
+      "native_last_bounds": [
+        215,
+        64,
+        426,
+        328
+      ]
+    },
+    "eating": {
+      "file": "eating.webp",
+      "frames": 126,
+      "source": "吃白饭.webm",
+      "source_sha256": "b620413d6fa303a0ed9168dc71453c3bddc10141a0b7edeff87dc2e6e054d502",
+      "native_frames": 241,
+      "native_bottom_range": 13,
+      "native_center_range": 10.5,
+      "native_first_bounds": [
+        211,
+        64,
+        421,
+        323
+      ],
+      "native_last_bounds": [
+        211,
+        64,
+        421,
+        336
+      ]
+    }
+  }
+}

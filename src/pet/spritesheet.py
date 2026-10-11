@@ -13,9 +13,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from collections import OrderedDict
+from collections.abc import Sequence
 
 from PySide6.QtCore import QRect, Qt
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QImage, QImageReader, QPixmap, QTransform
 
 from . import states
 
@@ -191,3 +193,128 @@ class SpriteSheet:
     @property
     def has_alpha(self) -> bool:
         return self.image.hasAlphaChannel()
+
+
+class AnimationSheet(SpriteSheet):
+    """Fixed-size offline atlases; at most one decoded source sequence in memory.
+
+    A logical row identifies an animation, not its physical atlas row. The public
+    frame/frames/row_for/frame_count API is identical to SpriteSheet.
+    """
+
+    def __init__(self, directory: Path):
+        try:
+            manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+            size, columns = int(manifest["cell_size"]), int(manifest["columns"])
+            animations = manifest["animations"]
+            if not isinstance(animations, dict):
+                raise ValueError("invalid animation manifest")
+            paths, counts = {}, {}
+            row_of = {}
+            for row, (state, entry) in enumerate(animations.items()):
+                filename, count = entry["file"], int(entry["frames"])
+                if Path(filename).name != filename or count < 1 or count > 256 or size != 192 or columns != 12:
+                    raise ValueError("invalid animation geometry")
+                path = directory / filename
+                reader = QImageReader(str(path))
+                dimensions = reader.size()
+                if not reader.canRead() or dimensions.width() != size * columns or dimensions.height() != ((count + columns - 1) // columns) * size:
+                    raise ValueError(f"invalid animation: {state}")
+                row_of[state], paths[row], counts[row] = row, path, count
+            required = ("idle", "run-left", "working", "thinking", "greet", "happy", "error", "sleeping", "eating")
+            if any(state not in row_of for state in required):
+                raise ValueError("missing animation")
+            right = len(paths)
+            paths[right], counts[right] = paths[row_of["run-left"]], counts[row_of["run-left"]]
+            row_of["run-right"] = right
+            for alias, state in {"remind": "greet", "coupon": "thinking", "balance": "thinking",
+                                 "progress": "working", "waiting": "thinking", "failed": "error"}.items():
+                row_of[alias] = row_of[state]
+            idle_image = QImage(str(paths[row_of["idle"]]))
+            preview = idle_image.copy(0, 0, size, size)
+            if preview.isNull() or not preview.hasAlphaChannel():
+                raise ValueError("invalid transparent preview")
+            super().__init__(preview, columns, len(paths), size, size, row_of=row_of,
+                             frames_by_row=counts, frame_delay_ms=int(manifest["frame_delay_ms"]),
+                             meta={**manifest, "character_id": "deepseek"})
+            self._paths = paths
+            self._mirrored_row = right
+            self._atlases: OrderedDict[Path, QImage] = OrderedDict({paths[row_of["idle"]]: idle_image})
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            raise SpriteLoadError("无法加载 DeepSeek 娘动画缓存") from exc
+
+    def row_for(self, state: str) -> int:
+        return self.row_of.get(state, self.row_of["idle"])
+
+    def frame(self, state: str, index: int) -> QPixmap:
+        row = self.row_for(state)
+        path = self._paths[row]
+        image = self._atlases.get(path)
+        if image is None:
+            image = QImage(str(path))
+            if image.isNull():
+                raise SpriteLoadError("无法读取角色动作缓存")
+            self._atlases.clear()
+            self._atlases[path] = image
+        cell = index % self.frame_count(state)
+        frame = image.copy((cell % self.columns) * self.cell_width,
+                           (cell // self.columns) * self.cell_height,
+                           self.cell_width, self.cell_height)
+        if row == self._mirrored_row:
+            frame = frame.transformed(QTransform().scale(-1, 1))
+        return QPixmap.fromImage(frame)
+
+    def anchor_bounds(self, state: str, alpha_threshold: int = 32):
+        # Offline auditing only, using the same real frames as the player.
+        result = []
+        table = bytes(255 if value > alpha_threshold else 0 for value in range(256))
+        for index in range(self.frame_count(state)):
+            image = self.frame(state, index).toImage().convertToFormat(QImage.Format_RGBA8888)
+            data = bytes(image.constBits())
+            left, top, right, bottom = image.width(), image.height(), -1, -1
+            for y in range(image.height()):
+                alpha = data[y * image.bytesPerLine() + 3:(y + 1) * image.bytesPerLine():4].translate(table)
+                start = alpha.find(b"\xff")
+                if start >= 0:
+                    left, top = min(left, start), min(top, y)
+                    right, bottom = max(right, alpha.rfind(b"\xff")), y
+            result.append(None if right < 0 else (left, top, right, bottom))
+        return result
+
+    def validate(self) -> list[str]:
+        # Geometry is validated at load. Scan every used frame only when requested.
+        return [f"{state}: empty frame" for state in self.row_of
+                if any(bound is None for bound in self.anchor_bounds(state))]
+
+
+class ScaledAnimationFrames(Sequence[QPixmap]):
+    """Scale on presentation; two resident frames instead of a 126-frame copy.
+
+    The source atlas remains one fixed coordinate system. There is no alpha
+    analysis, geometry adjustment or disk IO while playing the current action.
+    """
+
+    def __init__(self, sheet: AnimationSheet, state: str, size: int, dpr: float):
+        self.sheet, self.state, self.size, self.dpr = sheet, state, size, dpr
+        self.resident: OrderedDict[int, QPixmap] = OrderedDict()
+
+    def __len__(self) -> int:
+        return self.sheet.frame_count(self.state)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self[i] for i in range(*index.indices(len(self)))]
+        if index < 0:
+            index += len(self)
+        if index < 0 or index >= len(self):
+            raise IndexError(index)
+        frame = self.resident.pop(index, None)
+        if frame is None:
+            frame = self.sheet.frame(self.state, index).scaled(
+                round(self.size * self.dpr), round(self.size * self.dpr),
+                Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            frame.setDevicePixelRatio(self.dpr)
+        self.resident[index] = frame
+        while len(self.resident) > 2:
+            self.resident.popitem(last=False)
+        return frame
