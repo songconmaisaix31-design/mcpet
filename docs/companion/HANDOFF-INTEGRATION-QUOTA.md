@@ -262,3 +262,73 @@ A最后正常点击麦麦set164.059ms等既有剩余样本保留，不把组合�
 未重复10sbench/17GB扫描，未进行真人账户/Orca cache/DS余额、模型/MCP网络、账号写、
 用户GUI/常驻启动、安装包/自启动或第三方插件；root目前未FF/启动/真实只读采样。
 性能两门槛未通过，不能称最终交付或全套/全产品完成。
+
+## 2026-10-12 C 生命周期与限定诊断：仅静态 review 合并
+
+本节只追加静态集成证据，以上各版本首RED、独立GREEN与NOT_RUN不变。
+root明确限定本轮不返还动态时段；原Worker/worktree/分支保持，起始
+`7ffeebd03179a2796cb88fb73e52929d22bbca6c` 工作树干净，独立ls-remote与fetch
+逐一核对指定tip后，按C、root顺序普通merge，无冲突：
+
+| 交付 | 精确 tip | 本轮 merge SHA |
+|---|---|---|
+| C 最终业务及诊断交接 | `8d2959af22dc708b3f796c08f58c21958618048f` | `2883439a3772b9a382e045ca8649793338210428` |
+| root 最终文档 | `bac9f74ef462cdc451b8f54f8f7a9632cdd39c8f` | `d1dd466e76aa33676ce20eb4a32161736cb78eed` |
+
+C业务提交 `0c4c5f80bd291a3faeb16b8ccb61e545601c7c5a`，业务交接
+`36001485cb03b940c4d3f2eeee5b40915943865f`，最终8d2959仅追加诊断文档。
+保留其五文件交付：真实快照provider/子行有限复用；换key同步擦除所有旧文本、
+tooltip/accessibility、条与倒计时并隐藏；实际空快照释放缺席行。root计划包括7c7b3a9
+及后续运行时对照/停止决定。没有领域、胶水、测试、协议、预算或运行时版本修改。
+四份旧接线/真实组合测试相对7ffeebd零diff，原150/50、拖拽/TTL/四入口/帧推进、
+writer1、QThread/Win32有限回收与整体退出断言保持。
+
+### C 已执行证据（引用原 Handoff，本轮没有复测）
+
+- `mcpet-c-lifecycle-1791758072944`：C最终自域 **41 passed /1 failed /67.69s**，
+  唯一有界Windows前台断言仍RED。旧联合 **1 failed /11.96s**：heartbeat646.03ms、
+  first542.64ms、stop6.5979ms；heartbeat后的原PID/锁/重启断言NOT_RUN。
+  新真实组合 **1 passed /1 failed /23.68s**：完整行为、角色帧推进、换源/Decimal、
+  三reader回收/单writer/有界退出契约GREEN；heartbeat2934.91ms、first621.34ms、
+  stop8.2941ms，性能仍RED。首applicable重复启动失败、前台即时观察及探针修正
+  均保留在HANDOFF-C-QUOTA-PANEL.md，不被最终自域结果覆盖。
+- `mcpet-c-page-diag-1791759666421`：四入口前台归属均foreign，原精确前台断言RED；
+  Qt active/本GUI线程焦点/受控Qt键入通过不替代OS last-input或人工前台验收。
+  未访问页shell候选单配对：原show410.7618ms/heartbeat601.0772ms，
+  shell show574.1284ms/heartbeat829.3257ms，均RED；没有实施按需页面依据。
+  CSS原字符串缩进比较首RED与静态非空白等价界限保留。
+- `mcpet-c-qt-minor-1791760074760`：隔离官方6.11.2候选与现6.12.0单配对，
+  show455.3726/395.4577ms、heartbeat801.9684/668.6364ms均RED，
+  stop8.7795/8.2751ms分别GREEN。未改变WorkBuddy环境/requirements或pin版本；
+  metadata/support准备失败和OS-cache限制保留。两个候选均停止，不认定Qt/系统根因。
+
+这些是C受控契约/界面诊断，不是本次合并后的新组合验收或live账号余额；真实监控
+组合与UI监控stub对照分列。所有C探针已有限结束，本集成不另启动任何子协议。
+
+### 本轮实际静态验证与命令
+
+证据根：`C:/Users/DW/AppData/Local/Temp/mcpet-integration-quota-static-513e1abbb6c24b28a93e8cf6c0a4f4f4`。
+compile.json/stdout/stderr记录合并基线d1dd466e、命令、exit0及耗时 **0.7065867s**。
+通过ProcessStartInfo清空子环境，仅传Windows基础路径及新TEMP/data/home/appdata路径；
+`-I -S`隔离Python启动、禁加载site/.pth，不导入或执行产品/Qt，仅编译src/tests字节码。
+未继承账号key/token，未读取.env/凭证/真实日志/ledger或17GB根。
+
+```powershell
+& 'C:/Users/DW/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe' -I -S -m compileall -q src tests
+git diff bac9f74ef462cdc451b8f54f8f7a9632cdd39c8f HEAD --check
+git diff 0d76aa917a7c55accff3297e6bbed8fe76559ccc HEAD --check
+git diff --cached --check
+git merge-base --is-ancestor bac9f74ef462cdc451b8f54f8f7a9632cdd39c8f HEAD
+git merge-base --is-ancestor 8d2959af22dc708b3f796c08f58c21958618048f HEAD
+```
+
+compile与两个全分支diffcheck、cached diffcheck、root/C祖先证明均exit0；本文暂存和
+commit后再核对差异/祖先。root bac9f74是review tip祖先，允许后续root FF，本轮没有合回root。
+最终review tip由普通commit/push及独立ls-remote确定，在终端通知，不在本文写自身SHA。
+
+**本轮动态Qt/pytest/native/perf、新旧联合、完整pytest、更新六图全部NOT_RUN**，
+没有来源网络/模型/MCP/账号请求、安装或系统设置操作、用户GUI或常驻启动。
+原450 passed/2 failed和已审六图仅是7ffeebd所记旧基线历史，不冒称本轮full/视觉GREEN。
+仅本文追加，原断言不变；普通push、remote=HEAD且工作区干净后通知root并停止，
+全部slot idle。后续动态验证待用户桌面环境信息与root明确派发；冷show/系统前台
+根因UNKNOWN、性能RED仍未解决，不能称最终交付/全套或全产品通过。
