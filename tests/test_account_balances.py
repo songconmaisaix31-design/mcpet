@@ -120,6 +120,50 @@ def test_keyed_whitelisted_rate_limits_and_utf8_bom(monkeypatch):
     assert accounts[2].buckets[1].name == "Cursor Models"
 
 
+def test_nested_cursor_buckets_use_explicit_monthly_window_and_stay_separate(monkeypatch):
+    payload = orca_payload()
+    cursor = payload["result"]["rateLimits"][2]
+    cursor["monthly"]["buckets"] = cursor.pop("buckets")
+    for bucket in cursor["monthly"]["buckets"]:
+        bucket.pop("resetsAt")
+    accounts, _ = cli_result(monkeypatch, payload)
+    buckets = accounts[2].buckets
+    assert [b.used_percent for b in buckets] == [41, 10, 70]
+    assert all(b.resets_at == buckets[0].resets_at for b in buckets)
+
+
+@pytest.mark.parametrize("value", [None, True, -100, "123", float("nan"), float("inf")])
+def test_invalid_timestamp_stays_unknown(monkeypatch, value):
+    payload = orca_payload()
+    payload["result"]["rateLimits"][0]["updatedAt"] = value
+    payload["result"]["rateLimits"][0]["weekly"]["resetsAt"] = value
+    accounts, _ = cli_result(monkeypatch, payload)
+    assert accounts[0].updated_at is None
+    assert accounts[0].buckets[0].resets_at is None
+    assert accounts[0].status == "unavailable"
+
+
+def test_real_windows_utf8_fixture_cli_and_finite_timeout(tmp_path):
+    # Run the correct Python as a fake CLI, not the real account executable.
+    script = tmp_path / "fixture cli 中文.py"
+    payload = orca_payload()
+    payload["result"]["rateLimits"][0]["ignored"] = "中文，令牌不复制"
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    script.write_text("import sys\nassert sys.argv[1:] == ['account', 'list', '--json']\n"
+                      f"sys.stdout.buffer.write({body!r})\n", encoding="utf-8")
+    accounts = OrcaAccountSource(command=[sys.executable, str(script)]).fetch()
+    assert accounts[0].status == "ok"
+    assert accounts[0].buckets[0].used_percent == 16
+    assert "令牌" not in repr(accounts)
+    script.write_text("import time\ntime.sleep(10)\n", encoding="utf-8")
+    started = time.monotonic()
+    accounts = OrcaAccountSource(command=[sys.executable, str(script)], timeout=0.1).fetch()
+    # Windows CreateProcess cannot itself be interrupted by subprocess timeout;
+    # the separate monitor tests enforce the GUI and post-stop cleanup budgets.
+    assert time.monotonic() - started < 5
+    assert all(a.status == "error" and "超时" in a.message for a in accounts)
+
+
 @pytest.mark.parametrize("case", ["timeout", "nonzero", "json", "shape", "encoding", "missing"])
 def test_cli_failures_are_sanitized_unknown(monkeypatch, case):
     def run(*args, **kwargs):
@@ -229,4 +273,3 @@ def test_network_exception_is_sanitized(monkeypatch):
     account = DeepSeekBalanceSource("fixture-secret").fetch()
     assert account.status == "error"
     assert "fixture-secret" not in account.message
-

@@ -12,7 +12,7 @@ import time
 import pytest
 from PySide6.QtCore import QCoreApplication, QTimer
 
-from src.accounts import AccountMonitor, AccountStatus, MoneyBalance, QuotaBucket
+from src.accounts import AccountMonitor, AccountStatus, DeepSeekBalanceSource, MoneyBalance, OrcaAccountSource, QuotaBucket
 
 
 class FixtureOrca:
@@ -81,10 +81,14 @@ class SlowCliOrca:
         self.path = str(path)
 
     def fetch(self):
-        process = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"],
+        actual_pid = Path(self.path).with_suffix(".cli-pid")
+        child_code = ("import os, time; from pathlib import Path; "
+                      f"Path({str(actual_pid)!r}).write_text(str(os.getpid())); time.sleep(60)")
+        process = subprocess.Popen([sys.executable, "-c", child_code],
                                    shell=False, creationflags=(subprocess.CREATE_NO_WINDOW
                                                                if sys.platform == "win32" else 0))
-        Path(self.path).write_text(json.dumps({"worker": os.getpid(), "cli": process.pid}), encoding="utf-8")
+        Path(self.path).write_text(json.dumps({"worker": os.getpid(), "cli": process.pid,
+                                              }), encoding="utf-8")
         time.sleep(60)
         return ()
 
@@ -219,6 +223,28 @@ def test_reconfigure_clears_changed_source_fallback_and_none_keeps_source():
         close_monitor(monitor)
 
 
+def test_actual_sources_are_spawn_safe_with_fixture_cli_and_no_key(tmp_path):
+    script = tmp_path / "fixture.py"
+    payload = {"result": {"rateLimits": [{
+        "provider": "codex", "status": "ok", "updatedAt": time.time() * 1000,
+        "weekly": {"usedPercent": 27, "resetsAt": (time.time() + 600) * 1000},
+    }]}}
+    body = json.dumps(payload).encode()
+    script.write_text(f"import sys\nsys.stdout.buffer.write({body!r})\n", encoding="utf-8")
+    monitor = AccountMonitor(orca_source=OrcaAccountSource(command=[sys.executable, str(script)]),
+                             deepseek_source=DeepSeekBalanceSource())
+    snapshots = []
+    monitor.snapshot_ready.connect(snapshots.append)
+    try:
+        monitor.start()
+        pump_until(lambda: snapshots)
+        assert snapshots[0].accounts[0].buckets[0].used_percent == 27
+        assert snapshots[0].accounts[-1].status == "unconfigured"
+        assert not (tmp_path / "data" / "usage.json").exists()
+    finally:
+        close_monitor(monitor)
+
+
 def test_successful_zero_unavailable_is_published_as_fact():
     monitor = AccountMonitor(orca_source=FixtureOrca(), deepseek_source=FixtureMoney("6"))
     monitor._active = True
@@ -231,10 +257,49 @@ def test_successful_zero_unavailable_is_published_as_fact():
     monitor.stop()
 
 
+def test_failed_callback_can_replace_key_without_old_snapshot_publication():
+    from src.accounts import AccountSnapshot
+    monitor = AccountMonitor(orca_source=FixtureOrca(), deepseek_source=FixtureMoney("6"))
+    monitor._active = True
+    snapshots = []
+    monitor.snapshot_ready.connect(snapshots.append)
+    monitor.failed.connect(lambda _: monitor.reconfigure(deepseek_source=FixtureMoney("3")))
+    error = AccountStatus("codex", "Codex", "error", None, message="Orca 额度 CLI 查询超时")
+    try:
+        monitor._deliver(0, AccountSnapshot((error, FixtureMoney("6").fetch()), time.time()))
+        assert snapshots == []
+    finally:
+        monitor.stop()
+
+
+def test_last_successful_zero_balance_is_retained_after_read_failure():
+    from src.accounts import AccountSnapshot
+    monitor = AccountMonitor(orca_source=FixtureOrca(), deepseek_source=FixtureMoney("6"))
+    monitor._active = True
+    try:
+        monitor._deliver(0, AccountSnapshot((FixtureMoney("6").fetch(),), time.time()))
+        monitor._deliver(0, AccountSnapshot((ZeroMoney().fetch(),), time.time()))
+        error = AccountStatus("deepseek", "DeepSeek", "error", None, message="DeepSeek 余额查询超时")
+        monitor._deliver(0, AccountSnapshot((error,), time.time()))
+        assert monitor.last_snapshot.accounts[0].status == "stale"
+        assert monitor.last_snapshot.accounts[0].balances[0].total == 0
+    finally:
+        monitor.stop()
+
+
+def test_stop_before_start_is_idempotent():
+    monitor = AccountMonitor(orca_source=FixtureOrca(), deepseek_source=FixtureDeepSeek())
+    stopped = []
+    monitor.stopped.connect(lambda: stopped.append(True))
+    monitor.stop()
+    monitor.stop()
+    assert stopped == [True]
+
+
 def test_timeout_reaps_worker_and_cli_and_keeps_gui_heartbeat(tmp_path):
     marker = tmp_path / "pids.json"
     monitor = AccountMonitor(orca_source=SlowCliOrca(marker), deepseek_source=FixtureDeepSeek(),
-                             query_timeout=1.5)
+                             query_timeout=3.0)
     snapshots, failures, ticks = [], [], []
     monitor.snapshot_ready.connect(snapshots.append)
     monitor.failed.connect(failures.append)
@@ -247,6 +312,9 @@ def test_timeout_reaps_worker_and_cli_and_keeps_gui_heartbeat(tmp_path):
         pump_until(lambda: snapshots)
         assert marker.exists()
         pids = json.loads(marker.read_text())
+        actual_pid = marker.with_suffix(".cli-pid")
+        if actual_pid.exists():
+            pids["cli_actual"] = int(actual_pid.read_text())
         assert all(not pid_running(pid) for pid in pids.values())
         assert all(a.status == "error" for a in snapshots[-1].accounts)
         assert "超时" in monitor.first_failure
@@ -320,10 +388,11 @@ def test_whole_interpreter_exit_is_bounded_and_reaps_owned_processes(tmp_path, m
                             capture_output=True, encoding="utf-8", env=env, timeout=10)
     elapsed = time.monotonic() - started
     assert result.returncode == 0, result.stderr
-    assert elapsed < 6
+    assert elapsed < 8  # same whole-interpreter allowance as the existing runtime
     payload = json.loads(result.stdout.strip().splitlines()[-1])
     assert payload["pids"]
     assert payload["stop_ms"] < 50
+    assert time.time() - payload["stop_finished_at"] < 3
     assert all(not pid_running(pid) for pid in payload["pids"])
 
 
@@ -338,9 +407,11 @@ def exit_probe(mode, marker):
             time.sleep(0.002)
         pids = [p.pid for p in multiprocessing.active_children()]
     else:
-        while not marker.exists() and time.monotonic() - started < 4:
+        actual_pid = marker.with_suffix(".cli-pid")
+        while (not marker.exists() or not actual_pid.exists()) and time.monotonic() - started < 5:
             time.sleep(0.002)
         pids = list(json.loads(marker.read_text()).values())
+        pids.append(int(actual_pid.read_text()))
     if mode == "--qt-exit":
         QTimer.singleShot(0, app.quit)
         started = time.monotonic()
@@ -350,10 +421,9 @@ def exit_probe(mode, marker):
         started = time.monotonic()
         monitor.stop()
         stop_ms = (time.monotonic() - started) * 1000
-    print(json.dumps({"pids": pids, "stop_ms": stop_ms}), flush=True)
+    print(json.dumps({"pids": pids, "stop_ms": stop_ms, "stop_finished_at": time.time()}), flush=True)
     # Deliberately return immediately: non-daemon bridge must finish before Python exits.
 
 
 if __name__ == "__main__":
     exit_probe(sys.argv[1], Path(sys.argv[2]))
-

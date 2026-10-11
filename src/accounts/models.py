@@ -34,4 +34,3 @@ class AccountStatus:
 class AccountSnapshot:
     accounts: tuple[AccountStatus, ...]
     observed_at: float
-

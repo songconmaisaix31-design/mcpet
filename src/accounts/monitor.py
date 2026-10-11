@@ -104,6 +104,8 @@ class AccountMonitor(QObject):
 
     def stop(self) -> None:
         """Immediately stop requests/signals; the bridge owns bounded reaping."""
+        if self._closed:
+            return
         self._active = False
         self._closed = True
         self._timer.stop()
@@ -222,7 +224,10 @@ class AccountMonitor(QObject):
             errors = set()
             for account in snapshot.accounts:
                 original = account
-                if account.status == "ok":
+                if account.status == "ok" or (account.provider == "deepseek" and
+                                               account.status == "unavailable" and account.balances):
+                    # is_available=false with validated amounts is still a
+                    # successful observation, including an authoritative zero.
                     self._last_good[account.provider] = account
                 elif account.status in ("error", "unavailable"):
                     previous = self._last_good.get(account.provider)
@@ -234,18 +239,25 @@ class AccountMonitor(QObject):
                     if original.status == "error":
                         errors.add(f"{original.label}: {original.message}")
                 accounts.append(account)
-            self.last_snapshot = AccountSnapshot(tuple(accounts), snapshot.observed_at)
             for message in sorted(errors):
+                if not self._active or generation != self._generation:
+                    break
                 self._failure(message)
-            self.snapshot_ready.emit(self.last_snapshot)
+            # Direct Qt callbacks can reconfigure/stop synchronously in failed.
+            # Recheck before publication, not just at slot entry.
+            if self._active and generation == self._generation:
+                self.last_snapshot = AccountSnapshot(tuple(accounts), snapshot.observed_at)
+                self.snapshot_ready.emit(self.last_snapshot)
         if self._again:
             self._again = False
             self.refresh()
 
     @Slot(bool)
     def _did_stop(self, reaped: bool) -> None:
+        self._active = False
+        self._closed = True
+        self._timer.stop()
         if reaped:
             self.stopped.emit()
         else:
             self._failure("账号后台进程回收失败")
-

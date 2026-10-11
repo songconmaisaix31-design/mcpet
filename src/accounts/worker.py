@@ -45,4 +45,3 @@ def observe(connection) -> None:
         pass
     finally:
         connection.close()
-

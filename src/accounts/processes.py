@@ -84,4 +84,3 @@ class ProcessFamily:
                 os.killpg(self.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-
