@@ -51,6 +51,12 @@ class MonsterApp:
         self.app.setQuitOnLastWindowClosed(False)
         self.app.setApplicationName("McPet")
 
+        # 托盘可用性检查必须放在 QApplication 之后。
+        # 实测：在 QApplication 存在之前调用 QSystemTrayIcon.isSystemTrayAvailable()
+        # 会直接 access violation（SIGSEGV），不是返回 False。
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            print("警告：当前系统没有可用托盘，程序将以普通窗口方式运行。")
+
         self._threads: list[_FnThread] = []
         self.guard = OrderGuard()
         self.ledger = NutritionLedger()
@@ -449,8 +455,8 @@ class MonsterApp:
 
 
 def main() -> int:
-    if not QSystemTrayIcon.isSystemTrayAvailable():
-        print("警告：当前系统没有可用托盘，程序将以普通窗口方式运行。")
+    # 注意：托盘可用性检查已挪进 MonsterApp.__init__，
+    # 因为那需要 QApplication 已经存在（见 __init__ 里的注释）。
     monster = MonsterApp()
     return monster.app.exec()
 
