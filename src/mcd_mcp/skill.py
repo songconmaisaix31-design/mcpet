@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Callable
+from .. import config
+from ..chat.store import bounded_history
 
 from ..llm.stepfun import ChatReply, StepFunClient, ToolCall
 from ..mcd_mcp import tools as T
@@ -40,6 +42,33 @@ SYSTEM_PROMPT = (
 )
 
 MAX_TOOL_RESULT_CHARS = 4000
+READ_TOOLS = frozenset(T.USED_TOOLS) - WRITE_TOOLS | {T.TOOL_ORDER_LIST}
+
+
+def validate_arguments(arguments: Any, schema: dict[str, Any]) -> None:
+    """校验工具 payload，不把坏 JSON、缺字段或未知字段默默变成写请求。"""
+    kind = schema.get("type")
+    checks = {"object": lambda v: isinstance(v, dict),
+              "array": lambda v: isinstance(v, list),
+              "string": lambda v: isinstance(v, str),
+              "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
+              "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
+              "boolean": lambda v: isinstance(v, bool)}
+    if kind in checks and not checks[kind](arguments):
+        raise ValueError("工具参数类型不正确")
+    if "enum" in schema and arguments not in schema["enum"]:
+        raise ValueError("工具参数不在允许值中")
+    if isinstance(arguments, dict):
+        props = schema.get("properties", {})
+        if set(schema.get("required", [])) - set(arguments):
+            raise ValueError("工具参数缺少必填字段")
+        if set(arguments) - set(props):
+            raise ValueError("工具参数含未知字段")
+        for key, value in arguments.items():
+            validate_arguments(value, props[key])
+    if isinstance(arguments, list) and "items" in schema:
+        for value in arguments:
+            validate_arguments(value, schema["items"])
 
 
 @dataclass
@@ -72,6 +101,8 @@ def build_function_defs(
             continue
         if exclude_write and tool.name in WRITE_TOOLS:
             continue
+        if exclude_write and tool.name not in READ_TOOLS:
+            continue
         schema = dict(tool.input_schema or {})
         schema.setdefault("type", "object")
         schema.setdefault("properties", {})
@@ -89,7 +120,7 @@ def build_function_defs(
 
 
 def _preview(text: str, limit: int = MAX_TOOL_RESULT_CHARS) -> str:
-    text = (text or "").strip()
+    text = config.redact((text or "").strip())
     if len(text) > limit:
         return text[:limit] + f"…（已截断，原长 {len(text)} 字符）"
     return text or "（工具没有返回文本）"
@@ -104,6 +135,7 @@ def run_skill(
     allow_write: bool = False,
     extra_system: str = "",
     on_step: Callable[[SkillStep], None] | None = None,
+    history: list[dict[str, Any]] | None = None,
 ) -> SkillResult:
     """跑一次 Skill：提问 → 模型选工具 → 真调 → 收敛成一句人话。"""
     mcp_tools = brain.client.list_tools()
@@ -112,10 +144,9 @@ def run_skill(
     ) or build_function_defs(mcp_tools, exclude_write=True)
 
     system = SYSTEM_PROMPT + (("\n" + extra_system) if extra_system else "")
-    messages: list[dict[str, Any]] = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": question},
-    ]
+    messages: list[dict[str, Any]] = [{"role": "system", "content": config.redact(system)}]
+    messages.extend(bounded_history(history or []))
+    messages.append({"role": "user", "content": config.redact(question)[:4000]})
 
     result = SkillResult()
     for _ in range(max_steps):
@@ -123,10 +154,12 @@ def run_skill(
         result.usage = reply.usage or result.usage
 
         if not reply.wants_tools:
-            result.answer = reply.text.strip()
+            result.answer = config.redact(reply.text.strip())
             return result
 
         for call in reply.tool_calls:
+            if not getattr(call, "arguments_valid", True) or not isinstance(call.arguments, dict):
+                raise ValueError("模型返回了无效工具参数，未执行")
             if call.name in WRITE_TOOLS and not allow_write:
                 result.pending_write = call
                 result.pending_reason = (
@@ -134,7 +167,15 @@ def run_skill(
                 )
                 return result
 
+            allowed = {d["function"]["name"] for d in defs}
+            if call.name not in allowed:
+                raise ValueError("模型请求了未授权工具，未执行")
+            tool = next(t for t in mcp_tools if t.name == call.name)
+            validate_arguments(call.arguments, tool.input_schema)
+
             tool_result = brain.client.call_tool(call.name, call.arguments)
+            if tool_result.is_error or not tool_result.ok:
+                raise ValueError(config.redact(tool_result.error_message or tool_result.text))
             step = SkillStep(
                 tool=call.name,
                 arguments=call.arguments,

@@ -19,6 +19,7 @@ class PetTray(QSystemTrayIcon):
         self.show()
 
     def _build(self, entries: list[tuple[str, object] | None]) -> None:
+        self._menu.clear()
         for entry in entries:
             if entry is None:
                 self._menu.addSeparator()
@@ -27,6 +28,9 @@ class PetTray(QSystemTrayIcon):
             action = QAction(label, self._menu)
             action.triggered.connect(callback)  # type: ignore[arg-type]
             self._menu.addAction(action)
+
+    def set_entries(self, entries):
+        self._build(entries)
 
     def _on_activated(self, reason) -> None:
         if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick):
