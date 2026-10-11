@@ -36,3 +36,10 @@ C：唯一面板可爱温暖奶油色+圆角卡片，兼容 DPR1.5 和小屏滚�
 正确 WorkBuddy Python；隔离 MCPET_DATA_DIR/TEMP 与受控 generic logs。适用测试+完整 pytest+compileall src tests+diff --check；保留每轮首 RED，修复后独立 GREEN。新组合测试真实 Qt、切两角色、重启持久化/拖拽/TTL、额度未知/失败/stale/Cursor分桶/Decimal、刷新合并、shutdown/进程回收；mock 网络只证明契约。原联合 heartbeat<150ms/stop<50ms、单 usage writer、四入口恢复不可放宽。DPR1.5 原生截图首页/设置与双角色；动画透明、无空白帧与锚点抖动探针。
 
 主轨最终普通 FF、审图、只读实测 Orca cache、DeepSeek 有已配置 key 时余额 GET（不输出 secret，没 key 明示未实测），优雅重启现用户实例复验。严禁 Worker 操作用户 GUI49784/launcher38676/monitor23860/48728、读取 .env/凭证/既有会话、17GB日志根或 ledger、真实模型/MCP账号写操作。素材公开仓库下载允许；不安装/运行第三方 DSH 插件。Pixso 连接与设计输出需实际工具证据，未完成则单列限制，不能用本地 Qt 图冒充 Pixso。
+
+## 2026-10-12 主轨审阅追加
+
+- Pixso 后续实际完成 OAuth、24 工具发现及专用新文件首页 frame 3:1 的生成/截图；早期未连接记录保留。实际设计与链接在 PIXSO-DESIGN-BRIEF.md、PIXSO-HOME-DESIGN.png；设计示意不能成为产品余额。check_layout 返回 null，没有自动布局通过结论。当前 Orca 账号 home 已添加 Pixso 配置，但此 home 的 OAuth 因代理访问超时尚未验证；默认 Codex home 的真实授权/设计已成功。
+- B 解析审阅返修：Codex/Grok/Claude 仅接受已知 session/weekly 窗口，有 session 则独立显示，不提供时不造数；Claude 有合法窗口时不得一律 unavailable。窗口不相加，缺失/非法保留未知，Cursor 契约不变。返修只由原 B 写域实现并重新验证。
+- A 本地最终 tip 8b7da5c9d396a0e14b77f4e2b7ad5c844c0c4a1e；远端 push/ls-remote 尚未确认，不作为已发布/集成。C native-v1 额度卡压缩是视觉 RED，v2 修复并有尺寸/小屏测试；最终紧凑布局与双角色原生图仍待审阅。原 C Codex 因内存分配失败退出，工作区改动保留，在原终端 resume 同一 cwd 会话，不新建 Worker。
+- 系统代理端口可连接但 Pixso/GitHub 超时，主轨未修改全局代理、未复制 OAuth 凭据、未重启其他进程。各轨仍可本地验证；发布需远端证据，现用户旧 GUI 保持运行，最终集成/优雅重启尚未执行。
