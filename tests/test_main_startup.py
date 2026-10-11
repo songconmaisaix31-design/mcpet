@@ -179,6 +179,7 @@ def qt_smoke(mode):
     from PySide6.QtCore import QObject, QTimer, Signal
     from PySide6.QtWidgets import QApplication
     from src import config, main
+    from test_app_actions import AccountMonitorOfflineStub
 
     class MonitorStub(QObject):
         progress_ready = Signal(object)
@@ -209,7 +210,8 @@ def qt_smoke(mode):
             return httpx.Response(200, json={"jsonrpc": "2.0", "id": body["id"], "result": {}})
 
     main.McdMcpClient = MockClient
-    monster = main.MonsterApp([], monitor_factory=MonitorStub)
+    monster = main.MonsterApp([], monitor_factory=MonitorStub,
+                              account_monitor_factory=AccountMonitorOfflineStub)
     if monster.secondary:
         result = monster.app.exec()
         print(json.dumps({"secondary": True, "has_tasks": hasattr(monster, "tasks"),

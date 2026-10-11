@@ -125,6 +125,7 @@ def native_probe(mode):
     from PySide6.QtWidgets import QApplication, QSystemTrayIcon
     from src import config, main
     from src.runtime.monitor import AgentMonitor
+    from test_app_actions import AccountMonitorOfflineStub
 
     # Never load a credential file. Network access is an assertion failure.
     config.load_env = lambda: None
@@ -153,7 +154,8 @@ def native_probe(mode):
         finally:
             panel_timings.append(round((time.monotonic() - begin) * 1000, 2))
     main.MonsterApp.action_panel = timed_panel
-    monster = main.MonsterApp([])  # Default, real AgentMonitor; no injected factory.
+    monster = main.MonsterApp([], account_monitor_factory=AccountMonitorOfflineStub)
+    # Default, real AgentMonitor; only the account reader is isolated here.
     if monster.secondary:
         code = monster.app.exec()
         print(json.dumps({"secondary": True, "has_monitor": hasattr(monster, "monitor"),

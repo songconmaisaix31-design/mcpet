@@ -33,6 +33,21 @@ class MonitorStub(QObject):
     def refresh_usage(self): self.usage_requests += 1
 
 
+class AccountMonitorOfflineStub(QObject):
+    """Legacy tests isolate the new account reader; no CLI or HTTP source."""
+    snapshot_ready = Signal(object)
+    failed = Signal(str)
+    stopped = Signal()
+
+    def __init__(self, parent=None, **kwargs):
+        super().__init__(parent)
+
+    def start(self): pass
+    def refresh(self): pass
+    def reconfigure(self, **kwargs): pass
+    def stop(self): self.stopped.emit()
+
+
 def pump_until(predicate, timeout=4):
     deadline = time.monotonic() + timeout
     while not predicate() and time.monotonic() < deadline:
@@ -49,7 +64,8 @@ def monster(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "load_env", lambda: None)  # 绝不读根 .env
     monkeypatch.setattr(main.QtDailyScheduler, "start", lambda self: None)
     monkeypatch.setattr(main.MonsterApp, "_load_sheet", lambda s: None)
-    app = main.MonsterApp([], enforce_single_instance=False, monitor_factory=MonitorStub)
+    app = main.MonsterApp([], enforce_single_instance=False, monitor_factory=MonitorStub,
+                          account_monitor_factory=AccountMonitorOfflineStub)
     app.activity = []
     app.window.set_activity = lambda state, context_percent=None, label="": app.activity.append((state, context_percent, label))
     pump_until(lambda: app.monitor is not None)
