@@ -63,6 +63,7 @@ codex/grok 各自 `weekly`；Cursor `monthly`、`Cursor Models`、`Other Models`
 | 上述定向重试 | 1 failed, 3 passed：UTF-8 fixture 的 2s 查询返回 error；未记录该次来源 message，精确错误原因 UNKNOWN。另一次独立计时观测 CreateProcess 400.887ms、timeout 107.507ms、kill 0.173ms、reap 0.957ms，不能用它倒推出每次启动耗时。 |
 | 记录真实 CLI body PID 后 | 1 failed, 69 passed：1.5s 测试查询预算在 fixture PID 标记创建前已超时。改为先记录已创建 CLI PID，body PID 独立记录；受控查询预算 3s（产品默认仍 15s）。 |
 | 手动退出探针与完整 pytest 并行 | immediate exit 成功（整体7.276s/stop后2.931s）；第二个 blocked probe 外层 TimeoutExpired(10s)。本轮保留 RED，受控 worker/CLI/body PID 50828/58056/39196 检查均退出；不声称任意负载下都有同样整体延迟。 |
+| 首次远端 push | HTTPS 连接建立但超过三分钟无输出/远端确认；终止本次 Git transport 后退出码 1、无具体 stderr。远端阻塞原因 UNKNOWN，未当作发布成功；禁止交互、HTTP/1.1 和 low-speed 30s 参数重试同一分支，最终状态随 root 通知给出。 |
 
 只调整新测试自定启动预算：合法 UTF-8 fixture 使用产品默认 CLI timeout=5s；真实 0.1s 超时调用整体要求 <5s。新 whole-interpreter 预算对齐原运行时 <8s，另增 stop 后 <3s。未放宽原 GUI stop<50ms、heartbeat<150ms，也未延长产品 15s 截止。Python 标准 subprocess 的 timeout 不可中断 Win32 CreateProcess 本身；此开销留在后台。
 
