@@ -88,3 +88,110 @@ $env:PYTHONPATH = (Get-Location).Path
 - 加载检查全部文件头和几何、预解码当前动作；全动作像素由回归检查，不在GUI一次性全部解码。若安装后素材被删除/破坏，后续动作可能显示原有占位兜底；切换时失败保留旧角色。
 - 未操作GUI49784/launcher38676/monitors23860/48728；未读.env、凭证、用户既有日志/ledger，未安装第三方宿主、未发模型/MCP账号网络请求。仅下载公开固定素材和临时转换工具。
 - 完成commit+普通push，通知主terminal `term_0dcc55fd-ccc4-4567-be46-3d441ca0ec24` 后停止。通知采用 [orca-cli skill](C:/Users/DW/.agents/skills/orca-cli/SKILL.md) 的公开terminal send；receipt只说明输入accepted，不声称对方已集成。
+
+## 2026-10-12 组合性能返修：最终 A 交接
+
+本节追加记录，前述 8b7da5c 的 335 全仓 GREEN、整 WebP 体积/驻留和未合 B/C 均为历史证据，不能用来描述本节组合版本。原 WT/branch 不变：`songconmaisaix31-design/mcpet-pet-20261011`。从干净 `8b7da5c9d396a0e14b77f4e2b7ad5c844c0c4a1e` fetch 后按授权 FF C basis `d037c5cf6b384d4930dbadef97b0240881978b73`。只读 fetch/git show root 文档 `cfde794493c3054aef88ca6afdd755918639940c`，没有合并 root sibling、rebase、reset 或 amend；最终唯一集成者还需普通合并该 root 文档 tip。
+
+本轮代码提交（最终交接文档提交另由 `git rev-parse HEAD` / `ls-remote` 精确核对并通知）：
+
+- `538e25e73c111d0c3e664ec3f69d536b7639ae0b`：固定 PNG 小分页/独立首帧预览、alpha 校验字节采样、切换实际相位同步准备、复用已提供的同角色 sheet。
+- `476066cbbca5ff54e90d0858a5fa2ab4daeae13f`：同节奏角色切换保留活动计时器与 deadline，新增麦麦同像素 PNG 缓存。
+- `ca3cf5f73c1df58eaf9164a4d0df7bf6f95dc3ba`：麦麦 PNG 改用标准 filter=0 / stored deflate，实测降低解码 CPU。最终生产代码/素材测试均在此版执行；随后仅追加本文。
+
+只修改获授权 A 路径及 root 明确增补的 `assets/longniang/spritesheet-runtime.png`。未改 main/dialogs/B、任何旧/新集成测试、断言、预算、等待时序、root 计划。没有新框架/完成证明系统，没有预热所有角色/动作，没有把切换必要解码挪到下一 tick，没有恢复整段 scaled 缓存。原许可证、固定上游 SHA、接口与 TTL/拖拽/休息/恢复规则不变。
+
+### 修复与素材取舍
+
+1. C basis 的 `character_preview` 已使用 `sheet.image`，正常点击记录 `_icon` 为 0.261..0.422ms；没有为图标访问 idle 而淘汰 working 页。A 构造也不再解码整 idle 动画，改为同像素固定 192×192 首帧预览；当前动作的实际相位页仍在切换完成前同步解码/缩放。坏的目标相位页失败保留旧 sheet、画面、帧号、TTL 与偏好文件，回归断言覆盖。
+2. 九个旧 DeepSeek 无损整 WebP 拆为 94 个 2304×192 PNG 页（每页 12 个固定 192×192 格），另加首帧 `preview.png`。完整页及全部 1069 个有效帧逐像素等于旧缓存，alpha/透明 RGB 都保留；没有重新缩放、裁边、居中、锚平真实跳跃或改帧数/80ms节奏。旧 WebP 先保存在本轮证据 `repack/originals`，确认一致后删除仓库冗余文件。PNG 页 33,264,844 字节，预览 34,560 字节，相比旧 21,392,334 字节增加磁盘体积，换取较小的必要解码；复现与许可见 SOURCE.md/CREDITS。
+3. `AnimationSheet` 校验页头/几何，不预解码其他动作；缓存最多一页。切换释放旧角色像素，缩放仍最多两组动作、每组两张近期帧。后续页仅播放到达时解码，页边界/末页/循环回归检查真实像素。Native 最后驻留 DeepSeek：源页 1,769,472 + 缩放 1,166,400 + 预览 147,456 = 3,083,328 像素字节（约2.94MiB）；切换有新旧短暂共存，未测峰值 RSS/GPU，不将像素计数冒称整个应用内存。
+4. 麦麦原校验规则仍是每4px采样、alpha>8；小格转换 RGBA 后读 alpha 字节、发现非空即停止，替代逐点 Python/Qt 调用。仍每次加载校验，没有跨版本元信息缓存。正常点击校验由旧样本 324.943ms 降至最终 15.785ms；独立启动样本 3.733ms。真实空格/低 alpha/采样规则回归通过。
+5. 麦麦新增 PNG 与原 `spritesheet.webp` RGBA 所有像素/alpha 一致，原 WebP/pet.json/sprite-rows.json 不动。characters.py 有 PNG 时优先使用，缺失时仍可加载 WebP；没有缓存整个非活动角色。现 PNG 使用标准 filter=0、stored deflate，磁盘 **14,060,903 字节**，解码像素仍 **14,057,472 字节**；体积成本明确，许可证沿用原素材。转换器 `--maimai` 可离线复现并验证像素。
+6. 角色切换同80ms节奏时保留活动 QTimer ID 与原 `_next_frame`，避免同一 Qt timer 回调内连续选择角色不断推迟下一帧。不同节奏/非活动计时器仍按原规则启动；真实嵌套 QTimer/QTest 回归检查 timer ID/deadline 不变且110ms推进。显示/隐藏、显式 `set_state(...force=True)`、`set_spritesheet` 的重置语义不变。
+
+root 最后提出的 `_reload_frames(force=True)`/后续 resize 候选已核对：本 C basis 的 `window.py` **没有 `_reload_frames` 或 resizeEvent 重载**，canvas/window 构造后固定大小，set_character 不改几何；屏幕/DPI通知通过 `_load_frames(state)`。最终正常点击两份记录在 role change 后到 QTest 等待结束没有再次 `_load_frames` 或 showEvent，不能把候选当作已证根因。原同节奏重启版诊断等待前 `_next_frame` 尚余54.498ms，实际等待150.897ms后帧仍0/到期-96.507ms且没有 advance 回调；修复版保留早已到期的 clock，原110ms请求后由0推进11（stored PNG）/13（WebP对照）。等待实际返回169.477/202.698ms反映同步事件耗时，**没有把测试请求110ms改长**。显式 force 语义未弱化；本轮不声称人工跨物理屏/DPI验收。
+
+### 解码分段证据（不要相加嵌套耗时）
+
+证据根：`C:/Users/DW/AppData/Local/Temp/mcpet-a-perf-20261012-r1`。每个 run 保留独立 `command.json`（确切命令/代码版号/PID/exit）和 `result.log`；分段另有自己的 `data/profile-observe.json`，不覆盖首 RED。诊断包装调用原发布组合协议/断言，仅记录 source、requested_source、state、相位、cache、clock；WebP对照显式记录 `webp_comparison=true`，只将本进程请求 runtime PNG 的实际来源改为原 WebP。该对照不是生产测试 GREEN，也不改仓库 main/测试。
+
+| 正常点击样本 | 必要解码叶子 | load/校验或缩放包装 | set_character 总耗时 |
+| --- | --- | --- | --- |
+| `profile-before` / d037 | DeepSeek idle268.102 + working308.089ms（两个实际解码） | 旧构造277ms | 602.222ms |
+| 同上回麦麦 | WebP279.917ms | 校验324.943ms | 615.544ms |
+| `profile-after` / 538e | DeepSeek working39.565/45.168ms；单页总体33..57ms | 构造/页头/首帧64.965/71.710ms | 116.363/129.559ms |
+| 同上回麦麦 | 原WebP304.838ms | 校验15.617ms | 352.514ms |
+| `profile-stored-runtime` / ca3cf5f | DeepSeek working39.955/43.423ms | load71.781/62.987ms；scaled43.078/46.106ms（含前述解码） | 123.482/120.085ms |
+| 同上回麦麦 | stored PNG **118.466ms** | load139.852ms（含解码与校验15.785）；scaled14.826ms | **164.059ms** |
+| `profile-current-webp` / 同ca3cf5f对照 | 实际原WebP **288.028ms**，requested_source明确runtime PNG | 同结构加载与校验 | **330.345ms** |
+
+这些是冷进程中的正常点击、当前working动作/实际缓存路径；不是 OS 文件缓存清空后的普遍结论，也不能把 init/load/scaled/set 包装再相加。当前 DeepSeek 单个 QPixmap.scaled 调用最终最大3.586ms；较长 `_scaled_frames` 包装含必要源页解码，不能全部归因缩放。
+
+**PNG取舍保留反证**：旧 compressed runtime PNG 单独新进程 wall62.201ms/CPU62.500ms，原WebP53.982/CPU46.875ms，前者不更快；同正常点击旧PNG解码283.472ms，也未证明收益。后续普通提交 ca3cf5f 改为 stored deflate 后，独立新进程31.153ms/CPU31.250ms，且同ca3cf5f正常点击分列118.466 vs 原WebP288.028ms，支持以更大磁盘文件降低当前解码成本的取舍。**不能冒称仅改PNG格式已解决所有305ms、150ms组合门槛或环境根因**；麦麦set164.059ms样本仍超过150ms，组合仍RED。原生独立动作加载5.72..8.34ms与正常点击33..57ms是不同调用场景，不互相替代。
+
+### 本轮首 RED 与中间失败（独立保留）
+
+| run | 首次结果/意义 |
+| --- | --- |
+| `applicable-first` / d037 | 64 passed /30.96s，旧A适用基线 |
+| `old-joint-first` / d037 | 1 failed /11.75s，heartbeat414.64ms、首面板331.08ms；后置PID/锁/重启断言NOT_RUN |
+| `combo-first` / d037 | 1 passed、1 failed /18.40s，完整行为契约通过，heartbeat1790.11ms/首面板382.81ms |
+| `regression-first` | 2 failed、1 passed、6 deselected /0.34s，新测试暴露构造解码整个idle及旧单图格式 |
+| `phase-regression-first` | 1 failed、11 deselected /0.44s，目标相位63前多余解码帧0；后续修复只请求63 |
+| `applicable-repair` | 2 failed、67 passed /18.27s，新测试把QPixmap预乘alpha像素与straight QImage直接比较，修正expected采用同QPixmap表示；独立全像素/alpha审计未放宽 |
+| `old-joint-repair` | 1 failed /9.11s，heartbeat364.06ms/首面板273.91ms；后置仍NOT_RUN |
+| `combo-repair` / 538e | 2 failed /14.81s，role_frames_advanced=false与heartbeat1132.08ms；行为契约在帧推进之后的断言NOT_RUN |
+| `cadence-first` | 1 failed、12 deselected /0.59s，真实Qt嵌套回调证明同节奏切换重置timer ID/deadline |
+| `profile-clock-runtime` / 476066c | exit1仅heartbeat986.20ms/首面板366.73ms；帧推进与完整契约通过，不记pytest GREEN |
+| `profile-stored-runtime` / ca3cf5f | exit1仅heartbeat939.50ms/首面板457.43ms；帧推进/完整契约通过 |
+| `profile-current-webp` / ca3cf5f对照 | exit1仅heartbeat1082.95ms/首面板459.37ms；帧推进/完整契约通过 |
+
+`profile-timer` 最初采到 QWidget.window 方法而非PetWindow导致部分clock字段null，作为诊断脚本错误保留，未据此推结论；`timer-detail` 修正后有前述真实clock数据。旧会话 helper setup refresh 错误单列环境失败，不是 pytest RED；本轮执行工具恢复正常。
+
+### 最终验证：GREEN、RED、NOT_RUN 分列
+
+最终 ca3cf5f 代码/素材，正确 WorkBuddy Python，所有测试串行，windows平台/DPR1.5；不改原测试等待/预算。不在本轮重复完整 pytest 挑GREEN。
+
+| 验证run | 最终结果 |
+| --- | --- |
+| `applicable-final` | **71 passed /21.01s /exit0**：characters、dual_pet_render、window_render、pet_behavior；新增分页/透明像素/相位失败事务/既有sheet复用/同节奏真实Qt回归全部通过 |
+| `old-joint-final` | **1 failed /9.58s /exit1**：heartbeat483.55ms、首面板397.53ms；auto_start/working/手势/四入口/110tokens/单writer/stop5.3736ms均在此前断言通过；之后原PID/锁/重启断言仍NOT_RUN，未宣称完整契约GREEN |
+| `combo-final`（无诊断包装的已发布测试） | **1 passed、1 failed /13.47s /exit1**：`test_native_dual_pet_accounts_contract_and_bounded_exit`完整GREEN；`...heartbeat`829.28ms>150为RED。first_panel391.90ms；stop3.603ms<50；role_frames_advanced=true；实时通知拖拽、decimal/cursor、单writer、singleflight/generation、重启角色偏好通过。quit到reaped0.593895s、unreaped=[]、锁移除/重启true、network_calls=0、errors=[] |
+| `native-final` | **exit0，Windows/DPR1.5**：两角色各5s均63帧/12.6fps/0卡顿；麦麦平均80.002ms、78.932..81.182；DeepSeek平均80.002ms、71.316..88.268。真实拖拽120事件，麦麦0.251ms/事件、8帧；DeepSeek0.269ms/事件、11帧；均greet TTL尚未到期时进入run-right，反向1px/后台通知不重置，释放0clicked。独立切DeepSeek17.70ms，九动作冷页5.72..8.34ms，窗口最多2动作索引/源1页/每组2帧 |
+| `bench-final`（原scripts/bench_render.py 10） | **exit0，Windows/DPR1.5**：125帧/12.5fps、平均/中位80.0ms、79.0..81.1、标准差0.5ms、0卡顿；拖拽0.35ms/事件、8/8帧、仅run-right、0clicked。atlas idle横中心0.5px/底部0px、右跑底部3px、jumping46px有意跳跃均保留 |
+| `compile-final` | **compileall src/tests/转换脚本 exit0**；全分支diff/check及最终cached check exit0 |
+| 本轮全仓pytest | **NOT_RUN**：组合核心仍RED，按授权交原唯一集成者合C/A/root文档后做一次最终full/native；历史8b7的335GREEN不替代组合验收 |
+
+只grab并查看自身Qt窗口 `native-final/data/{maimai,deepseek}-native.png`，透明边缘/两角色可见，未抓用户桌面/操作常驻实例。Native source_cache_bytes=0 对麦麦仅表示它没有AnimationSheet._atlases字典，**不表示零像素**；麦麦实际整sheet像素14,057,472字节，另有native最后scaled3,227,040字节（约16.48MiB总像素，不含对象/RSS/GPU）。原bench文本输出原脚本编码，数值/exit日志保留，不越域改脚本。
+
+可复现本轮确切命令（诊断工具在上述自有TEMP，不是运行依赖）：
+
+```powershell
+$petPython = 'C:/Users/DW/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe'
+$probeRoot = 'C:/Users/DW/AppData/Local/Temp/mcpet-a-perf-20261012-r1'
+# launch.py每次创建全新RUN_NAME；参数{run}替换为该目录，不能复用现有run覆盖证据。
+& $petPython "$probeRoot/launch.py" applicable-final -m pytest tests/test_characters.py tests/test_dual_pet_render.py tests/test_window_render.py tests/test_pet_behavior.py -q --basetemp '{run}/pytest'
+& $petPython "$probeRoot/launch.py" old-joint-final -m pytest tests/test_companion_integration.py -q -s --basetemp '{run}/pytest'
+& $petPython "$probeRoot/launch.py" combo-final -m pytest tests/test_dual_pet_quota_integration.py -q -s --basetemp '{run}/pytest'
+& $petPython "$probeRoot/launch.py" native-final tests/test_dual_pet_render.py
+& $petPython "$probeRoot/launch.py" bench-final scripts/bench_render.py 10
+& $petPython "$probeRoot/launch.py" compile-final -m compileall -q src tests assets/dsh-deepseek/convert.py
+# 同版正常点击诊断，对照标签在profile JSON中明确记录：
+& $petPython "$probeRoot/launch.py" profile-stored-runtime "$probeRoot/profile.py" '{run}/data'
+& $petPython "$probeRoot/launch.py" profile-current-webp "$probeRoot/profile.py" '{run}/data' --maimai-webp
+# 离线转换（写入唯一获授权麦麦runtime PNG，必须在开发验收时运行，未预热运行时）：
+& $petPython assets/dsh-deepseek/convert.py --maimai
+git diff d037c5cf6b384d4930dbadef97b0240881978b73 --check
+git diff --cached --check
+```
+
+launch.py子进程使用字面量allowlist环境，未复制/打印继承环境：TEMP/TMP/MCPET_DATA_DIR、HOME/USERPROFILE/APPDATA/LOCALAPPDATA均为新隔离目录，controlled inbox/source、mock token、不存在的config/agent roots、process-watch=0；sitecustomize禁止socket网络及既有凭证读取。真实 AgentMonitor/账号source运行发布协议的本地受控mock进程，不是实际账号网络。未读用户.env/凭证/既有日志/ledger、未用--showlocals、未扫真实根/进程表/控制GUI49784等用户实例。
+
+### 剩余限制、接口及交还
+
+组合性能仍未完成，不能宣称UI/full GREEN。C native首次show与新结构重建仍需原C/主轨处理：最终正常点击C show364.243ms（原WebP对照370.013）、新结构set_accounts255.240ms（对照498.288），均仅对应记录，不推断环境或C确定根因。A本域必要解码/校验/缓存已明显下降，但麦麦整切换164.059ms样本仍在，连续角色选择在同一工作阶段会累计同步耗时；不绕150/50ms门槛，不越域修C、不改协议调度。
+
+共享接口原样：`character_id`、`set_character`同步失败事务、`load_character`返回SpriteSheet兼容API（image首帧预览、frames/frame/row_for/frame_count）；`chat_requested`仍打开依托Agent会话的小窝，不新建独立聊天；set_activity(state, context_percent=None, label='')、set_roaming/set_resting及属性/本机偏好不变，未知上下文不编百分比。C继续用已发布character_preview取得静态首帧即可，不能遍历其他动作预热。
+
+所有本轮测试/探针有限结束，最终记录子PID40332/42260/28400/38692/20376/44736均已结束，组合三个reader42204/4144/15792已被发布协议回收（unreaped=[]）。交回独占时段，不再运行Qt/pytest/native/perf。最终普通push/精确ls-remote/干净后，用 [orca-cli SKILL.md](C:/Users/DW/.agents/skills/orca-cli/SKILL.md) 通知root `term_2a23bbea-71c5-4f99-b15f-77e5b8ca591b` 和原唯一集成 `term_7a4e4c11-2813-49cd-8879-43311e269929` 最终SHA及GREEN/RED/NOT_RUN。由唯一集成普通merge已发布C d037、A最终tip与root文档，做final full/native；A不集成、不合回root，通知后停止。
