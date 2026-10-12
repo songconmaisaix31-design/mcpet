@@ -75,3 +75,19 @@ python -m pytest -q tests/test_maimai_actions.py tests/test_main_startup.py test
 
 结果 **39 passed / 17.80s**；`compileall -q src` 与 `git diff --check` 通过。
 该定向结果不覆盖前文两项既有失败或替代完整项目验收。
+
+## 合并与常驻启动
+
+按用户明确要求，补验提交 `1470cde` 已 push，随后普通 `--no-ff` 合并到
+`codex/desktop-companion-20261011`，合并 Commit
+`aee84085830d7e1444d736b09bab8228a2adf9f3`，远端 SHA 核对一致。
+合并后编译和差异检查通过，工作区干净。未改写公共历史。
+
+使用上述解释器的 `pythonw.exe -m src.main` 从本仓库启动，保留正常用户配置及单实例行为，
+后台控制台隐藏。锁中旧 PID 已不存在，由应用自行处理旧锁，没有强制杀进程。
+第二次 `python -m src.main` 通过既有单实例 IPC 打开同一小窝。
+实际运行主体 PID **32900**；只检查本进程窗口，桌宠和“麦麦小窝”均 **visible=true / minimized=false**。
+没有记录其他进程窗口信息，没有操作账户写入或播放动作替代真实业务效果。
+
+此为实际启动与窗口可见性确认；前台焦点、联合 heartbeat、长期稳定性和人工观感
+仍未追加验收，前文两项失败继续保留。
