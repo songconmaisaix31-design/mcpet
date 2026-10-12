@@ -1,0 +1,4 @@
+# Agent-hosted runtime: no Qt, desktop shell or independent model client.
+httpx>=0.27
+python-dotenv>=1.0
+mcp>=1.30,<2

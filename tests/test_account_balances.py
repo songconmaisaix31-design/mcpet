@@ -61,7 +61,9 @@ def test_frozen_public_contract_and_decimal():
 
 
 def test_orca_whitelist_seconds_and_independent_cursor_buckets(monkeypatch):
-    now = time.time()
+    # Whole seconds give an exact millisecond wire fixture. Arbitrary wall-clock
+    # fractions can round on *1000 /1000 and fail the unchanged equality below.
+    now = float(int(time.time()))
     accounts, calls = cli_result(monkeypatch, orca_payload(now))
     assert [a.provider for a in accounts] == ["codex", "grok", "cursor", "claude"]
     codex, grok, cursor, claude = accounts
