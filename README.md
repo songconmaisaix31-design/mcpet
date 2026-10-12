@@ -1,8 +1,12 @@
-# McPet（麦麦搭子）🍔
+# McPet · 鲸鲸来陪你啦 🐳
 
-直接在正在使用、支持 MCP stdio 的 Agent 会话里查询优惠券、实时报价、营养、额度和本机用量，确认后完成领取、下单、撤单与记账。角色和动作也通过原会话选择，不绑定宿主品牌。
+DeepSeek 娘到岗啦：陪你查麦当劳优惠、挑瑞幸咖啡，记饭饭小本本，也看看工作的用量小账本。想做什么，在正在用的 Agent 里说一句就好；宿主支持 MCP stdio 就能接入。
 
-默认由宿主运行 MCP 服务，交互和结果留在原 Agent；没有独立窗口或聊天入口，也不需要额外的模型 Key。
+新用户默认 **DeepSeek 娘**，**ChatGPT 娘** 也可随时切换。DeepSeek 娘的默认套装和麦麦套装都在衣柜里，不用固定穿某一套；已有选择会继续记住。
+
+**首发 v0.1.0**：[下载发行包](https://github.com/songconmaisaix31-design/mcpet/releases/tag/v0.1.0) · [召唤与接入小抄](docs/RELEASE-QUICKSTART.md)。Windows 便携包解压后双击 `Start-Pet.vbs`；通用 Agent 包沿用 Python 接入。
+
+Agent 里的我沿用你正在聊的会话和模型，不用多开聊天窗口，也不用再买一份模型 Key。领取、下单、撤单和记账前，我们会先核对具体内容，再按你的明确确认操作。
 
 ```powershell
 python -m pip install -r requirements-agent.txt

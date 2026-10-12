@@ -18,6 +18,7 @@
 | `src/cli.py` / `src/llm/` | 显式 CLI；独立模型问答仅保留为可选兼容 |
 | `integrations/opencode/` | 原宿主插件模板，安装器填入机器路径后运行 |
 | `scripts/` | 绝对路径启动器、显式本地素材预览、离线素材转换与既有诊断工具 |
+| `scripts/build_release.py` / `scripts/release_entry.py` | 首发包构建与 Windows 入口，默认 stdio，显式桌宠/安装 |
 | `assets/` | 图集、分页和 GIF、来源说明与上游许可证 |
 | `tests/` | 现有协议、业务、台账、原生 Qt 与回归测试 |
 | `docs/` | 当前使用说明、计划/验证记录与历史 Handoff |

@@ -126,9 +126,9 @@ class NutritionLedger:
     def summary(self, date: str | None = None) -> str:
         totals = self.totals(date)
         if not totals["items"]:
-            return "今天还没记账"
+            return "今天的饭饭小本本还是空的，吃过再来记一笔吧～"
         return (
-            f"今天记了 {int(totals['items'])} 项："
+            f"今天的饭饭小本本记了 {int(totals['items'])} 项："
             f"约 {totals['energy_kcal']:.0f} kcal，"
             f"蛋白 {totals['protein_g']:.0f} g，"
             f"脂肪 {totals['fat_g']:.0f} g，"

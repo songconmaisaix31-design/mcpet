@@ -42,12 +42,16 @@ def write(path, text):
 
 def server_definition(python=None):
     """Common stdio fields; clients may use their own configuration container."""
+    if getattr(sys, "frozen", False) and python is None:
+        return {"type": "stdio", "command": str(Path(sys.executable).resolve()), "args": []}
     return {"type": "stdio", "command": str(Path(python or sys.executable).resolve()),
             "args": [str(ROOT / "scripts/agent_host.py")]}
 
 
 def skill_files(directory):
     """Copy the portable skill, including relative references, without host paths."""
+    if not (SKILL / "SKILL.md").is_file():
+        raise ValueError("技能小抄没找到，请保留完整的 McPet 安装目录哦")
     target = Path(directory) / "mcpet"
     return {target / path.relative_to(SKILL): path.read_text(encoding="utf-8")
             for path in sorted(SKILL.rglob("*.md"))}
@@ -61,7 +65,7 @@ def install(project, client="generic", python=None, skill_dir=None):
         raise ValueError("接入目标必须是已存在的项目目录")
     definition = server_definition(python)
     python = definition["command"]
-    host = definition["args"][0]
+    host_args = definition["args"]
     hook = str(ROOT / "scripts/agent_hook.py")
     files = {}
     if client in {"both", "claude"}:
@@ -93,7 +97,7 @@ def install(project, client="generic", python=None, skill_dir=None):
         path = project / "opencode.json"
         settings = read_json(path)
         settings.setdefault("$schema", "https://opencode.ai/config.json")
-        settings.setdefault("mcp", {})["mcpet"] = {"type": "local", "command": [python, host],
+        settings.setdefault("mcp", {})["mcpet"] = {"type": "local", "command": [python, *host_args],
                                                    "enabled": True, "timeout": 15000}
         guide = str(ROOT / "docs/AGENT-HOST-INSTRUCTIONS.md")
         instructions = settings.setdefault("instructions", [])

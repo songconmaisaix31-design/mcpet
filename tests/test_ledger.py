@@ -23,7 +23,7 @@ def test_other_days_are_not_counted(tmp_path):
     ledger = NutritionLedger(tmp_path / "nutrition.json")
     ledger.add_fact(_fact(), date="2026-10-10")
     assert ledger.totals("2026-10-11")["items"] == 0
-    assert ledger.summary("2026-10-11") == "今天还没记账"
+    assert "还是空的" in ledger.summary("2026-10-11")
 
 
 def test_persists_across_instances(tmp_path):

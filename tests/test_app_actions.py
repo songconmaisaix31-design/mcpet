@@ -185,7 +185,7 @@ def test_order_cancel_does_not_write_and_confirmation_is_complete(monster, monke
     monster.action_place_order()
     pump_until(lambda: not monster.tasks.busy)
     assert brain.client.calls == []
-    assert all(t in confirmations[0] for t in ("测试门店", "测试美式", "测试券", "9.90", "外带", "storeCode", "items"))
+    assert all(t in confirmations[0] for t in ("测试门店", "测试美式", "测试券", "9.90", "外带", "创建真实订单", "付款"))
     assert monster.guard.entries == []
 
 
@@ -286,7 +286,7 @@ def test_monitor_uses_real_context_estimate_no_stale_success(monster):
     text = monster.window.bubble.label.text()
     monster.action_progress()
     assert monster.window.bubble.label.text() == text
-    assert "test-step-secret" not in text and "最后快照" in text
+    assert "test-step-secret" not in text and "上一次" in text and "过时" in text
     assert monster.monitor.starts == 1
 
 

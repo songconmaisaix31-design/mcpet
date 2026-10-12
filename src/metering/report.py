@@ -54,9 +54,9 @@ def reminder_level(snapshot: UsageSnapshot, projected: float) -> str:
 def bubble(snapshot: UsageSnapshot, projected: float, sample_ok: bool) -> str:
     """桌宠气泡：一句话。没有数据时如实说没有，不编。"""
     if not snapshot.has_data:
-        return "UNKNOWN：还没读到任何 Agent 的用量。"
+        return "用量小本本还没收到 Agent 的记录哦（UNKNOWN）。"
     if snapshot.errors:
-        return "UNKNOWN：用量读取失败，现有台账不代表当前完整用量。"
+        return "这次没读到完整用量（UNKNOWN），旧小本本不能当成最新结果哦。"
     if snapshot.window.calls == 0:
         return (
             f"近 {snapshot.window_hours:g} 小时没动过。"
@@ -64,13 +64,13 @@ def bubble(snapshot: UsageSnapshot, projected: float, sample_ok: bool) -> str:
         )
 
     head = (
-        f"近 {snapshot.window_hours:g} 小时烧了 "
+        f"近 {snapshot.window_hours:g} 小时用了 "
         f"{format_tokens(snapshot.window.tokens)} token"
     )
     if sample_ok:
         tail = f"，照这个速度大概到 {format_tokens(projected)}。"
     else:
-        tail = "，样本还太少，先不推算。"
+        tail = "，记录还少，我先不乱猜啦。"
     return f"{head}{tail}今天累计 {format_tokens(snapshot.today.tokens)} token。"
 
 

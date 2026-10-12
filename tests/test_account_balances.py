@@ -84,7 +84,7 @@ def test_orca_whitelist_seconds_and_independent_cursor_buckets(monkeypatch):
 
 @pytest.mark.parametrize("provider", ["codex", "grok", "claude"])
 def test_session_and_weekly_real_fields_are_independent_for_known_providers(monkeypatch, provider):
-    now = time.time()
+    now = int(time.time()) + 0.125  # Fresh, exact binary fraction; ms->s fixture roundtrip is exact.
     row = {"provider": provider, "status": "ok", "updatedAt": now * 1000,
            "session": {"usedPercent": 7.5, "windowMinutes": 300,
                        "resetsAt": (now + 300) * 1000, "resetDescription": "fixture 5h"},

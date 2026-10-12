@@ -153,10 +153,10 @@ def test_failed_refresh_retains_explicit_stale_snapshot_then_recovers(quota_mons
     app.action_quota()
     app.account_monitor.failed.emit("断线")
     text = app.window.bubble.label.text()
-    assert "断线" in text and "stale" in text and "123.456789012345678901" in text
+    assert "断线" in text and "上次的记录" in text and "可能过时" in text and "123.456789012345678901" in text
     app.action_quota()
     app.account_monitor.snapshot_ready.emit(sample_snapshot())
-    assert "stale" not in app.window.bubble.label.text()
+    assert "可能过时" not in app.window.bubble.label.text()
     assert app.account_monitor.starts == 1 and app.account_monitor.refreshes == 2
 
 
