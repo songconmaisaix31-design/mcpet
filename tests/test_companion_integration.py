@@ -193,20 +193,20 @@ def native_probe(mode):
         monster.monitor.refresh_usage()
 
     def minimize_panel():
-        monster.panel.showMinimized()
+        monster.window.showMinimized()
         QApplication.processEvents()
-        state = native_window_state(monster.panel)
+        state = native_window_state(monster.window)
         assert state["minimized"], state
         if sys.platform == "win32":
             assert state["iconic"], state
         return state
 
     def assert_restored(entry):
-        state = native_window_state(monster.panel)
+        state = native_window_state(monster.window)
         assert state["visible"] and not state["minimized"], (entry, state)
         if sys.platform == "win32":
             assert state["native_visible"] and not state["iconic"], (entry, state)
-        assert any(screen.availableGeometry().intersects(monster.panel.frameGeometry())
+        assert any(screen.availableGeometry().intersects(monster.window.frameGeometry())
                    for screen in QApplication.screens()), (entry, state)
         result["restored_entries"][entry] = state
 
@@ -275,12 +275,11 @@ def native_probe(mode):
             assert "我在呢" in monster.window.bubble.label.text()
             mouse(QEvent.MouseButtonDblClick, 300)
             mouse(QEvent.MouseButtonRelease, 300, buttons=Qt.NoButton)
-            assert monster.panel and monster.panel.isVisible()
-            panel = monster.panel
-            panel.close()
+            assert monster.panel is None and monster.window.isVisible()
+            pet = monster.window
             mouse(QEvent.MouseButtonDblClick, 300)
             mouse(QEvent.MouseButtonRelease, 300, buttons=Qt.NoButton)
-            assert monster.panel is panel and panel.isVisible()
+            assert monster.panel is None and monster.window is pet and pet.isVisible()
             minimize_panel()
             monster.tray.activated.emit(QSystemTrayIcon.Trigger)
             assert_restored("tray")
@@ -290,7 +289,9 @@ def native_probe(mode):
                 if menu is None:
                     QTimer.singleShot(10, activate_menu)
                     return
-                menu.actions()[0].trigger()  # Actual QAction.triggered(bool).
+                from src.pet.menu import populate_menu
+                target = next(a for a in menu.actions() if a.text() == "营养台账")
+                target.menu().actions()[1].trigger()  # Actual QAction, local read.
                 menu.close()
             QTimer.singleShot(10, activate_menu)
             monster.on_menu(monster.window.pos())
@@ -299,7 +300,7 @@ def native_probe(mode):
             mouse(QEvent.MouseButtonDblClick, 300)
             mouse(QEvent.MouseButtonRelease, 300, buttons=Qt.NoButton)
             assert_restored("double-click")
-            assert monster.panel is panel
+            assert monster.panel is None and monster.window is pet
             before = monster.window.pos()
             mouse(QEvent.MouseButtonPress, 300)
             mouse(QEvent.MouseMove, 340, Qt.NoButton)

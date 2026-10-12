@@ -6,7 +6,8 @@
 
 | 文档 | 内容 |
 |---|---|
-| [Agent 使用说明](AGENT-HOST.md) | 通用 MCP stdio 接入、可选宿主适配、17 项工具及动画资源 |
+| [Agent 使用说明](AGENT-HOST.md) | 通用 MCP stdio 接入、可选宿主适配、21 项工具及动画资源 |
+| [宠物菜单与瑞幸](PET-MENU-LUCKIN.md) | 右键菜单、气泡交互、时间/条件触发及瑞幸官方接入 |
 | [本地动作演示](PORTABLE-AGENT-DEMO.md) | 原视频与透明动画预览、通用客户端验证 |
 | [DeepSeek 娘动作与皮肤](DEEPSEEK-SKINS.md) | 短循环、双向换装、持久皮肤及桌宠播放验证 |
 | [ChatGPT 龙娘待机节奏](CHATGPT-IDLE-FIX.md) | 短图集循环过快的修复与实际定时验证 |

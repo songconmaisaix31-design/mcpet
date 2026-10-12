@@ -235,7 +235,7 @@ def test_default_export_connects_without_native_host_configs(isolated):
         async with stdio_client(parameters) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                assert len((await session.list_tools()).tools) == 17
+                assert len((await session.list_tools()).tools) == 21
                 for action in ("frying", "outfit"):
                     result = await session.call_tool("mcpet_pet", {"action": action})
                     assert result.structuredContent["animation"]["uri"].endswith("/" + action)
@@ -255,7 +255,7 @@ def test_real_stdio_roundtrip_and_resource(isolated, entry):
             async with ClientSession(read, write) as session:
                 await session.initialize()
                 listed = await session.list_tools()
-                assert len(listed.tools) == 17
+                assert len(listed.tools) == 21
                 assert not any(tool.name == "create-order" for tool in listed.tools)
                 assert next(t for t in listed.tools if t.name == "mcpet_confirm_order").annotations.destructiveHint
                 status = await session.call_tool("mcpet_status", {})

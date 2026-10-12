@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
+from .menu import populate_menu
 
 
 class PetTray(QSystemTrayIcon):
@@ -20,14 +21,7 @@ class PetTray(QSystemTrayIcon):
 
     def _build(self, entries: list[tuple[str, object] | None]) -> None:
         self._menu.clear()
-        for entry in entries:
-            if entry is None:
-                self._menu.addSeparator()
-                continue
-            label, callback = entry
-            action = QAction(label, self._menu)
-            action.triggered.connect(callback)  # type: ignore[arg-type]
-            self._menu.addAction(action)
+        populate_menu(self._menu, entries)
 
     def set_entries(self, entries):
         self._build(entries)

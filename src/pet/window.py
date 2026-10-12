@@ -11,9 +11,10 @@ import math
 import time
 from collections.abc import Sequence
 
-from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal, QEventLoop
 from PySide6.QtGui import QFont, QPixmap
-from PySide6.QtWidgets import QApplication, QLabel, QMenu, QProgressBar, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QApplication, QLabel, QMenu, QProgressBar, QVBoxLayout, QWidget, QPushButton, QLineEdit, QScrollArea, QSizePolicy
+from .menu import populate_menu
 
 from .spritesheet import AnimationSheet, ScaledAnimationFrames, SpriteLoadError, SpriteSheet
 from .states import PetStateMachine
@@ -61,7 +62,7 @@ class Bubble(QWidget):
     """气泡。跟随桌宠窗口上沿，纯展示，不抢焦点。"""
 
     def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent, Qt.ToolTip | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        super().__init__(parent, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
         self.label = QLabel(self)
@@ -72,13 +73,38 @@ class Bubble(QWidget):
             "border-radius:10px;padding:8px 10px;}"
         )
         self.label.setMaximumWidth(260)
+        self.label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(2)
-        layout.addWidget(self.label)
+        self.setFixedWidth(260)
+        self.scroll = QScrollArea(self)
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QScrollArea.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.viewport().setAutoFillBackground(False)
+        self.scroll.setWidget(self.label)
+        layout.addWidget(self.scroll)
+        self.controls = QWidget(self)
+        self.controls_layout = QVBoxLayout(self.controls)
+        self.controls_layout.setContentsMargins(4, 0, 4, 4)
+        layout.addWidget(self.controls)
+        self.controls.hide()
+        self.interacting = False
+        self._loop = None
+        self.result = None
+        self.buttons = []
+        self.input = None
+        self.label.setTextFormat(Qt.PlainText)
 
     def show_text(self, text: str, anchor: QWidget) -> None:
-        self.label.setText(text)
+        if not self.interacting:
+            self.label.setText(text)
+        self.position(anchor)
+
+    def position(self, anchor):
+        height = self.label.heightForWidth(240)
+        self.scroll.setFixedHeight(min(190, max(48, height + 8)))
         self.adjustSize()
         x = anchor.x() + anchor.width() // 2 - self.width() // 2
         y = anchor.y() - self.height() - 6
@@ -88,6 +114,60 @@ class Bubble(QWidget):
                                  [anchor.screen().availableGeometry()]))
         self.show()
         self.raise_()
+
+    def _finish(self, result=None):
+        self.result = result
+        if self._loop is not None:
+            self._loop.quit()
+
+    def ask(self, text, anchor, choices, *, placeholder=None, secret=False):
+        if self.interacting:
+            return None
+        self.interacting = True
+        self.label.setText(text)
+        self.result = None
+        self.buttons = []
+        self.input = None
+        while self.controls_layout.count():
+            item = self.controls_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        if placeholder is not None:
+            self.input = QLineEdit(self.controls)
+            self.input.setPlaceholderText(placeholder)
+            self.input.setEchoMode(QLineEdit.Password if secret else QLineEdit.Normal)
+            self.controls_layout.addWidget(self.input)
+            self.input.returnPressed.connect(lambda: self._finish(self.input.text()))
+        for label, value in choices:
+            button = QPushButton(label, self.controls)
+            button.clicked.connect(lambda checked=False, v=value: self._finish(self.input.text() if v == "__input__" else v))
+            self.controls_layout.addWidget(button)
+            self.buttons.append(button)
+        cancel = QPushButton("取消", self.controls)
+        cancel.clicked.connect(lambda: self._finish())
+        self.controls_layout.addWidget(cancel)
+        self.buttons.append(cancel)
+        self.controls.show()
+        self.position(anchor)
+        if self.input:
+            self.activateWindow()
+            self.input.setFocus()
+        self._loop = QEventLoop(self)
+        try:
+            self._loop.exec()
+            return self.result
+        finally:
+            self._loop = None
+            self.interacting = False
+            if self.input:
+                self.input.clear()
+            self.controls.hide()
+            self.hide()
+
+    def hideEvent(self, event):
+        if self.interacting:
+            self._finish()
+        super().hideEvent(event)
 
 
 class PetWindow(QWidget):
@@ -445,8 +525,14 @@ class PetWindow(QWidget):
     # ---------- 说话 ----------
 
     def say(self, text: str, ttl_ms: int = 8000) -> None:
+        if self.bubble.interacting:
+            return
         self.bubble.show_text(text, self)
         self._bubble_timer.start(ttl_ms)
+
+    def ask(self, text, choices, **kwargs):
+        self._bubble_timer.stop()
+        return self.bubble.ask(text, self, choices, **kwargs)
 
     def say_state(self, state: str, text: str, ttl_ms: int = 8000) -> None:
         self.set_state(state)
@@ -496,7 +582,7 @@ class PetWindow(QWidget):
         paused = (not self.isVisible() or not self.roaming_enabled or self.resting
                   or self._press_point is not None or self._click_timer.isActive()
                   or self._menu_open
-                  or self._bubble_timer.isActive() or self.machine.state != self.machine.base_state
+                  or self._bubble_timer.isActive() or self.bubble.interacting or self.machine.state != self.machine.base_state
                   or self._activity_state != "idle")
         dx, state = self._behavior.advance(elapsed, paused=paused)
         if paused:
@@ -731,7 +817,7 @@ class PetWindow(QWidget):
     def _touch(self) -> None:
         self.stop_action()
         self.set_state("greet", ttl_ms=2000)
-        self.say("我在呢，陪你一起。双击打开麦麦小窝。", 3000)
+        self.say("我在呢，陪你一起。右键选择功能，结果在气泡里。", 3000)
         self.clicked.emit()
 
     def mouseDoubleClickEvent(self, event):  # noqa: N802
@@ -747,9 +833,7 @@ class PetWindow(QWidget):
         menu = QMenu(self)
         self._menu_open = True
         try:
-            for label, callback in actions:
-                action = menu.addAction(label)
-                action.triggered.connect(callback)  # type: ignore[arg-type]
+            populate_menu(menu, actions)
             menu.exec(point)
         finally:
             self._menu_open = False
