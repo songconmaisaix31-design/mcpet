@@ -1,5 +1,8 @@
 # McPet（麦麦搭子）🍔
 
+> 旧桌面兼容说明。当前默认入口见 [Agent 使用说明](AGENT-HOST.md)；
+> 以下窗口行为仅适用于显式 `python -m src.main --desktop`，历史验证按原阶段保留。
+
 把写代码时的 AI 搭子换上麦当劳制服，养在桌面角落。
 
 她住在系统托盘里。单击摸摸，双击打开非模态「麦麦小窝」，右键和托盘也进入同一个小窝。
@@ -50,7 +53,7 @@ LLMPET 的计量模块是直接写死 `~/.claude/projects` 的；这个项目不
 
 根目录按 **环境变量 > 配置文件 > 平台默认候选** 解析，候选不存在就静默跳过——
 **一个数据源都没有时程序照常运行**，只是这两项显示「无可用数据源」。
-完整规范见 **[docs/AGENT_BRIDGE.md](docs/AGENT_BRIDGE.md)**。
+完整规范见 **[AGENT_BRIDGE.md](AGENT_BRIDGE.md)**。
 
 ```bash
 python -m src.cli agents      # 这台机器上接了哪些数据源
@@ -66,7 +69,7 @@ python -m src.cli usage       # 本机用量：滚动窗口、今日、趋势、
 Orca 等工具可能把日志放在自己的账号目录，`~/.codex/sessions` 只是候选，不能代表当前账号。
 在小窝「设置 → 高级 · Agent 日志目录」填入当前账号的实际 sessions root，保存后退出重启，再用 `python -m src.cli agents`
 核对目录与来源。环境变量 `MCPET_AGENT_ROOTS` 优先于单独 root 设置；程序不枚举其他账号。
-配置细节、显式 root 示例与冷扫描限制见 [AGENT_BRIDGE.md](docs/AGENT_BRIDGE.md)。
+配置细节、显式 root 示例与冷扫描限制见 [AGENT_BRIDGE.md](AGENT_BRIDGE.md)。
 
 **口径纪律**：产出的是**本机日志台账，不等于厂商余额、配额或账单**。计价未精确命中的模型
 会标「按家族估算」，窗口外推样本不足时明说「先不推算」，不硬凑一个好看的数字。
@@ -201,7 +204,7 @@ python -m src.cli usage
 麦麦新增**炸薯条**和**换装**动作：在小窝首页“陪伴控制”或右键/托盘菜单触发。
 炸薯条循环播放，点“停止动作”恢复；换装播放完整一段（约 10 秒）后自动恢复原动作。
 拖拽、摸摸、休息或切角色会结束手动动作。动作仅播放本机透明素材，不执行购买或模型请求。
-DeepSeek 娘下这两项不可用。转换及素材差异见 [新增动作来源](assets/maimai-actions/SOURCE.md)。
+DeepSeek 娘下这两项不可用。转换及素材差异见 [新增动作来源](../assets/maimai-actions/SOURCE.md)。
 
 ## 目标用户
 
@@ -275,7 +278,7 @@ tests/                   离线契约、真实 Qt/手势/后台进程集成测�
 **跨 Agent 桥接层（三档 provider + 根目录解析 + 通用收件箱规范）**、
 **用量台账（流式修正去重 / 分日分时聚合 / 滚动窗口 / 外推）**、
 **进度追踪（会话合并 / 新鲜度 / 状态映射）**。
-前轮集成结果见 [HANDOFF-INTEGRATION.md](docs/companion/HANDOFF-INTEGRATION.md)，本轮统一面板验证见 [HANDOFF-C-PANEL.md](docs/companion/HANDOFF-C-PANEL.md)。
+前轮集成结果见 [HANDOFF-INTEGRATION.md](companion/HANDOFF-INTEGRATION.md)，本轮统一面板验证见 [HANDOFF-C-PANEL.md](companion/HANDOFF-C-PANEL.md)。
 离线与受控日志通过只证明对应契约，本轮真实模型/MCP、冷扫描与用户验收由主 Agent 独立执行。
 
 **已用真实 Token 验证**（2026-10-10）：
@@ -287,7 +290,7 @@ tests/                   离线契约、真实 Qt/手势/后台进程集成测�
 - `list-nutrition-foods` 的非 JSON 自定义表格格式解析跑通（160 条）；
 - 下单链路 `order` 全流程跑到提交前一步（`MCD_DRY_RUN=1` 时不落单）。
 
-实测校正的字段名、单位、坑位见 [`MCP_INTEGRATION.md` 第 4.1 节](./MCP_INTEGRATION.md)。
+实测校正的字段名、单位、坑位见 [`MCP_INTEGRATION.md` 第 4.1 节](../MCP_INTEGRATION.md)。
 
 **已用真实本机数据验证**（2026-10-11）：桥接层在本机 1721 个真实日志文件上跑通——
 首次回填 232k 条用量记录（约 35 秒），增量扫描 0.5 秒；进度快照 0.15 秒。
@@ -306,7 +309,7 @@ tests/                   离线契约、真实 Qt/手势/后台进程集成测�
 仓库里的形象（龙娘精灵图 + 鲸鱼娘素材）是**占位素材**，用于先把工程跑通：
 
 - 龙娘图集来自 `caritivememory-ops/chatgpt-longniang`，规格为 8 列 × 11 行、
-  单元 192×208、`spriteVersionNumber: 2`；已取得原作者授权，见 [`assets/CREDITS.md`](./assets/CREDITS.md)。
+  单元 192×208、`spriteVersionNumber: 2`；已取得原作者授权，见 [`assets/CREDITS.md`](../assets/CREDITS.md)。
 - 鲸鱼娘素材来自 `kmjs1915/CeTaPet-AI-DeskTopPet-DeepSeek`。
 
 最终交付前会替换为原创的麦当劳主题素材，图集行数按 `src/pet/states.py` 的
@@ -325,12 +328,12 @@ tests/                   离线契约、真实 Qt/手势/后台进程集成测�
   `~/.claude/projects`，这里抽成了 provider（见 `docs/AGENT_BRIDGE.md`）。
 - 精灵图规格与 QA 流程参考 `caritivememory-ops/chatgpt-longniang`。
 
-详见 [`assets/CREDITS.md`](./assets/CREDITS.md)。
+详见 [`assets/CREDITS.md`](../assets/CREDITS.md)。
 
 ## 声明
 
 本项目为麦当劳程序员节创意开发大赛参赛作品，由参赛者独立开发，**非麦当劳官方产品**。
 输出仅供参考，不构成医疗或营养建议；餐品信息、价格及供应状态以麦当劳官方渠道的
-实时结果为准。完整声明见 [`CONTEST_DECLARATION.md`](./CONTEST_DECLARATION.md)。
+实时结果为准。完整声明见 [`CONTEST_DECLARATION.md`](../CONTEST_DECLARATION.md)。
 
 本项目会真实创建麦当劳订单并产生真实支付——请确认你愿意让宠物替你下单再启用。

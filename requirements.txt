@@ -1,8 +1,8 @@
-# 运行时依赖
+# Agent 公共运行依赖：与最小安装使用同一份约束。
+-r requirements-agent.txt
+
+# 旧桌面兼容与现有 Qt 测试。
 PySide6>=6.6
-httpx>=0.27
-python-dotenv>=1.0
-mcp>=1.30,<2
 
 # 开发/测试
 pytest>=8.0

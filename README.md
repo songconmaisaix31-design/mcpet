@@ -15,6 +15,8 @@ python -m src.agent_install --client both --project "你的项目目录"
 
 完整接入、17 项工具、宿主事件、动画资源和验证边界见 [Agent 内使用说明](docs/AGENT-HOST.md)。两段视频动作已保留为透明资源；终端是否播放取决于宿主图像支持，目前未验证内嵌播放。
 
+仓库导航：[文档索引](docs/README.md) · [目录与运行入口](docs/REPOSITORY.md) · [开发与验证](CONTRIBUTING.md) · [麦当劳 MCP 集成](MCP_INTEGRATION.md) · [素材来源](assets/CREDITS.md)。
+
 旧桌面实现与文档保留在 [桌面兼容说明](docs/LEGACY-DESKTOP.md)，仅显式 `python -m src.main --desktop` 启动。默认入口是 stdio 服务。
 
 本机用量不是厂商额度/账单，idle/Stop 不代表任务成功；真实提交的未知结果不得自动重试。当前接入验证不包含真实订单、模型会话或宿主前台动画验收。

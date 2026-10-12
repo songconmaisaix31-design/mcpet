@@ -1,4 +1,4 @@
-"""McPet 唯一装配入口：串行后台联网、真实观测、统一小窝、确认与安全驻留。"""
+"""McPet 默认 stdio 入口；显式 --desktop 才装配旧桌面与后台 worker。"""
 from __future__ import annotations
 
 import copy

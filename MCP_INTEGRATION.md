@@ -1,5 +1,12 @@
 # MCP 集成说明
 
+默认入口为现有 Agent 内的 McPet stdio 服务。宿主接入和工具清单见
+[Agent 使用说明](docs/AGENT-HOST.md)，当前验证范围见
+[Agent 接入验证](docs/AGENT-HOST-VALIDATION.md)。本文件保留麦当劳上游协议与历史实测结构。
+
+两层协议分别是：原 Agent → 官方 Python MCP SDK 的 McPet stdio 服务
+（`src/agent_mcp.py`）→ 现有 McdBrain / httpx Streamable HTTP 客户端 → 麦当劳 MCP。
+
 ## 1. 使用的 MCP Server
 
 | 项 | 值 |
@@ -14,16 +21,20 @@
 ## 2. 调用流程
 
 ```
-用户发起实时查询 → 串行后台 worker 读取配置拿 Token
+原 Agent 调用 mcpet 工具 → 服务串行执行既有业务并读取本机配置
      → POST initialize（取 mcp-session-id 并回带）
      → POST notifications/initialized
      → tools/list（拿真实 inputSchema，用于校正参数名）
      → tools/call（按场景调具体工具）
 ```
 
-本项目没有使用任何第三方 MCP SDK，协议层在
+连接麦当劳上游的 HTTP 协议层在
 [`src/mcd_mcp/client.py`](./src/mcd_mcp/client.py) 里手写实现，覆盖：
-session 回带、单条 JSON 响应与 SSE 流两种响应体、401 直接失败、429 退避重试。
+session 回带、单条 JSON 响应与 SSE 流两种响应体、401 直接失败、可配置的 429 退避重试。
+面向原 Agent 的 stdio 服务使用官方 Python MCP SDK；两层共用现有业务和确认护栏。
+Agent 服务在每次上游任务中初始化/关闭 HTTP 客户端，并设置 `max_retries_on_429=0`。
+同服务请求串行，本机台账跨宿主加锁；无独立窗口、托盘或模型会话。
+以下桌面 worker 描述仅适用于显式 `--desktop` 兼容入口。
 桌面入口首次实时任务才初始化 MCP，小窝会话观测不调用模型，也不初始化 MCP。初始化、业务请求及 close
 都在唯一串行 worker 中运行；桌面将 `max_retries_on_429=0`，避免账号写请求未知效果被自动重发。
 同一任务不重入，退出丢弃未开始请求并等待正在执行的请求安全结束，GUI 不等待线程或扫描。
@@ -47,7 +58,7 @@ session 回带、单条 JSON 响应与 SSE 流两种响应体、401 直接失败
 | `now-time-info` | 对齐服务端时间 | 只读 |
 
 核心业务价值：把「领券 → 比价 → 下单 → 记账」这条原本要在麦当劳 App 里点
-七八次的链路，压缩成小窝「麦当劳」页中的明确操作，且每一次比价都是对真实券和真实
+多次的链路，交给当前 Agent 会话中的查询、摘要与明确确认，且每一次比价都是对真实券和真实
 价格的穷举，不是拍脑袋推荐。
 
 ## 4. 历史验证状态（2026-10-10）
@@ -77,11 +88,11 @@ session 回带、单条 JSON 响应与 SSE 流两种响应体、401 直接失败
 ```bash
 python -m src.cli tools --dump      # 拉真实工具清单，逐项核对参数名
 python scripts/probe_raw.py         # 打印各工具真实返回结构（只读）
-python -m src.cli coupons           # 领券汇报（真实领券）
+python -m src.cli coupons --no-claim # 只读查询；显式去掉 --no-claim 会真实领取
 python -m src.cli deal              # 今天最划算的一单
 python -m src.cli nutrition --keyword 巨无霸
 python -m src.cli order             # 下单链路；默认只展示摘要，加 --yes 才落单
-python -m src.cli ask "今天最划算的是哪个？"
+python -m src.cli ask "今天最划算的是哪个？" # 旧 CLI：显式新模型请求，非默认 Agent 入口
 ```
 
 ## 4.1 实测校正表（2026-10-10 用真实 Token 抓取）
@@ -151,6 +162,8 @@ list-nutrition-foods → data 是**字符串**（不是 JSON！），自定义�
 
 ## 5. 保留的 CLI 大模型调度层（阶跃星辰 StepFun）
 
+当前 Agent MCP 接入不使用此调度层；以下仅是显式旧 CLI 的兼容能力。
+
 桌面入口只读观测已有 Agent 会话，双击打开统一小窝；没有独立聊天、模型请求或历史读取。
 旧 `python -m src.cli ask` / `models` 能力保留，须用户显式执行。CLI Skill 的只读查询流程：
 
@@ -173,6 +186,11 @@ list-nutrition-foods → data 是**字符串**（不是 JSON！），自定义�
 桌面订单走小窝「麦当劳」页的明确确认流程；桌面不调用此 Skill 或新建模型会话。旧聊天模块和数据保留，不读取、迁移或发送。
 
 ## 6. 真实调用的护栏
+
+Agent 模式在原会话展示范围/订单摘要，确认后才传 `confirmed=true` 执行写操作。
+准备订单只接受本会话真实报价中的门店与餐品；提交前复核价格，变化则重新确认。
+网络提交后结果不明或缺少订单号均保留 `delivery_unknown`，不可自动重放。
+以下勾选式确认与饭点自动查询描述仅适用于旧桌面兼容入口。
 
 桌面自动饭点只调用券查询和报价，不领取、不下单。主动领取、下单和撤单都先展示摘要，
 必须勾选确认后才提交：

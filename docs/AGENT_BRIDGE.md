@@ -82,7 +82,15 @@ python -m src.cli agents
 
 输出会明确区分「代码里实现了几种」「这台机器上配了几种」「哪个目录不存在被跳过了」。
 
-### 桌面设置与当前账号 root
+### 当前 Agent 接入与显式日志目录
+
+默认在原 Agent 中使用 `mcpet_progress` / `mcpet_usage`；日志目录可通过
+`mcpet_configure(agent_roots=...)` 明确指定。宿主 hooks 仅写自身必要事件元数据，
+不读取对话正文。详细入口见 [Agent 使用说明](AGENT-HOST.md)。
+
+以下“小窝”和自动 monitor 描述属于显式旧桌面兼容模式。
+
+### 旧桌面设置与当前账号 root
 
 双击 / 右键 / 托盘打开同一个「麦麦小窝」，在「设置 → 高级 · Agent 日志目录」可填写 Claude、Codex、generic 的显式目录。保存后需退出重启，
 不会在旧 monitor 正在退出时新建第二个 writer。批量 `MCPET_AGENT_ROOTS` 高于单 provider
@@ -94,7 +102,7 @@ Orca 当前账号 sessions 可能不同于 `~/.codex/sessions`。先从实际运
 ```powershell
 $env:MCPET_AGENT_ROOT_CODEX = 'C:/path/to/current-orca-account/home/sessions'
 python -m src.cli agents
-python -m src.main
+python -m src.main --desktop
 ```
 
 这份配置只声明读取该目录，不证明目录属于当前运行任务；需核对 `agents` 输出和实际账号。
