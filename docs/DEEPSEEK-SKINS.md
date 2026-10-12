@@ -30,7 +30,7 @@ MCP 默认不启动 Qt 窗口，服务仍兼容任意 stdio 宿主。
 
 - 炸薯条原片 7.68–10.08 秒：透明分页/GIF 30 帧，2.40 秒。
 - 换装原片 0.48–4.32 秒：正/反各 48 帧，3.84 秒；移除长尾待机/转身。
-- 麦麦皮肤待机原片 4.64–5.68 秒：13 帧，1.04 秒循环。
+- 麦麦皮肤待机取原片 4.64–5.68 秒，并增加 4 秒睁眼停留：63 帧，5.04 秒循环。
 - 原视频和旧导入保留。所有新帧使用同一缩放与落点，靠近既有 DeepSeek 默认身高/脚底。
   无逐帧适配、合成中间帧或新人物生成；循环端点择近，不保证数学上完全无缝。
 - 目录内 MP4 为有原背景、无音轨的短审看片；24 fps 编码后 2.42 / 3.88 秒。
@@ -110,3 +110,34 @@ GIF 实际编码时长分别 2160 / 3840 / 3840 ms，炸薯条 loop=0，两个�
 读回仍是 DeepSeek 娘 / 麦麦皮肤 / idle，stderr 为空。证据 `native-idle.json` / `native-frying.json`。
 这次重启只刷新桌宠；已运行的旧 MCP 服务需要重载才能刷新其内存中的时长。
 后段提篮动作幅度小于原放篮段；旧 GUI/foreground/heartbeat RED 未重测，不代表已修复。
+
+## 2026-10-13 待机节奏
+
+根据用户要求拉长待机、减少眨眼，单 Agent 在 `codex/maimai-idle-pacing-20261013`
+给麦麦套装的干净睁眼首帧增加 4 秒停留（50 个 80 ms 帧），之后原样播放 13 帧眨眼。
+待机变为 63 帧、5.04 秒循环，约每 5 秒眨眼一次；眨眼本身速度保持 80 ms/帧。
+GIF 会合并相同画面，实际编码为首帧 4080 ms、其余 12 帧各 80 ms，总长同为 5040 ms。
+离线逐帧比较确认所有停留帧等于原睁眼首帧、眨眼 13 帧像素不变；证据
+`.tmp-test-data/maimai-idle-pacing/asset-verification.json`。
+
+验证命令：
+
+```powershell
+python -m pytest tests/test_deepseek_skins.py tests/test_maimai_actions.py tests/test_dual_pet_render.py tests/test_companion_panel.py tests/test_agent_host.py tests/test_main_startup.py tests/test_spritesheet.py tests/test_characters.py -q
+python -m compileall -q src scripts tests
+git diff --check
+```
+
+首轮 **87 passed / 2 failed / 28.83 秒**，日志 `regression-first.log` 保留。
+两个失败来自 `test_characters.py`：默认角色的所有动画都按原图集边缘约束检查，
+以及假定所有页来自 `dsh-deepseek`、只在外层缓存的像素比较。
+在修改前 `a0ff665` 的 `git archive` 副本中原样运行同两项，**2 failed / 1.99 秒**，
+同一断言复现；见 `baseline-failures.log`。默认角色素材、角色加载/分页实现和这两个测试
+均未修改，不放宽或跳过断言；本轮不能标成 89 项全通过或完整测试通过。
+编译与差异检查通过。
+
+通过旧桌宠菜单退出后两个已知 PID 均消失；保持原偏好/位置重启生产桌宠，
+新子进程 PID 15892，实际画面为麦麦套装正面待机，读回资源时长 5.04 秒、动作 idle。
+截图 `native-idle.json`，stderr 为空；运行仍使用原 Agent 共用的偏好，空日志源/占位凭证
+仅作用于此次桌面进程。原生画面检查不代替精确周期测量；周期依据实际分页/GIF 的帧数和时间。
+已运行的旧 MCP 服务仍需重载时长；历史性能 RED 保留。

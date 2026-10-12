@@ -51,6 +51,8 @@ def main():
     frying = frames("frying", 96, 126)  # 7.68–10.08s, stable basket after the faulty early motion.
     outfit = frames("outfit", 6, 54)  # 0.48–4.32s, remove empty lead and tail.
     idle = frames("outfit", 58, 71)   # 4.64–5.68s, clean front-facing blink, no effects/tail.
+    # Hold the clean open-eye pose for 4s; keep the blink itself at its original speed.
+    idle = [idle[0]] * 50 + idle
     animations = {}
     for name, sequence in (("frying", frying), ("outfit", outfit), ("outfit-default", outfit[::-1])):
         animations[name] = pages(DEST, name, sequence)
@@ -68,6 +70,7 @@ def main():
     (skin / "manifest.json").write_text(json.dumps({"cell_size": 192, "columns": 12,
         "frame_delay_ms": 80, "preview": "preview.png", "skin_id": "maimai",
         "clip": [4.64, 5.68],
+        "open_eye_hold_ms": 4000,
         "animations": {state: entry for state in states},
         "fallback": "All logical states reuse the dressed idle; separate dressed poses are unavailable."},
         indent=2) + "\n", encoding="utf-8")
