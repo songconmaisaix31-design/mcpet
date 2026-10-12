@@ -65,3 +65,18 @@ def test_row_alias_covers_all_target_states():
 
     for state in states.STATE_PRIORITY:
         assert state in states.LONGNIANG_ROW_ALIAS
+
+
+def test_real_atlas_anchor_stability_and_intentional_jump():
+    sheet = SpriteSheet.load(ASSETS / "spritesheet.webp", pet_json=ASSETS / "pet.json",
+                             rows_json=ASSETS / "sprite-rows.json")
+    assert sheet.validate() == []
+    idle = sheet.anchor_bounds("idle")
+    assert all(b is not None for b in idle)
+    assert {b[3] for b in idle} == {202}
+    centers = [(b[0] + b[2]) / 2 for b in idle]
+    assert max(centers) - min(centers) <= 0.5
+    jumping = sheet.anchor_bounds("jumping")
+    assert max(b[3] for b in jumping) - min(b[3] for b in jumping) == 46
+    # The renderer still receives complete 192x208 cells, never auto-cropped poses.
+    assert all(f.width() == 192 and f.height() == 208 for f in sheet.frames("happy"))

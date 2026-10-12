@@ -1,6 +1,6 @@
 # Agent 桥接规范（AGENT_BRIDGE）
 
-McPet的两项能力——**项目进度汇报**与**账号余额提醒**——都不是麦当劳 MCP 提供的，
+McPet的两项能力——**开发状态/上下文观测**与**本机用量提醒**——都不是麦当劳 MCP 提供的，
 它们来自「读本机其他 Agent 的日志」。这份文档说明**从哪读、读什么、不读什么**，
 以及**任何一个 Agent 该怎么把自己的数据喂进来**。
 
@@ -26,7 +26,8 @@ Agent。
 不需要我们做适配就能接进来。
 
 **一个 provider 都没有时，程序正常运行**，只是这两项功能显示「无可用数据源」。
-这是刻意的：桌宠的主业是麦当劳 MCP，读别的 Agent 的日志是增值项，不是前置条件。
+无日志不影响本机宠物行为和统一小窝；会话观测无需 MCP Token 或模型 Key。
+小窝不新建聊天、不读取旧 chat.json，也不向原会话注入请求；继续在原 Agent 应用操作。
 
 ---
 
@@ -81,6 +82,47 @@ python -m src.cli agents
 
 输出会明确区分「代码里实现了几种」「这台机器上配了几种」「哪个目录不存在被跳过了」。
 
+### 当前 Agent 接入与显式日志目录
+
+默认在原 Agent 中使用 `mcpet_progress` / `mcpet_usage`；日志目录可通过
+`mcpet_configure(agent_roots=...)` 明确指定。宿主 hooks 仅写自身必要事件元数据，
+不读取对话正文。详细入口见 [Agent 使用说明](AGENT-HOST.md)。
+
+以下“小窝”和自动 monitor 描述属于显式旧桌面兼容模式。
+
+### 旧桌面设置与当前账号 root
+
+双击 / 右键 / 托盘打开同一个「麦麦小窝」，在「设置 → 高级 · Agent 日志目录」可填写 Claude、Codex、generic 的显式目录。保存后需退出重启，
+不会在旧 monitor 正在退出时新建第二个 writer。批量 `MCPET_AGENT_ROOTS` 高于单 provider
+变量，再高于 `config.json`，最后才用默认候选；不存在的显式目录只会跳过，不回退成其他账号。
+`MCPET_DATA_DIR` 隔离台账，但不自动改变源日志候选，也不自动改变 `config.json` 默认位置。
+
+Orca 当前账号 sessions 可能不同于 `~/.codex/sessions`。先从实际运行账号确定目录，再显式指定：
+
+```powershell
+$env:MCPET_AGENT_ROOT_CODEX = 'C:/path/to/current-orca-account/home/sessions'
+python -m src.cli agents
+python -m src.main --desktop
+```
+
+这份配置只声明读取该目录，不证明目录属于当前运行任务；需核对 `agents` 输出和实际账号。
+不会扫描整个 Orca accounts，也不会自动读取其他账号。测试须把三类 root 都显式指向隔离目录
+或不存在的临时路径，不能以空 root 变量阻止默认候选回退。
+
+### 自动观测与冷扫描等待
+
+桌面启动自动建立唯一 `AgentMonitor`：默认 10 秒更新进度、60 秒更新用量，小窝「会话」页可请求刷新。
+进度和用量各在标准 spawn 子进程扫描；用量只有一个持久 writer，刷新忙时合并请求。
+冷回填可能需几十秒或更久，窗口保持响应，详情在结果返回前显示读取中 / UNKNOWN。
+实际等待取决于配置目录和日志量，历史的 1,721 文件时长不能作为当前账号耗时或文件数。
+读取失败保留最后成功快照并标明可能过时，缺数据不是零余额。退出非阻塞通知 monitor 停止，
+后台有限等待、必要时终止并回收子进程；同一数据目录的单实例锁保持到解释器回收完成。
+
+小窝会话列表保留 source、label、原始状态与新鲜度；详情 / 用量 / 设置均在同一非模态窗口。
+UNKNOWN 和过时状态不会变成任务成功或厂商余额。上下文条显示日志的占用 / 容量，**不是任务完成百分比**。容量来自明确字段时使用该值，
+否则推断值标明估算；未知不制造百分比。完成庆祝只接受启动后新观察到的明确完成事件，
+历史完成、stale、日志停更或进程退出不推导成功；轮询仍可能漏过两次采样之间结束又重启的任务。
+
 ---
 
 ## 2. 通用收件箱规范
@@ -89,7 +131,8 @@ python -m src.cli agents
 
 ### 2.1 用量事件（只追加）
 
-一行一个事件，**写进去就不再修改**——程序靠文件字节偏移去重，改了会重复计数。
+一行一个事件，**只追加完整换行的记录**。半行留待下次读取；文件截断重读保留稳定键去重。
+同路径且未缩小的原地改写不属于游标支持的更新方式。
 
 ```jsonl
 {"kind":"usage","ts":1760000000,"model":"step-3.5-flash","input":1200,"output":340,"cacheRead":0,"cacheWrite":0,"session":"run-42"}
@@ -142,15 +185,24 @@ python -m src.cli agents
 
 | 字段 | 说明 |
 |---|---|
-| `state` | 建议取值：`working` / `thinking` / `waiting` / `idle` / `error` / `done`。未知值按 `idle` 处理，不会崩 |
+| `state` | `working` / `thinking` / `waiting` / `idle` / `error`；`done` / `complete` / `completed` / `task_complete` 是明确完成证据。未知值的宠物基态用 idle，结果仍未知 |
 | `project` | 项目名（列表里显示这个） |
 | `title` | 当前任务描述。不填则退回 `project` |
-| `contextUsed` / `contextLimit` | 上下文占用。**`contextLimit` 可以不给**，程序按模型名推断 |
+| `contextUsed` / `contextLimit` | 上下文占用。缺明确容量时按模型启发式估算并标明，非任务百分比 |
 | `backgroundTasks` | 后台任务数 |
 | `model` | 模型名，用于推断上下文窗口 |
 | `cwd` | 工作目录 |
 
 时间戳缺失时用文件修改时间兜底。
+
+明确完成也可追加独立事件；保持稳定 session、事件标识和真实时间戳：
+
+```jsonl
+{"kind":"task_complete","ts":"2026-10-11T02:04:00Z","session":"run-42","taskId":"task-42-finished","project":"我的项目"}
+```
+
+monitor 首次历史快照只建立基线，不庆祝；后续重复轮询同一事件不重复庆祝。
+受控 generic 测试日志属于契约证据，不可当成用户真实任务已完成。
 
 ### 2.3 最小示例
 
@@ -222,7 +274,7 @@ Claude / Codex 两档是**只读扫描**，不写、不改、不删任何源文�
 
 ```bash
 python -m src.cli agents      # 这台机器上接了哪些数据源，每个目录从哪来
-python -m src.cli usage       # 账号余额提醒（--json 便于接入别的程序）
+python -m src.cli usage       # 本机用量提醒（--json 便于接入别的程序）
 python -m src.cli progress    # 项目进度汇报（--json / --active-only）
 ```
 

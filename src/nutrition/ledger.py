@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import stat
+import math
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -31,18 +32,26 @@ class LedgerEntry:
     sodium_mg: float = 0.0
     calcium_mg: float = 0.0
     note: str = ""
+    quantity: float = 1.0
 
     @classmethod
-    def from_fact(cls, fact: NutritionFact, date: str | None = None) -> "LedgerEntry":
+    def from_fact(cls, fact: NutritionFact, date: str | None = None, *, quantity: float = 1) -> "LedgerEntry":
+        if isinstance(quantity, bool):
+            raise ValueError("quantity must be finite and positive")
+        quantity = float(quantity)
+        if not math.isfinite(quantity) or quantity <= 0:
+            raise ValueError("quantity must be finite and positive")
         return cls(
             date=date or datetime.now().date().isoformat(),
             meal_name=fact.name,
-            energy_kcal=fact.energy_kcal,
-            protein_g=fact.protein_g,
-            fat_g=fact.fat_g,
-            carb_g=fact.carb_g,
-            sodium_mg=fact.sodium_mg,
-            calcium_mg=fact.calcium_mg,
+            energy_kcal=fact.energy_kcal * quantity,
+            protein_g=fact.protein_g * quantity,
+            fat_g=fact.fat_g * quantity,
+            carb_g=fact.carb_g * quantity,
+            sodium_mg=fact.sodium_mg * quantity,
+            calcium_mg=fact.calcium_mg * quantity,
+            note=fact.note,
+            quantity=quantity,
         )
 
 
@@ -68,10 +77,15 @@ class NutritionLedger:
         return entries
 
     def _save(self) -> None:
-        self.path.write_text(
-            json.dumps([asdict(e) for e in self._entries], ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        temporary = self.path.with_suffix(".tmp")
+        try:
+            temporary.write_text(
+                json.dumps([asdict(e) for e in self._entries], ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            os.replace(temporary, self.path)
+        finally:
+            temporary.unlink(missing_ok=True)
         try:
             os.chmod(self.path, stat.S_IRUSR | stat.S_IWUSR)
         except OSError:
@@ -83,11 +97,15 @@ class NutritionLedger:
 
     def add(self, entry: LedgerEntry) -> LedgerEntry:
         self._entries.append(entry)
-        self._save()
+        try:
+            self._save()
+        except OSError:
+            self._entries.pop()
+            raise
         return entry
 
-    def add_fact(self, fact: NutritionFact, date: str | None = None) -> LedgerEntry:
-        return self.add(LedgerEntry.from_fact(fact, date))
+    def add_fact(self, fact: NutritionFact, date: str | None = None, *, quantity: float = 1) -> LedgerEntry:
+        return self.add(LedgerEntry.from_fact(fact, date, quantity=quantity))
 
     def day(self, date: str | None = None) -> list[LedgerEntry]:
         target = date or datetime.now().date().isoformat()

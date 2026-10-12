@@ -16,7 +16,7 @@ from src.mcd_mcp.brain import (
     StoreInfo,
     parse_nutrition_table,
 )
-from src.mcd_mcp.client import ToolResult
+from src.mcd_mcp.client import McpError, ToolResult
 from src.mcd_mcp.guards import GuardLimits, OrderGuard
 
 
@@ -184,12 +184,13 @@ def test_resolve_default_store_prefers_open_store(guard):
     assert store.be_type == 1 and store.order_type == 1
 
 
-def test_resolve_default_store_returns_none_when_nothing(guard):
+def test_resolve_default_store_reports_no_store_when_nothing(guard):
     client = FakeClient({
         T.TOOL_DELIVERY_ADDRESSES: [wrapped([])],
         T.TOOL_NEARBY_STORES: [wrapped([])],
     })
-    assert McdBrain(client, guard).resolve_default_store() is None
+    with pytest.raises(McpError, match="未查询到可用门店"):
+        McdBrain(client, guard).resolve_default_store()
 
 
 # ---------------------------------------------------------------- 最划算一单
@@ -241,6 +242,7 @@ def test_best_deal_pairs_coupon_by_product_code(guard):
         T.TOOL_CALCULATE_PRICE: [
             _price_result(1190, "507411", 1190),   # 无券基线
             _price_result(990, "507411", 1190),    # 带券
+            _price_result(2550, "1440"),
         ],
     })
     quotes = McdBrain(client, guard).best_deal(STORE)
@@ -261,6 +263,7 @@ def test_best_deal_passes_both_coupon_id_and_code(guard):
         T.TOOL_CALCULATE_PRICE: [
             _price_result(1190, "507411", 1190),
             _price_result(990, "507411", 1190),
+            _price_result(2550, "1440"),
         ],
     })
     McdBrain(client, guard).best_deal(STORE)
@@ -306,15 +309,15 @@ def test_best_deal_sorted_by_discount(guard):
     assert quotes[0].discount_cents == 200
 
 
-def test_best_deal_falls_back_to_menu_price_when_pricing_fails(guard):
+def test_best_deal_propagates_server_failure_without_menu_price_fallback(guard):
     client = FakeClient({
         T.TOOL_MEALS: [wrapped(MEALS_SAMPLE)],
         T.TOOL_STORE_COUPONS: [wrapped([])],
         T.TOOL_CALCULATE_PRICE: [wrapped(None, success=False, code=600057, message="门店已关闭")],
     })
-    quotes = McdBrain(client, guard).best_deal(STORE)
-    bigmac = next(q for q in quotes if q.meal_code == "1440")
-    assert bigmac.baseline_cents == 2550  # 回退用菜单 currentPrice
+    with pytest.raises(McpError, match="门店已关闭") as error:
+        McdBrain(client, guard).best_deal(STORE)
+    assert error.value.code == 600057
 
 
 def test_best_deal_keyword_filter(guard):
@@ -501,3 +504,59 @@ def test_nutrition_fact_defaults():
     fact = NutritionFact(name="测试")
     assert fact.energy_kcal == 0
     assert fact.note == ""
+
+
+def test_all_five_closed_stores_are_explicit_error_without_changing_city(guard, monkeypatch):
+    monkeypatch.setenv("MCPET_CITY", "北京")
+    stores = [{"storeCode": str(i), "businessStatus": False} for i in range(5)]
+    client = FakeClient({T.TOOL_DELIVERY_ADDRESSES: [wrapped([])], T.TOOL_NEARBY_STORES: [wrapped(stores)]})
+    from src.mcd_mcp.brain import StoreUnavailable
+    with pytest.raises(StoreUnavailable, match="未营业"):
+        McdBrain(client, guard).resolve_default_store()
+    assert client.calls_of(T.TOOL_NEARBY_STORES)[0][T.ARG_KEYS["city"]] == "北京"
+    assert client.calls_of(T.TOOL_MEALS) == []
+
+
+@pytest.mark.parametrize("is_error", [False, True])
+def test_menu_preserves_real_business_message_and_code(guard, is_error):
+    result = wrapped(None, success=False, code=600057, message="门店可能已关闭或不在营业时间")
+    result.data = [result.data]
+    result.is_error = is_error
+    client = FakeClient({T.TOOL_MEALS: [result]})
+    with pytest.raises(McpError) as error:
+        McdBrain(client, guard).best_deal(STORE)
+    assert str(error.value) == "门店可能已关闭或不在营业时间"
+    assert error.value.code == 600057
+
+
+@pytest.mark.parametrize("value", [None, True, -1, "garbage", "NaN", "Infinity", "990.5"])
+def test_invalid_quote_price_never_becomes_zero_or_menu_fallback(guard, value):
+    client = FakeClient({T.TOOL_CALCULATE_PRICE: [wrapped({"price": value})]})
+    with pytest.raises(McpError, match="UNKNOWN"):
+        McdBrain(client, guard).quote_order(STORE, ["1440"])
+
+
+def test_calculate_price_decimal_cents_not_yuan(guard):
+    client = FakeClient({T.TOOL_CALCULATE_PRICE: [wrapped({"price": "990.00"})]})
+    assert McdBrain(client, guard).quote_order(STORE, ["1440"]) == 990
+
+
+def test_no_coupon_quote_has_no_coupon_identity(guard):
+    client = FakeClient({T.TOOL_MEALS: [wrapped(MEALS_SAMPLE)], T.TOOL_STORE_COUPONS: [wrapped([])],
+                         T.TOOL_CALCULATE_PRICE: [_price_result(2550, "1440")]})
+    quote = McdBrain(client, guard).best_deal(STORE, keyword="巨无霸")[0]
+    assert quote.coupon_id == quote.coupon_code == quote.coupon_name == ""
+    assert quote.discount_cents == 0
+    assert quote.payable_cents == 2550
+
+
+def test_coupon_calculation_failure_not_reported_as_no_coupon(guard):
+    client = FakeClient({T.TOOL_MEALS: [wrapped(MEALS_SAMPLE)], T.TOOL_STORE_COUPONS: [wrapped(STORE_COUPONS_SAMPLE)],
+                         T.TOOL_CALCULATE_PRICE: [_price_result(1190), wrapped(None, success=False, code=600010, message="使用优惠券失败")]})
+    with pytest.raises(McpError, match="使用优惠券失败"):
+        McdBrain(client, guard).best_deal(STORE)
+
+
+def test_cancel_business_failure_does_not_mark_audit_cancelled(guard):
+    client = FakeClient({T.TOOL_CANCEL_ORDER: [wrapped(None, success=False, code=500, message="撤单失败")]})
+    assert McdBrain(client, guard).cancel_order("NO-1") is False

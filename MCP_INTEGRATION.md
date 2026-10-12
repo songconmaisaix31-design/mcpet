@@ -1,5 +1,12 @@
 # MCP 集成说明
 
+默认入口为现有 Agent 内的 McPet stdio 服务。宿主接入和工具清单见
+[Agent 使用说明](docs/AGENT-HOST.md)，当前验证范围见
+[Agent 接入验证](docs/AGENT-HOST-VALIDATION.md)。本文件保留麦当劳上游协议与历史实测结构。
+
+两层协议分别是：原 Agent → 官方 Python MCP SDK 的 McPet stdio 服务
+（`src/agent_mcp.py`）→ 现有 McdBrain / httpx Streamable HTTP 客户端 → 麦当劳 MCP。
+
 ## 1. 使用的 MCP Server
 
 | 项 | 值 |
@@ -7,23 +14,30 @@
 | Server | 麦当劳中国 MCP Server（`mcd-mcp`） |
 | 接入地址 | `https://mcp.mcd.cn` |
 | 传输协议 | Streamable HTTP（MCP `2025-06-18`） |
-| 认证 | `Authorization: Bearer ${MCD_MCP_TOKEN}`，Token 只从环境变量读取 |
+| 认证 | `Authorization: Bearer ${MCD_MCP_TOKEN}`；进程环境 > 用户配置 > 项目配置 |
 | 限流 | 600 次/分钟/Token；客户端再做 540 次/分钟滑动窗口 |
 | 配置示例 | [`mcp-config.example.json`](./mcp-config.example.json)（仅环境变量占位符） |
 
 ## 2. 调用流程
 
 ```
-启动 → 读 .env / 环境变量拿 Token
+原 Agent 调用 mcpet 工具 → 服务串行执行既有业务并读取本机配置
      → POST initialize（取 mcp-session-id 并回带）
      → POST notifications/initialized
      → tools/list（拿真实 inputSchema，用于校正参数名）
      → tools/call（按场景调具体工具）
 ```
 
-本项目没有使用任何第三方 MCP SDK，协议层在
+连接麦当劳上游的 HTTP 协议层在
 [`src/mcd_mcp/client.py`](./src/mcd_mcp/client.py) 里手写实现，覆盖：
-session 回带、单条 JSON 响应与 SSE 流两种响应体、401 直接失败、429 退避重试。
+session 回带、单条 JSON 响应与 SSE 流两种响应体、401 直接失败、可配置的 429 退避重试。
+面向原 Agent 的 stdio 服务使用官方 Python MCP SDK；两层共用现有业务和确认护栏。
+Agent 服务在每次上游任务中初始化/关闭 HTTP 客户端，并设置 `max_retries_on_429=0`。
+同服务请求串行，本机台账跨宿主加锁；无独立窗口、托盘或模型会话。
+以下桌面 worker 描述仅适用于显式 `--desktop` 兼容入口。
+桌面入口首次实时任务才初始化 MCP，小窝会话观测不调用模型，也不初始化 MCP。初始化、业务请求及 close
+都在唯一串行 worker 中运行；桌面将 `max_retries_on_429=0`，避免账号写请求未知效果被自动重发。
+同一任务不重入，退出丢弃未开始请求并等待正在执行的请求安全结束，GUI 不等待线程或扫描。
 
 ## 3. 用到的 Tool 与业务价值
 
@@ -36,18 +50,22 @@ session 回带、单条 JSON 响应与 SSE 流两种响应体、401 直接失败
 | `query-meals` / `query-meal-detail` | 拉菜单、看套餐组成 | 只读 |
 | `calculate-price` | 逐个餐品逐个券试算实付价，找出优惠最大的一单；同时提供下单所需的 `takeWayCode` | 只读 |
 | `create-order` | 用户确认后真实下单，返回订单号与支付链接 | **会真实下单并产生支付** |
-| `cancel-order` | 一键撤单 | **会真实撤单** |
-| `list-nutrition-foods` | 查餐品营养数据，写入每日台账 | 只读 |
+| `cancel-order` | 展示订单与参数并勾选确认后撤单 | **会真实撤单** |
+| `list-nutrition-foods` | 获取真实餐品列表，用户选择具体餐品和份数后写本机台账 | MCP 只读；台账为本机写入 |
 | `campaign-calendar` | 让大模型知道当下有哪些活动 | 只读 |
 | `delivery-query-addresses` / `delivery-query-stores` | 推出默认门店，避免让用户手填门店号 | 只读 |
 | `query-nearby-stores` | 无配送地址时按城市搜附近门店，优先挑营业中的 | 只读 |
 | `now-time-info` | 对齐服务端时间 | 只读 |
 
 核心业务价值：把「领券 → 比价 → 下单 → 记账」这条原本要在麦当劳 App 里点
-七八次的链路，压缩成宠物托盘菜单里的三次点击，且每一次比价都是对真实券和真实
+多次的链路，交给当前 Agent 会话中的查询、摘要与明确确认，且每一次比价都是对真实券和真实
 价格的穷举，不是拍脑袋推荐。
 
-## 4. 验证状态（三分法，如实标注）
+## 4. 历史验证状态（2026-10-10）
+
+下表保留历史验证口径；「演练」只跑到提交前，没有真实订单或支付。
+本轮集成使用 mock 网络与受控日志，结果见 [集成交接](docs/companion/HANDOFF-INTEGRATION.md)。
+本轮真实只读 GUI/模型/MCP 由主 Agent 另行运行，未执行账号写操作。
 
 | 项目 | 状态 | 说明 |
 |---|---|---|
@@ -70,11 +88,11 @@ session 回带、单条 JSON 响应与 SSE 流两种响应体、401 直接失败
 ```bash
 python -m src.cli tools --dump      # 拉真实工具清单，逐项核对参数名
 python scripts/probe_raw.py         # 打印各工具真实返回结构（只读）
-python -m src.cli coupons           # 领券汇报（真实领券）
+python -m src.cli coupons --no-claim # 只读查询；显式去掉 --no-claim 会真实领取
 python -m src.cli deal              # 今天最划算的一单
 python -m src.cli nutrition --keyword 巨无霸
 python -m src.cli order             # 下单链路；默认只展示摘要，加 --yes 才落单
-python -m src.cli ask "今天最划算的是哪个？"
+python -m src.cli ask "今天最划算的是哪个？" # 旧 CLI：显式新模型请求，非默认 Agent 入口
 ```
 
 ## 4.1 实测校正表（2026-10-10 用真实 Token 抓取）
@@ -142,10 +160,12 @@ list-nutrition-foods → data 是**字符串**（不是 JSON！），自定义�
 `code=499 / message=暂无可领取的优惠券`，业务上属于正常结束。
 
 
-## 5. 大模型调度层（阶跃星辰 StepFun）
+## 5. 保留的 CLI 大模型调度层（阶跃星辰 StepFun）
 
-固定菜单之外，用户可以用自然语言直接提问。做法是**把 MCP 的工具清单交给大模型，
-让它自己决定调哪个**，而不是把工具写死在分支里：
+当前 Agent MCP 接入不使用此调度层；以下仅是显式旧 CLI 的兼容能力。
+
+桌面入口只读观测已有 Agent 会话，双击打开统一小窝；没有独立聊天、模型请求或历史读取。
+旧 `python -m src.cli ask` / `models` 能力保留，须用户显式执行。CLI Skill 的只读查询流程：
 
 ```
 提问
@@ -163,16 +183,33 @@ list-nutrition-foods → data 是**字符串**（不是 JSON！），自定义�
 `mall-create-order` / `draw-lottery` 在 `src/mcd_mcp/skill.py` 里被标记为写工具。
 默认不生成它们的 function 定义；即使模型要求调用，也会停下来返回
 `pending_write` 交人工确认，不会自动执行。测试 `tests/test_skill.py` 对此有断言。
+桌面订单走小窝「麦当劳」页的明确确认流程；桌面不调用此 Skill 或新建模型会话。旧聊天模块和数据保留，不读取、迁移或发送。
 
 ## 6. 真实调用的护栏
 
-宠物会替你领券，但不会替你决定下单：
+Agent 模式在原会话展示范围/订单摘要，确认后才传 `confirmed=true` 执行写操作。
+准备订单只接受本会话真实报价中的门店与餐品；提交前复核价格，变化则重新确认。
+网络提交后结果不明或缺少订单号均保留 `delivery_unknown`，不可自动重放。
+以下勾选式确认与饭点自动查询描述仅适用于旧桌面兼容入口。
 
-1. 下单前弹确认框，必须展示**门店 + 商品 + 实付金额**，且要勾选确认才能点「下单」；
+桌面自动饭点只调用券查询和报价，不领取、不下单。主动领取、下单和撤单都先展示摘要，
+必须勾选确认后才提交：
+
+1. 下单确认展示**门店、商品、券（无券也显示）、实付金额、服务端取餐选项与实际 payload**；
+   提交前再核价，价格变化拒绝提交并要求重新查询确认；
 2. 单笔金额上限、每日下单次数上限在 `src/mcd_mcp/guards.py`，超了直接拒绝；
 3. 每次下单（含演练）都写本机审计台账 `~/.mcpet/order-audit.json`；
-4. 托盘菜单常驻「撤销上一单」；
+4. 小窝「麦当劳」页保留「确认撤销上一单…」，只针对本次运行已知订单，撤单也需确认；
 5. `MCD_DRY_RUN=true` 时仍真实调用算价与全部查询，只跳过 `create-order` 提交——
    这是真实链路的演练，不是 mock。
+
+提交异常、未知格式或缺订单号保留 UNKNOWN，并提示去官方渠道核对；不自动重试、不复用已消费
+候选。已知服务端成功但本机审计失败会继续保留订单号并显示审计失败。同一小窝内的订单付款卡片只允许打开/复制
+HTTP(S) 链接，禁止本机命令链接和含已知凭证的链接。返回链接不等于支付完成。
+
+未找到营业门店、营业状态未知、服务端 `600057` 等失败直接显示原因，不能转成空菜单成功，
+不能用菜单原价掩盖失败算价。营养 UI 选择真实返回的具体餐品及 0.25–20 份，确认后精确乘份数
+记到独立营养台账；取消不写入。CLI 仍是显式命令行工具，`coupons` 默认领券，
+只读查询须加 `--no-claim`；桌面自动饭点与 CLI 默认行为不要混用。
 
 > 本项目会真实创建麦当劳订单并产生真实支付。请确认你愿意让宠物替你下单再启用。

@@ -26,3 +26,10 @@ logs/
 .idea/
 .vscode/
 .DS_Store
+
+# Generated project host wiring contains machine-local executable paths.
+.mcp.json
+opencode.json
+.claude/settings.local.json
+.claude/rules/mcpet.md
+.opencode/

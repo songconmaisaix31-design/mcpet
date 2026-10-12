@@ -21,6 +21,8 @@ STATE_TO_PET: dict[str, str] = {
     "failed": "error",
     "done": "happy",
     "complete": "happy",
+    "completed": "happy",
+    "task_complete": "happy",
     "sleeping": "sleeping",
 }
 
@@ -35,7 +37,10 @@ STATE_LABEL: dict[str, str] = {
     "failed": "失败",
     "done": "完成",
     "complete": "完成",
+    "completed": "完成",
+    "task_complete": "完成",
     "sleeping": "休眠",
+    "unknown": "UNKNOWN",
 }
 
 
@@ -71,13 +76,15 @@ def context_bar(percent: int | None, width: int = 10) -> str:
 def bubble(snapshot: ProgressSnapshot) -> str:
     """桌宠气泡：一句话说清「谁在跑、跑到哪」。"""
     if not snapshot.has_data:
-        return "没读到任何 Agent 的会话。"
+        return "UNKNOWN：没读到任何 Agent 的会话。"
+    if snapshot.errors:
+        return "UNKNOWN：部分数据源读取失败，保留已读取会话。"
 
     active = snapshot.active
     if not active:
         newest = snapshot.sessions[0]
         return (
-            f"{len(snapshot.sessions)} 个会话都停了，"
+            f"{len(snapshot.sessions)} 个会话近期未更新，任务结果 UNKNOWN，"
             f"最近一个 {human_age(newest.age_seconds)}。"
         )
 
@@ -95,7 +102,8 @@ def bubble(snapshot: ProgressSnapshot) -> str:
         default=None,
     )
     if hottest and (hottest.context_percent or 0) >= 50:
-        parts.append(f"{hottest.label} 上下文已用 {hottest.context_percent}%")
+        estimate = "（上限估算）" if hottest.record.context_limit_estimated else ""
+        parts.append(f"{hottest.label} 上下文已用 {hottest.context_percent}%{estimate}")
 
     return "，".join(parts) + "。"
 
@@ -103,6 +111,10 @@ def bubble(snapshot: ProgressSnapshot) -> str:
 def report(snapshot: ProgressSnapshot, *, show_stale: bool = True) -> str:
     lines: list[str] = []
     lines.append(f"数据源：{', '.join(snapshot.sources) or '无可用数据源'}")
+    lines.append(f"观测状态：{snapshot.status}")
+    lines.extend(f"读取失败：{error}" for error in snapshot.errors)
+    if any(s.record.context_limit_estimated for s in snapshot.sessions):
+        lines.append("上限估算：未提供明确上下文容量的日志使用模型启发式，不是实测容量。")
     if snapshot.process_sampling:
         live = snapshot.live_processes
         detail = "、".join(f"{k} {v}" for k, v in live.items()) or "未发现"
@@ -123,7 +135,7 @@ def report(snapshot: ProgressSnapshot, *, show_stale: bool = True) -> str:
     lines.append("")
 
     if show_stale and stale:
-        lines.append(f"已停下的会话：{len(stale)} 个")
+        lines.append(f"近期未更新的会话（不能推断完成）：{len(stale)} 个")
         for item in stale[:5]:
             lines.append(_session_line(item))
         if len(stale) > 5:
@@ -146,6 +158,8 @@ def _session_line(item: SessionProgress) -> str:
         extra += f" 后台×{record.background_tasks}"
     if record.model:
         extra += f" {record.model}"
+    if record.context_limit_estimated:
+        extra += " 上限估算"
     return (
         f"    [{record.source:<7}] {item.label[:22]:<22} {state:<4} "
         f"上下文 {ctx} {pct}  {age}{extra}"

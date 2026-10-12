@@ -13,9 +13,11 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from collections import OrderedDict
+from collections.abc import Sequence
 
 from PySide6.QtCore import QRect, Qt
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtGui import QImage, QImageReader, QPixmap, QTransform
 
 from . import states
 
@@ -128,6 +130,28 @@ class SpriteSheet:
     def frames(self, state: str) -> list[QPixmap]:
         return [self.frame(state, i) for i in range(self.frame_count(state))]
 
+    def anchor_bounds(self, state: str, alpha_threshold: int = 32) -> list[tuple[int, int, int, int] | None]:
+        """Audit only. Full fixed cells remain untouched, preserving jumps and poses.
+
+        Coordinates are cell-local inclusive alpha bounds; no per-frame crop/scale.
+        """
+        result = []
+        row = self.row_for(state)
+        for index in range(self.frame_count(state)):
+            cell = self.image.copy(QRect(index * self.cell_width, row * self.cell_height,
+                                         self.cell_width, self.cell_height))
+            cell = cell.convertToFormat(QImage.Format_RGBA8888)
+            data = bytes(cell.constBits())
+            stride = cell.bytesPerLine()
+            left, top, right, bottom = cell.width(), cell.height(), -1, -1
+            for y in range(cell.height()):
+                for x in range(cell.width()):
+                    if data[y * stride + x * 4 + 3] > alpha_threshold:
+                        left, top = min(left, x), min(top, y)
+                        right, bottom = max(right, x), max(bottom, y)
+            result.append(None if right < 0 else (left, top, right, bottom))
+        return result
+
     # ---------- 校验（对齐 longniang 的 QA 思路） ----------
 
     def validate(self) -> list[str]:
@@ -157,15 +181,176 @@ class SpriteSheet:
                     QRect(column * self.cell_width, row * self.cell_height, self.cell_width, self.cell_height)
                 )
                 if cell.hasAlphaChannel():
-                    opaque = 0
+                    # Same 4px sample grid and >8 threshold. Read alpha bytes
+                    # once, and stop at the first content instead of crossing
+                    # the Python/Qt boundary for every pixel in every cell.
+                    cell = cell.convertToFormat(QImage.Format_RGBA8888)
+                    data = cell.constBits()
+                    stride = cell.bytesPerLine()
+                    opaque = False
                     for y in range(0, cell.height(), 4):
-                        for x in range(0, cell.width(), 4):
-                            if cell.pixelColor(x, y).alpha() > 8:
-                                opaque += 1
-                    if opaque == 0:
+                        if any(alpha > 8 for alpha in data[y * stride + 3:y * stride + cell.width() * 4:16]):
+                            opaque = True
+                            break
+                    if not opaque:
                         empty.append(f"{state}#{column}")
         return empty
 
     @property
     def has_alpha(self) -> bool:
         return self.image.hasAlphaChannel()
+
+
+class AnimationSheet(SpriteSheet):
+    """Fixed-cell pages; at most one decoded 12-frame page in memory.
+
+    A logical row identifies an animation, not its physical atlas row. The public
+    frame/frames/row_for/frame_count API is identical to SpriteSheet.
+    """
+
+    def __init__(self, directory: Path, *, base_sheet: SpriteSheet | None = None):
+        try:
+            manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+            size, columns = int(manifest["cell_size"]), int(manifest["columns"])
+            if size != 192 or columns != 12:
+                raise ValueError("invalid animation geometry")
+            animations = manifest["animations"]
+            if not isinstance(animations, dict):
+                raise ValueError("invalid animation manifest")
+            paths, counts = {}, {}
+            row_of = {}
+            for row, (state, entry) in enumerate(animations.items(), start=base_sheet.rows if base_sheet else 0):
+                filenames, count = entry["pages"], int(entry["frames"])
+                if not isinstance(filenames, list) or len(filenames) != (count + columns - 1) // columns or count < 1 or count > 256 or size != 192 or columns != 12:
+                    raise ValueError("invalid animation geometry")
+                pages = []
+                for filename in filenames:
+                    if not isinstance(filename, str) or Path(filename).name != filename:
+                        raise ValueError("invalid page path")
+                    path = directory / filename
+                    reader = QImageReader(str(path))
+                    dimensions = reader.size()
+                    if not reader.canRead() or dimensions.width() != size * columns or dimensions.height() != size:
+                        raise ValueError(f"invalid animation: {state}")
+                    pages.append(path)
+                row_of[state], paths[row], counts[row] = row, tuple(pages), count
+            required = ("idle", "run-left", "working", "thinking", "greet", "happy", "error", "sleeping", "eating")
+            if base_sheet is None and any(state not in row_of for state in required):
+                raise ValueError("missing animation")
+            right = -1
+            if base_sheet is None:
+                right = len(paths)
+                paths[right], counts[right] = paths[row_of["run-left"]], counts[row_of["run-left"]]
+                row_of["run-right"] = right
+                for alias, state in {"remind": "greet", "coupon": "thinking", "balance": "thinking",
+                                     "progress": "working", "waiting": "thinking", "failed": "error"}.items():
+                    row_of[alias] = row_of[state]
+                preview_file = manifest["preview"]
+                if not isinstance(preview_file, str) or Path(preview_file).name != preview_file:
+                    raise ValueError("invalid preview path")
+                preview = QImage(str(directory / preview_file))
+                if preview.isNull() or preview.width() != size or preview.height() != size or not preview.hasAlphaChannel():
+                    raise ValueError("invalid transparent preview")
+                super().__init__(preview, columns, len(paths), size, size, row_of=row_of,
+                                 frames_by_row=counts, frame_delay_ms=int(manifest["frame_delay_ms"]),
+                                 meta={**manifest, "character_id": "deepseek"})
+            else:
+                # Supplement the original atlas without changing its pixels,
+                # logical rows, previews, aliases or frame geometry.
+                super().__init__(base_sheet.image, base_sheet.columns, base_sheet.rows + len(paths),
+                                 base_sheet.cell_width, base_sheet.cell_height,
+                                 row_of={**base_sheet.row_of, **row_of},
+                                 frames_by_row={**base_sheet.frames_by_row, **counts},
+                                 frame_delay_ms=base_sheet.frame_delay_ms,
+                                 meta={**base_sheet.meta, "animations": animations})
+            self._base_sheet = base_sheet
+            self._page_size, self._page_columns = size, columns
+            self._paths = paths
+            self._mirrored_row = right
+            self._atlases: OrderedDict[Path, QImage] = OrderedDict()
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            raise SpriteLoadError("无法加载角色动画缓存") from exc
+
+    def row_for(self, state: str) -> int:
+        if self._base_sheet is not None:
+            return self.row_of.get(state, self._base_sheet.row_for(state))
+        return self.row_of.get(state, self.row_of["idle"])
+
+    def is_paged(self, state: str) -> bool:
+        return self.row_for(state) in self._paths
+
+    def frame(self, state: str, index: int) -> QPixmap:
+        row = self.row_for(state)
+        if self._base_sheet is not None and row not in self._paths:
+            return self._base_sheet.frame(state, index)
+        cell = index % self.frame_count(state)
+        path = self._paths[row][cell // self._page_columns]
+        image = self._atlases.get(path)
+        if image is None:
+            image = QImage(str(path))
+            if image.isNull() or image.width() != self._page_columns * self._page_size or image.height() != self._page_size or not image.hasAlphaChannel():
+                raise SpriteLoadError("无法读取角色动作缓存")
+            self._atlases.clear()
+            self._atlases[path] = image
+        frame = image.copy((cell % self._page_columns) * self._page_size,
+                           0,
+                           self._page_size, self._page_size)
+        if row == self._mirrored_row:
+            frame = frame.transformed(QTransform().scale(-1, 1))
+        return QPixmap.fromImage(frame)
+
+    def anchor_bounds(self, state: str, alpha_threshold: int = 32):
+        # Offline auditing only, using the same real frames as the player.
+        result = []
+        table = bytes(255 if value > alpha_threshold else 0 for value in range(256))
+        for index in range(self.frame_count(state)):
+            image = self.frame(state, index).toImage().convertToFormat(QImage.Format_RGBA8888)
+            data = bytes(image.constBits())
+            left, top, right, bottom = image.width(), image.height(), -1, -1
+            for y in range(image.height()):
+                alpha = data[y * image.bytesPerLine() + 3:(y + 1) * image.bytesPerLine():4].translate(table)
+                start = alpha.find(b"\xff")
+                if start >= 0:
+                    left, top = min(left, start), min(top, y)
+                    right, bottom = max(right, alpha.rfind(b"\xff")), y
+            result.append(None if right < 0 else (left, top, right, bottom))
+        return result
+
+    def validate(self) -> list[str]:
+        # Geometry is validated at load. Scan every used frame only when requested.
+        return [f"{state}: empty frame" for state in self.row_of
+                if any(bound is None for bound in self.anchor_bounds(state))]
+
+
+class ScaledAnimationFrames(Sequence[QPixmap]):
+    """Scale on presentation; two resident frames instead of a 126-frame copy.
+
+    Pages retain the same fixed cells. The first presented page is decoded
+    synchronously on action change; later pages load only as playback reaches
+    them. No alpha analysis or geometry adjustment occurs during playback.
+    """
+
+    def __init__(self, sheet: AnimationSheet, state: str, size: int, dpr: float):
+        self.sheet, self.state, self.size, self.dpr = sheet, state, size, dpr
+        self.resident: OrderedDict[int, QPixmap] = OrderedDict()
+
+    def __len__(self) -> int:
+        return self.sheet.frame_count(self.state)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self[i] for i in range(*index.indices(len(self)))]
+        if index < 0:
+            index += len(self)
+        if index < 0 or index >= len(self):
+            raise IndexError(index)
+        frame = self.resident.pop(index, None)
+        if frame is None:
+            frame = self.sheet.frame(self.state, index).scaled(
+                round(self.size * self.dpr), round(self.size * self.dpr),
+                Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            frame.setDevicePixelRatio(self.dpr)
+        self.resident[index] = frame
+        while len(self.resident) > 2:
+            self.resident.popitem(last=False)
+        return frame

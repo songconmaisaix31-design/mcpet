@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import os
 import re
+import json
+import stat
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MCP_URL = "https://mcp.mcd.cn"
@@ -20,8 +22,47 @@ DEFAULT_RATE_LIMIT_PER_MINUTE = 540
 
 
 def load_env() -> None:
-    """加载项目根目录 .env（如存在）。已存在的环境变量优先，不被覆盖。"""
-    load_dotenv(PROJECT_ROOT / ".env", override=False)
+    """环境变量 > 本机用户配置 > 项目配置；不向输出暴露文件内容。"""
+    load_dotenv(data_dir() / ".env", override=False, interpolate=False)
+    load_dotenv(PROJECT_ROOT / ".env", override=False, interpolate=False)
+
+
+SETTINGS_KEYS = ("MCD_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY", "MCPET_CITY", "MCPET_LUNCH_TIME",
+                 "MCPET_AGENT_ROOT_CLAUDE", "MCPET_AGENT_ROOT_CODEX",
+                 "MCPET_AGENT_ROOT_GENERIC")
+
+
+def save_settings(values: dict[str, str]) -> None:
+    """只写用户数据目录；保留其他配置。凭证不进入 JSON 或聊天记录。"""
+    if set(values) - set(SETTINGS_KEYS):
+        raise ValueError("未知设置字段")
+    if any("\n" in v or "\r" in v or "\x00" in v for v in values.values()):
+        raise ValueError("设置不能包含换行或空字符")
+    path = data_dir() / ".env"
+    previous = dict(dotenv_values(path, interpolate=False)) if path.exists() else {}
+    previous.update(values)
+    # dotenv 双引号支持反斜杠与引号转义。先收临时文件权限再原子替换。
+    content = "\n".join(f"{k}={json.dumps(v or '', ensure_ascii=False)}" for k, v in previous.items())
+    temporary = path.with_suffix(".env.tmp")
+    temporary.write_text(content + "\n", encoding="utf-8")
+    os.chmod(temporary, stat.S_IRUSR | stat.S_IWUSR)
+    temporary.replace(path)
+    os.environ.update(values)
+
+
+def root_warnings(values: dict[str, str]) -> list[str]:
+    warnings = []
+    for key in SETTINGS_KEYS:
+        if "AGENT_ROOT" in key and values.get(key):
+            try:
+                exists = Path(os.path.expandvars(values[key])).expanduser().is_dir()
+            except (OSError, ValueError):
+                exists = False
+            if not exists:
+                warnings.append(f"{key.removeprefix('MCPET_AGENT_ROOT_')}: 目录不存在，不会读取")
+    if os.environ.get("MCPET_AGENT_ROOTS"):
+        warnings.append("环境变量 MCPET_AGENT_ROOTS 覆盖单独目录配置；修改后请重启")
+    return warnings
 
 
 def _is_placeholder(value: str) -> bool:
@@ -40,11 +81,18 @@ def mcp_url() -> str:
 
 
 def stepfun_api_key() -> str | None:
-    return os.environ.get("STEPFUN_API_KEY") or None
+    value = os.environ.get("STEPFUN_API_KEY") or ""
+    return None if _is_placeholder(value) else value.strip()
 
 
 def stepfun_model() -> str:
     return os.environ.get("STEPFUN_MODEL") or "step-3.5-flash"
+
+
+def deepseek_api_key() -> str:
+    """仅用于余额只读查询；占位值等同未配置。"""
+    value = os.environ.get("DEEPSEEK_API_KEY") or ""
+    return "" if _is_placeholder(value) else value.strip()
 
 
 def city() -> str:
@@ -122,7 +170,7 @@ _EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
 _ID_CARD_RE = re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)")
 
 
-def redact(text: str, token: str | None = None) -> str:
+def redact(text: str, token: str | None = None, *, personal: bool = True) -> str:
     """脱敏：盖掉 Token、手机号、邮箱、身份证号。
 
     地址类信息（门店名、收货地址）没有可靠的通用模式，redact 不做处理——
@@ -131,11 +179,16 @@ def redact(text: str, token: str | None = None) -> str:
     if not text:
         return text
     out = text
+    for key in ("MCD_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY"):
+        secret = os.environ.get(key, "")
+        if secret and not _is_placeholder(secret):
+            out = out.replace(secret, "***")
     if token:
         out = out.replace(token, "***")
     for pattern in _TOKEN_PATTERNS:
         out = pattern.sub(lambda m: (m.group(1) if m.lastindex else "") + "***", out)
-    out = _PHONE_RE.sub(lambda m: m.group(0)[:3] + "****" + m.group(0)[-4:], out)
-    out = _EMAIL_RE.sub("***@***", out)
-    out = _ID_CARD_RE.sub(lambda m: m.group(0)[:4] + "*" * 10 + m.group(0)[-4:], out)
+    if personal:
+        out = _PHONE_RE.sub(lambda m: m.group(0)[:3] + "****" + m.group(0)[-4:], out)
+        out = _EMAIL_RE.sub("***@***", out)
+        out = _ID_CARD_RE.sub(lambda m: m.group(0)[:4] + "*" * 10 + m.group(0)[-4:], out)
     return out

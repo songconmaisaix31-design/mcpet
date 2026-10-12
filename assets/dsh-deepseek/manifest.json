@@ -1,0 +1,322 @@
+{
+  "upstream_sha": "92662190cdd4dee05e38a5151584cc6254cd7a43",
+  "cell_size": 192,
+  "columns": 12,
+  "frame_delay_ms": 80,
+  "source_union_alpha32": [
+    120,
+    6,
+    469,
+    336
+  ],
+  "fixed_crop": [
+    111,
+    0,
+    366,
+    360
+  ],
+  "animations": {
+    "idle": {
+      "file": "idle-000.png",
+      "frames": 126,
+      "source": "待机呼吸休闲.webm",
+      "source_sha256": "deb965d05a85dacf5ff4a20faa757846f0d11679598c3ec578a5571487660395",
+      "native_frames": 241,
+      "native_bottom_range": 1,
+      "native_center_range": 38.0,
+      "native_first_bounds": [
+        213,
+        63,
+        425,
+        329
+      ],
+      "native_last_bounds": [
+        213,
+        65,
+        426,
+        329
+      ],
+      "pages": [
+        "idle-000.png",
+        "idle-001.png",
+        "idle-002.png",
+        "idle-003.png",
+        "idle-004.png",
+        "idle-005.png",
+        "idle-006.png",
+        "idle-007.png",
+        "idle-008.png",
+        "idle-009.png",
+        "idle-010.png"
+      ]
+    },
+    "run-left": {
+      "file": "run-left-000.png",
+      "frames": 126,
+      "source": "原地左转奔跑.webm",
+      "source_sha256": "79882aedd7b77caaacce1a34dece68e2f001a3dbfa5f9d049c1ce2fc04518d52",
+      "native_frames": 241,
+      "native_bottom_range": 19,
+      "native_center_range": 82.5,
+      "native_first_bounds": [
+        210,
+        64,
+        427,
+        329
+      ],
+      "native_last_bounds": [
+        211,
+        62,
+        426,
+        329
+      ],
+      "pages": [
+        "run-left-000.png",
+        "run-left-001.png",
+        "run-left-002.png",
+        "run-left-003.png",
+        "run-left-004.png",
+        "run-left-005.png",
+        "run-left-006.png",
+        "run-left-007.png",
+        "run-left-008.png",
+        "run-left-009.png",
+        "run-left-010.png"
+      ]
+    },
+    "working": {
+      "file": "working-000.png",
+      "frames": 126,
+      "source": "工作状态-忙碌点按.webm",
+      "source_sha256": "b5d702e0c04adb7b255ac702001c24da36c8bf95efc891f693f4976986ab2435",
+      "native_frames": 241,
+      "native_bottom_range": 0,
+      "native_center_range": 21.5,
+      "native_first_bounds": [
+        217,
+        64,
+        420,
+        330
+      ],
+      "native_last_bounds": [
+        218,
+        63,
+        421,
+        330
+      ],
+      "pages": [
+        "working-000.png",
+        "working-001.png",
+        "working-002.png",
+        "working-003.png",
+        "working-004.png",
+        "working-005.png",
+        "working-006.png",
+        "working-007.png",
+        "working-008.png",
+        "working-009.png",
+        "working-010.png"
+      ]
+    },
+    "thinking": {
+      "file": "thinking-000.png",
+      "frames": 126,
+      "source": "工作状态-思考冒泡.webm",
+      "source_sha256": "b4a36cfa28ea5d7089e362a01972c6e880297c6dcd0d39f1994efd889a3c1be5",
+      "native_frames": 241,
+      "native_bottom_range": 1,
+      "native_center_range": 13.5,
+      "native_first_bounds": [
+        215,
+        64,
+        424,
+        329
+      ],
+      "native_last_bounds": [
+        215,
+        64,
+        424,
+        330
+      ],
+      "pages": [
+        "thinking-000.png",
+        "thinking-001.png",
+        "thinking-002.png",
+        "thinking-003.png",
+        "thinking-004.png",
+        "thinking-005.png",
+        "thinking-006.png",
+        "thinking-007.png",
+        "thinking-008.png",
+        "thinking-009.png",
+        "thinking-010.png"
+      ]
+    },
+    "greet": {
+      "file": "greet-000.png",
+      "frames": 126,
+      "source": "点击回应-元气挥手.webm",
+      "source_sha256": "48cd729ccdcf746369942ea954d242e9afdd5643e1dac3827fa5e67450eb8776",
+      "native_frames": 241,
+      "native_bottom_range": 0,
+      "native_center_range": 8.5,
+      "native_first_bounds": [
+        213,
+        63,
+        424,
+        329
+      ],
+      "native_last_bounds": [
+        213,
+        64,
+        424,
+        329
+      ],
+      "pages": [
+        "greet-000.png",
+        "greet-001.png",
+        "greet-002.png",
+        "greet-003.png",
+        "greet-004.png",
+        "greet-005.png",
+        "greet-006.png",
+        "greet-007.png",
+        "greet-008.png",
+        "greet-009.png",
+        "greet-010.png"
+      ]
+    },
+    "happy": {
+      "file": "happy-000.png",
+      "frames": 126,
+      "source": "工作状态-雀跃庆祝.webm",
+      "source_sha256": "3ff681051a0bb4f152d7535d64b7f3194c30298bf56d41e521216a278f135d3e",
+      "native_frames": 241,
+      "native_bottom_range": 36,
+      "native_center_range": 23.0,
+      "native_first_bounds": [
+        214,
+        63,
+        424,
+        329
+      ],
+      "native_last_bounds": [
+        214,
+        63,
+        424,
+        329
+      ],
+      "pages": [
+        "happy-000.png",
+        "happy-001.png",
+        "happy-002.png",
+        "happy-003.png",
+        "happy-004.png",
+        "happy-005.png",
+        "happy-006.png",
+        "happy-007.png",
+        "happy-008.png",
+        "happy-009.png",
+        "happy-010.png"
+      ]
+    },
+    "error": {
+      "file": "error-000.png",
+      "frames": 61,
+      "source": "工作状态-垂头叹气冒汗.webm",
+      "source_sha256": "ab00c844e62221905574b4c070e0d7b6fa14fb2afa1064c27a160f10e25f7196",
+      "native_frames": 118,
+      "native_bottom_range": 0,
+      "native_center_range": 32.0,
+      "native_first_bounds": [
+        217,
+        64,
+        425,
+        329
+      ],
+      "native_last_bounds": [
+        213,
+        76,
+        419,
+        329
+      ],
+      "pages": [
+        "error-000.png",
+        "error-001.png",
+        "error-002.png",
+        "error-003.png",
+        "error-004.png",
+        "error-005.png"
+      ]
+    },
+    "sleeping": {
+      "file": "sleeping-000.png",
+      "frames": 126,
+      "source": "原地小憩沉眠.webm",
+      "source_sha256": "31d4a6b36a29b2a4fe097384173d3bbeb3fa2f40f526b13191791456bf7507a1",
+      "native_frames": 241,
+      "native_bottom_range": 4,
+      "native_center_range": 8.0,
+      "native_first_bounds": [
+        215,
+        64,
+        426,
+        326
+      ],
+      "native_last_bounds": [
+        215,
+        64,
+        426,
+        328
+      ],
+      "pages": [
+        "sleeping-000.png",
+        "sleeping-001.png",
+        "sleeping-002.png",
+        "sleeping-003.png",
+        "sleeping-004.png",
+        "sleeping-005.png",
+        "sleeping-006.png",
+        "sleeping-007.png",
+        "sleeping-008.png",
+        "sleeping-009.png",
+        "sleeping-010.png"
+      ]
+    },
+    "eating": {
+      "file": "eating-000.png",
+      "frames": 126,
+      "source": "吃白饭.webm",
+      "source_sha256": "b620413d6fa303a0ed9168dc71453c3bddc10141a0b7edeff87dc2e6e054d502",
+      "native_frames": 241,
+      "native_bottom_range": 13,
+      "native_center_range": 10.5,
+      "native_first_bounds": [
+        211,
+        64,
+        421,
+        323
+      ],
+      "native_last_bounds": [
+        211,
+        64,
+        421,
+        336
+      ],
+      "pages": [
+        "eating-000.png",
+        "eating-001.png",
+        "eating-002.png",
+        "eating-003.png",
+        "eating-004.png",
+        "eating-005.png",
+        "eating-006.png",
+        "eating-007.png",
+        "eating-008.png",
+        "eating-009.png",
+        "eating-010.png"
+      ]
+    }
+  },
+  "preview": "preview.png"
+}

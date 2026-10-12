@@ -140,3 +140,20 @@ def test_long_result_is_truncated():
     result = run_skill("菜单", brain, llm)  # type: ignore[arg-type]
     assert "已截断" in result.steps[0].result_preview
     assert len(result.steps[0].result_preview) < 5000
+
+
+@pytest.mark.parametrize("name,args", [("delivery-create-address", {}), ("query-meals", {"unexpected": 1})])
+def test_default_denies_unknown_write_or_bad_payload(name, args):
+    client = FakeMcpClient(_tools(), {})
+    llm = FakeLLM([ChatReply(tool_calls=[ToolCall("c", name, args)])])
+    with pytest.raises(ValueError):
+        run_skill("查询", McdBrain(client), llm)
+    assert client.calls == []
+
+
+def test_malformed_tool_arguments_never_become_empty_write_payload():
+    client = FakeMcpClient(_tools(), {})
+    llm = FakeLLM([ChatReply(tool_calls=[ToolCall("c", "auto-bind-coupons", {}, arguments_valid=False)])])
+    with pytest.raises(ValueError):
+        run_skill("帮我领券", McdBrain(client), llm)
+    assert client.calls == []

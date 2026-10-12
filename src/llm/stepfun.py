@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
+from .. import config
 
 DEFAULT_BASE_URL = "https://api.stepfun.com/v1"
 DEFAULT_MODEL = "step-3.5-flash"
@@ -31,6 +32,7 @@ class ToolCall:
     id: str
     name: str
     arguments: dict[str, Any] = field(default_factory=dict)
+    arguments_valid: bool = True
 
 
 @dataclass
@@ -126,12 +128,16 @@ class StepFunClient:
         for raw_call in message.get("tool_calls") or []:
             function = raw_call.get("function") or {}
             raw_args = function.get("arguments") or "{}"
+            valid = True
             try:
                 arguments = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
-            except json.JSONDecodeError:
+                valid = isinstance(arguments, dict)
+            except (ValueError, TypeError):
                 arguments = {}
+                valid = False
             calls.append(
-                ToolCall(id=raw_call.get("id", ""), name=function.get("name", ""), arguments=arguments)
+                ToolCall(id=raw_call.get("id", ""), name=function.get("name", ""), arguments=arguments,
+                         arguments_valid=valid)
             )
 
         return ChatReply(
@@ -156,7 +162,7 @@ class StepFunClient:
                 )
             except httpx.HTTPError as exc:
                 if attempt >= self._max_retries:
-                    raise StepFunError(f"网络请求失败：{exc}") from exc
+                    raise StepFunError(config.redact(f"网络请求失败：{exc}", self._key)) from None
                 time.sleep(2 ** attempt)
                 continue
 
@@ -169,7 +175,7 @@ class StepFunClient:
                 continue
             if response.status_code >= 400:
                 raise StepFunError(
-                    f"阶跃星辰返回 HTTP {response.status_code}：{response.text[:300]}",
+                    config.redact(f"阶跃星辰返回 HTTP {response.status_code}：{response.text[:300]}", self._key),
                     http_status=response.status_code,
                 )
             if not response.text.strip():

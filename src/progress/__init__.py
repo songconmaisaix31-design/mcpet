@@ -47,7 +47,9 @@ def build_tracker(
     """组装进度追踪器。一个 provider 都不可用时返回空追踪器，不抛异常。"""
     from ..config import progress_stale_minutes, watch_processes as cfg_watch
 
-    resolved = roots or resolve_roots()
+    from ..config import agent_config_path
+
+    resolved = roots or resolve_roots(config_path=agent_config_path())
     return ProgressTracker(
         build_providers(resolved),
         stale_minutes=stale_minutes if stale_minutes is not None else progress_stale_minutes(),

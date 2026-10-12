@@ -150,3 +150,10 @@ class OrderGuard:
                 self._save()
                 return True
         return False
+
+    def mark_latest_delivery_unknown(self, note: str) -> None:
+        """Correct the latest receipt when a submitted order lacks its identity."""
+        if self._entries and self._entries[-1].status == "placed":
+            self._entries[-1].status = "delivery_unknown"
+            self._entries[-1].note = note
+            self._save()

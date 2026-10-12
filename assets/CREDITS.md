@@ -10,6 +10,7 @@
 | 来源 | `caritivememory-ops/chatgpt-longniang` |
 | 文件 | `spritesheet.webp`（1536×2288）、`pet.json`、`sprite-rows.json`（由上游 `pet_request.json` 生成） |
 | 规格 | 8 列 × 11 行，单元 192×208，`spriteVersionNumber: 2`，11 个动作行 |
+| 运行缓存 | `spritesheet-runtime.png`：从原 WebP 无损转存、相同全部像素/alpha/尺寸，filter=0 + stored deflate；原 WebP 和两份元数据保持。仅 characters.py 的实际选择加载使用，不预热或保留非活动角色像素；转换入口为 `assets/dsh-deepseek/convert.py --maimai`。PNG磁盘14,060,903字节，解码像素仍14,057,472字节；性能取舍见 A Handoff。 |
 | **授权状态** | **已取得原作者授权**（2026-10-10，由本项目作者联系确认） |
 | 用途 | 工程占位形象。**最终交付前替换为原创麦当劳主题素材** |
 
@@ -27,6 +28,19 @@ README 中的书面授权说明截图，存放于本目录。
 | 处理 | 已在上游仓库发起授权确认；在收到书面答复前，本目录素材仅用于本机开发，不用于对外发布物料 |
 
 ## 3. 代码参考
+
+### 用户提供的麦麦动作 `assets/maimai-actions/`
+
+2026-10-12 用户提供“桌宠炸薯条循环动画制作 (1).mp4”和“1-2秒换装转场视频制作.mp4”，
+要求接入本项目。仅离线抠去实色背景并转换为现有播放器使用的透明 PNG 分页，未生成新形象。
+来源、转换近似、实际时长及复现步骤见 [SOURCE.md](maimai-actions/SOURCE.md)。
+
+### 新增角色：DeepSeek 娘 `assets/dsh-deepseek/`
+
+- 用户指定来源：[PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet)，固定上游 SHA `92662190cdd4dee05e38a5151584cc6254cd7a43`。
+- 上游随仓库提供 **MIT**，版权 `Copyright (c) 2026 PC2005-cloud`；完整许可证随素材保留于 `assets/dsh-deepseek/LICENSE`。未另行声称作者身份或官方品牌授权。
+- 仅复用九个必要透明 WebM 动作，离线转成现有 PySide6 播放的无损固定格 PNG 分页缓存（每页12帧）和同像素首帧预览；右跑由左跑镜像。分页由先前固定 WebP 缓存逐像素无损拆分，不另裁框或缩放。未安装/运行 DSH 插件或复制聊天/模型/账号实现。
+- 原文件、SHA256、规格、alpha/固定裁框、工具与复现步骤见 `assets/dsh-deepseek/manifest.json` 和 `SOURCE.md`。该角色由用户选择切换，麦麦仍复用既有 longniang 授权素材。
 
 | 对象 | 借鉴了什么 | 处理方式 |
 |---|---|---|

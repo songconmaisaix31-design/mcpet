@@ -427,3 +427,76 @@ def test_generic_snapshot_timestamp_falls_back_to_mtime(tmp_path):
     snapshot.write_text(json.dumps({"kind": "progress", "session": "s"}), encoding="utf-8")
     record = next(iter(GenericProvider([tmp_path]).iter_progress()))
     assert record.updated_at > 0
+
+
+def test_stream_batches_preserve_utf8_offsets_and_unfinished_tail(tmp_path):
+    from src.agentbridge.providers.base import iter_offset_batches
+    path = tmp_path / "stream.jsonl"
+    full = ('{"text":"麦麦"}\n' * 520).encode()
+    path.write_bytes(full + b'{"n":')
+    batches = list(iter_offset_batches(path, 0, batch_lines=64, batch_bytes=1024))
+    assert all(len(entries) <= 64 for entries, _ in batches)
+    assert sum(len(entries) for entries, _ in batches) == 520
+    assert batches[-1][1] == len(full)
+    with path.open("ab") as handle:
+        handle.write(b'7}\n')
+    rows, cursor = read_from_offset(path, batches[-1][1])
+    assert rows == [(len(full), {"n": 7})]
+    assert cursor == path.stat().st_size
+    assert read_from_offset(path, cursor) == ([], cursor)
+
+
+def test_codex_completion_requires_explicit_event(tmp_path):
+    path = codex_rollout(tmp_path)
+    provider = CodexProvider([tmp_path])
+    assert list(provider.iter_progress())[0].completed_at == 0
+    event = {"type": "event_msg", "timestamp": "2026-10-11T02:00:06Z",
+             "payload": {"type": "task_complete", "turn_id": "turn-1"}}
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event) + "\n")
+    record = list(provider.iter_progress())[0]
+    assert record.state == "done"
+    assert record.completion_id == "turn-1"
+    assert record.updated_at == record.completed_at
+    event["payload"]["type"] = "turn_aborted"
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event) + "\n")
+    record = list(provider.iter_progress())[0]
+    assert record.state == "failed"
+    assert record.completed_at == 0
+
+
+def test_generic_progress_incremental_completion(tmp_path):
+    path = write_jsonl(tmp_path / "events.jsonl", [
+        {"kind": "progress", "session": "s", "ts": 100, "state": "working"},
+    ])
+    provider = GenericProvider([tmp_path])
+    first = list(provider.iter_progress())[0]
+    assert list(provider.iter_progress())[0] == first
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"kind": "task_complete", "session": "s", "ts": 200}) + "\n")
+    assert list(provider.iter_progress())[0].completed_at == 200
+
+
+@pytest.mark.parametrize("limit", [258400, True, 0, -1, None])
+def test_codex_explicit_capacity_unknown_model_without_double_count(tmp_path, limit):
+    write_jsonl(tmp_path / "capacity.jsonl", [
+        {"type": "turn_context", "payload": {"model": "unknown-gpt6"}},
+        {"type": "event_msg", "timestamp": "2026-10-11T02:00:02Z",
+         "payload": {"type": "token_count", "info": {"model_context_window": limit,
+            "last_token_usage": {"input_tokens": 81918, "cached_input_tokens": 81280, "output_tokens": 10}}}},
+    ])
+    provider = CodexProvider([tmp_path])
+    record = list(provider.iter_progress())[0]
+    assert record.context_used == 81918
+    if limit == 258400:
+        assert record.context_limit == 258400
+        assert record.context_percent == 32
+        assert record.context_limit_estimated is False
+    else:
+        assert record.context_limit_estimated is True
+    usage = next(r for b in provider.iter_usage({}) for r in b.records)
+    assert usage.total_tokens == 81928
+    from src.progress.report import report
+    from src.progress.tracker import ProgressTracker
+    assert ("上限估算" in report(ProgressTracker([provider]).snapshot())) == record.context_limit_estimated
