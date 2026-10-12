@@ -491,6 +491,7 @@ class MonsterApp(QObject):
             return
         self.sheet = self.window.sheet
         self.tray.setIcon(self._icon())
+        self.tray.set_entries(self.menu_entries())
         self.panel.character_message.clear()
         self._sync_panel()
 
@@ -782,6 +783,22 @@ class MonsterApp(QObject):
         self.panel.settings.message.setText("设置已保存。凭证下次请求生效；日志目录修改后请退出并重启。" + ("\n" + "\n".join(warnings) if warnings else ""))
         self._sync_panel()
 
+    def action_frying(self):
+        self._play_pet_action("frying", loop=True)
+
+    def action_outfit(self):
+        self._play_pet_action("outfit")
+
+    def _play_pet_action(self, state, *, loop=False):
+        try:
+            self.window.play_action(state, loop=loop)
+            self.show_window()
+        except SpriteLoadError as exc:
+            self._error(str(exc))
+
+    def action_stop_animation(self):
+        self.window.stop_action()
+
     def action_roaming(self):
         if hasattr(self.window, "set_roaming"):
             self.window.set_roaming(not self.window.roaming_enabled)
@@ -809,10 +826,13 @@ class MonsterApp(QObject):
             self.on_lunch(late)
 
     def menu_entries(self):
+        actions = ([("炸薯条 · 循环", self.action_frying), ("换装", self.action_outfit),
+                    ("停止动作", self.action_stop_animation)]
+                   if self.window.character_id == "maimai" else [])
         return [("麦麦小窝", self.action_panel),
                 ("会话 / 本机用量", self.action_progress),
                 ("麦当劳快捷功能", lambda: self.action_panel("mcd")),
-                ("本机设置", self.action_settings), None, ("退出", self.quit)]
+                ("本机设置", self.action_settings), *actions, None, ("退出", self.quit)]
 
     def on_menu(self, point):
         self.window.show_menu([entry for entry in self.menu_entries() if entry is not None], point)

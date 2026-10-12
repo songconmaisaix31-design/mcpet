@@ -1,0 +1,41 @@
+{
+  "cell_size": 192,
+  "columns": 12,
+  "frame_delay_ms": 80,
+  "animations": {
+    "frying": {
+      "source": "桌宠炸薯条循环动画制作 (1).mp4",
+      "frames": 127,
+      "pages": [
+        "frying-000.png",
+        "frying-001.png",
+        "frying-002.png",
+        "frying-003.png",
+        "frying-004.png",
+        "frying-005.png",
+        "frying-006.png",
+        "frying-007.png",
+        "frying-008.png",
+        "frying-009.png",
+        "frying-010.png"
+      ]
+    },
+    "outfit": {
+      "source": "1-2秒换装转场视频制作.mp4",
+      "frames": 127,
+      "pages": [
+        "outfit-000.png",
+        "outfit-001.png",
+        "outfit-002.png",
+        "outfit-003.png",
+        "outfit-004.png",
+        "outfit-005.png",
+        "outfit-006.png",
+        "outfit-007.png",
+        "outfit-008.png",
+        "outfit-009.png",
+        "outfit-010.png"
+      ]
+    }
+  }
+}

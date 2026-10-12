@@ -22,6 +22,31 @@ from test_app_actions import monster, pump_until
 from test_quota_panel import AccountMonitorStub, sample_snapshot
 
 
+def test_imported_actions_use_real_panel_and_tray_without_network(monster, monkeypatch):
+    # The shared offline application fixture intentionally starts without assets.
+    # Restore its replaced activity method so this test exercises the real base.
+    monkeypatch.setattr(monster.window, "set_activity",
+                        type(monster.window).set_activity.__get__(monster.window))
+    monster.window.set_character("maimai")
+    monster.sheet = monster.window.sheet
+    monster.action_panel()
+    panel = monster.panel
+    monster.tasks.worker.ensure_client = lambda: pytest.fail("本机动作不得请求 MCP")
+    panel.frying_button.click()
+    assert monster.window.machine.state == "frying"
+    monster.window.set_activity("working")
+    stop = next(action for action in monster.tray.contextMenu().actions() if action.text() == "停止动作")
+    stop.trigger()
+    assert monster.window.machine.state == "working"
+    outfit = next(action for action in monster.tray.contextMenu().actions() if action.text() == "换装")
+    outfit.trigger()
+    assert monster.window.machine.state == "outfit"
+    panel.character_buttons["deepseek"].click()
+    assert monster.window._action_state is None
+    assert not panel.frying_button.isEnabled()
+    assert "炸薯条 · 循环" not in [action.text() for action in monster.tray.contextMenu().actions()]
+
+
 @pytest.fixture(autouse=True)
 def offline_account_monitor(monkeypatch):
     """Keep this C-owned suite offline after B's account module is integrated."""
