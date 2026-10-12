@@ -5,6 +5,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from .skins import settle_action
 
 
 class PetPreferences:
@@ -15,7 +16,7 @@ class PetPreferences:
     def load(self) -> dict:
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
-            return data if isinstance(data, dict) else {}
+            return settle_action(data) if isinstance(data, dict) else {}
         except FileNotFoundError:
             return {}
         except (OSError, ValueError):

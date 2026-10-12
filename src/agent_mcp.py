@@ -50,9 +50,10 @@ def create_server(service=None):
 
     @server.tool(annotations=local)
     async def mcpet_pet(action: Literal["idle", "working", "thinking", "greet", "happy", "sleeping", "eating", "frying", "outfit", "stop"] = "idle",
-                        character_id: Literal["", "maimai", "deepseek"] = "", loop: bool = False) -> dict[str, Any]:
-        """在原会话切角色、休息/唤醒或选择动作；炸薯条可循环，换装播一次。返回宿主资源，不弹窗。"""
-        return await invoke("pet", action, character_id, loop)
+                        character_id: Literal["", "maimai", "deepseek"] = "", loop: bool = False,
+                        skin_id: Literal["", "default", "maimai"] = "") -> dict[str, Any]:
+        """切角色、动作或持久皮肤。DeepSeek 娘 default/maimai 随时切换；换装一次切到另一套，炸薯条穿麦麦套装。"""
+        return await invoke("pet", action, character_id, loop, skin_id)
 
     @server.tool(annotations=read)
     async def mcpet_settings() -> dict[str, Any]:
@@ -139,6 +140,23 @@ def create_server(service=None):
     @server.resource("mcpet://animation/maimai/outfit", mime_type="image/gif", description="用户提供的透明换装动画，完整一段约十秒；不打开单独窗口")
     def outfit_animation() -> bytes:
         return service.animation("outfit")
+
+    @server.resource("mcpet://animation/deepseek/frying", mime_type="image/gif")
+    def deepseek_frying() -> bytes:
+        return service.animation("frying", "deepseek")
+
+    @server.resource("mcpet://animation/deepseek/outfit", mime_type="image/gif")
+    def deepseek_outfit() -> bytes:
+        return service.animation("outfit", "deepseek")
+
+    @server.resource("mcpet://animation/deepseek/outfit-default", mime_type="image/gif")
+    def deepseek_default_outfit() -> bytes:
+        return service.animation("outfit-default", "deepseek")
+
+    @server.resource("mcpet://skin/deepseek/maimai", mime_type="image/gif")
+    def deepseek_maimai_skin() -> bytes:
+        from .agent_service import ASSETS
+        return (ASSETS / "deepseek-skins/maimai/idle.gif").read_bytes()
 
     @server.resource("mcpet://guide", mime_type="text/plain")
     def guide() -> str:

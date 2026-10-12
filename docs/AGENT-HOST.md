@@ -12,7 +12,7 @@ python -m src.agent_install
 
 默认 `--client generic` 只输出 `server_name` 和通用 stdio `server` 定义，不读取或修改宿主配置。
 把其中 `command` 和 `args` 填入任意支持 stdio 的 MCP 客户端；外层配置结构由该客户端决定。
-绝对启动器不依赖宿主的工作目录。17 个工具、3 个资源和服务端 prompt 均不依赖宿主品牌或 hooks。
+绝对启动器不依赖宿主的工作目录。17 个工具、7 个资源和服务端 prompt 均不依赖宿主品牌或 hooks。
 支持 MCP 工具调用的客户端可直接查询 `mcpet_reminders` / `mcpet_progress`；自动事件/提醒是可选适配。
 
 已有宿主可选择显式原生接入：
@@ -41,13 +41,14 @@ python -m src.agent_install --client claude --project "你的项目目录"
 - “巨无霸的营养是多少？我吃了 1.5 份，确认记账。”
 - “看今日营养记录 / 本机用量 / 当前会话状态 / 已接账号的剩余额度。”
 - “饭点改成 12:15 / 关闭饭点提醒 / 城市改为上海。”
-- “切到麦麦，炸薯条循环 / 换装一次 / 停止动作 / 休息 / 唤醒。”
+- “切到 DeepSeek 娘，炸薯条循环 / 换装一次 / 停止动作 / 休息 / 唤醒。”
+- “穿麦麦套装 / 切回默认套装。”两套随时可选，皮肤独立保存；立即切换中止动作。
 
 ## 能力与结果
 
 | 原能力 | 原 Agent 内的入口 | 结果与限制 |
 |---|---|---|
-| 角色、休息、动作 | `mcpet_status` / `mcpet_pet` | 保存本机状态；动画为资源，不创建播放窗口 |
+| 角色、皮肤、休息、动作 | `mcpet_status` / `mcpet_pet` | 保存本机状态；返回动画资源，已运行的桌宠可接收本机指令；MCP 不启动播放窗口 |
 | 城市、饭点、提醒、显式日志目录 | `mcpet_settings` / `mcpet_configure` | 日志来源仅 claude/codex/generic 的明确目录；已有环境变量优先级保留 |
 | 优惠券 | `mcpet_coupons` / `mcpet_claim_coupons` | 查询只读；领取需明确确认 |
 | 门店、餐品、价格 | `mcpet_deals` | 沿用真实官方 MCP 查询；失败明确返回，禁止模型编造 |
@@ -89,6 +90,18 @@ Claude hooks 不读取 transcript，因此没有自动采集其 token 用量；�
 修改本机设置即时作用于当前服务；其他已运行宿主保留其已有环境变量，重开会话后加载新配置。
 
 ## 动画资源
+
+当前 DeepSeek 娘使用 [短动作与可切换皮肤](DEEPSEEK-SKINS.md)：
+`mcpet://animation/deepseek/frying` 为 2.16 秒循环，`mcpet://animation/deepseek/outfit`
+及 `outfit-default` 为 3.84 秒正向/反向换装；`mcpet://skin/deepseek/maimai` 为穿装待机。
+`mcpet_pet(character_id="deepseek", skin_id="maimai")` / `skin_id="default"` 立即切换并保存。
+`action="outfit"` 结束后保存目标套装，重启也可恢复；切皮肤、中止动作会取消未完成的换装。
+麦麦套装下缺少独立跑动/睡眠等素材，这些逻辑状态复用穿装待机，不临时改回默认衣服。
+
+需要原生桌宠实际播放时显式 `python -m src.main --desktop`；其每秒只读自身偏好接收新指令，
+不绑定宿主品牌或读取对话。右键菜单可直接选套装和动作，现有面板也保留切换按钮。
+
+原麦麦角色的完整导入资源仍兼容保留：
 
 `mcpet://animation/maimai/frying` 与 `mcpet://animation/maimai/outfit` 返回透明 GIF；
 来源是用户提供的两段视频及已有 PNG 页。原 127 帧、80 ms 的时间轴总长 10.16 秒。

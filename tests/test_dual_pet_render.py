@@ -180,7 +180,10 @@ def test_native_action_sweep_residency_is_frames_not_entire_sequences(pet):
             pet._advance()
         QApplication.processEvents()
         assert pet._frames and not pet.canvas.pixmap().isNull()
-        assert len(pet._frames) in (61, 126)
+        if state in ("frying", "outfit", "outfit-default"):
+            assert len(pet._frames) == (27 if state == "frying" else 48)
+        else:
+            assert len(pet._frames) in (61, 126)
         assert sum(len(sequence.resident) for sequence in pet._visual_cache.values()) <= 4
         assert sum(image.sizeInBytes() for image in pet.sheet._atlases.values()) < 20_000_000
 
