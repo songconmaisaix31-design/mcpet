@@ -96,6 +96,8 @@ class PetWindow(QWidget):
 
         self.machine = PetStateMachine("idle")
         self._activity_state = "idle"
+        self._action_state: str | None = None
+        self._action_loop = False
         self._preferences = PetPreferences()
         saved = self._preferences.load()
         self._character_id = (sheet.meta.get("character_id", "maimai") if sheet else "maimai")
@@ -234,10 +236,11 @@ class PetWindow(QWidget):
             self._next_frame = time.monotonic() + self._frame_delay_ms / 1000
         if self.isVisible() and not preserve_clock:
             self._anim.start(self._frame_delay_ms)
+        self.stop_action()
         self._save_preferences()
 
     def _scaled_frames(self, sheet: SpriteSheet, state: str, dpr: float, *, initial_index: int = 0):
-        if isinstance(sheet, AnimationSheet):
+        if isinstance(sheet, AnimationSheet) and sheet.is_paged(state):
             frames = ScaledAnimationFrames(sheet, state, self.pet_size, dpr)
             # Decode the current source now, allowing transactional switching.
             if frames[initial_index].isNull():
@@ -267,6 +270,23 @@ class PetWindow(QWidget):
         self.canvas.setPixmap(pixmap)
 
     # ---------- 状态与动画 ----------
+
+    def play_action(self, state: str, *, loop: bool = False) -> None:
+        if (self.character_id != "maimai" or self.sheet is None
+                or state not in ("frying", "outfit")
+                or state not in self.sheet.meta.get("animations", {})):
+            raise SpriteLoadError("此动作仅供麦麦使用")
+        self._click_timer.stop()
+        self.resting = False
+        self._action_state, self._action_loop = state, loop
+        self._apply_base()
+        self._load_frames(self.machine.state, force=True)
+        self._save_preferences()
+
+    def stop_action(self) -> None:
+        if self._action_state is not None:
+            self._action_state = None
+            self._apply_base()
 
     def set_state(self, state: str, ttl_ms: int | None = None, *, force: bool = False) -> None:
         resolved = self.machine.set(state, ttl_ms)
@@ -329,6 +349,10 @@ class PetWindow(QWidget):
         delay = self._frame_delay_ms / 1000
         steps = max(1, math.floor((time.monotonic() - self._next_frame) / delay) + 1)
         self._next_frame += steps * delay
+        if (self._current_state == self._action_state and not self._action_loop
+                and self._index + steps >= len(self._frames)):
+            self.stop_action()
+            return
         self._index = (self._index + steps) % len(self._frames)
         self.canvas.setPixmap(self._frames[self._index])
 
@@ -366,7 +390,7 @@ class PetWindow(QWidget):
             interaction = ("run-right" if self._drag_direction > 0 else
                            "run-left" if self._drag_direction < 0 else "idle")
         else:
-            interaction = "sleeping" if self.resting else None
+            interaction = "sleeping" if self.resting else self._action_state
         self._load_frames(self.machine.set_interaction(interaction))
 
     def set_roaming(self, enabled: bool) -> None:
@@ -378,6 +402,7 @@ class PetWindow(QWidget):
     def set_resting(self, enabled: bool) -> None:
         self.resting = bool(enabled)
         if self.resting:
+            self._action_state = None
             self._click_timer.stop()
             self.bubble.hide()
         self._apply_base()
@@ -531,6 +556,7 @@ class PetWindow(QWidget):
                     event.accept()
                     return
                 self._drag_active = True
+                self._action_state = None
                 self._click_timer.stop()
             self.move(clamp_position(point - self._drag_offset, self.size(), self._areas()))
             self._motion_x = None
@@ -566,6 +592,7 @@ class PetWindow(QWidget):
         event.accept()
 
     def _touch(self) -> None:
+        self.stop_action()
         self.set_state("greet", ttl_ms=2000)
         self.say("我在呢，陪你一起。双击打开麦麦小窝。", 3000)
         self.clicked.emit()

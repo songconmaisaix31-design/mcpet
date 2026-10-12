@@ -36,7 +36,9 @@ from .spritesheet import AnimationSheet
 def character_preview(sheet):
     # AnimationSheet.image is its already-decoded first idle frame. Calling
     # frame('idle') would evict A's active animation atlas and decode it again.
-    return QPixmap.fromImage(sheet.image) if isinstance(sheet, AnimationSheet) else sheet.frame("idle", 0)
+    return (QPixmap.fromImage(sheet.image)
+            if isinstance(sheet, AnimationSheet) and getattr(sheet, "_base_sheet", None) is None
+            else sheet.frame("idle", 0))
 
 
 class SettingsForm(QWidget):
@@ -243,6 +245,11 @@ class CompanionPanel(QDialog):
         self.resting_button = self.button(controls, "休息 / 唤醒", "resting", checkable=True)
         self.visibility_button = self.button(controls, "显示 / 隐藏桌宠", "visibility")
         card.addLayout(controls)
+        actions = QHBoxLayout()
+        self.frying_button = self.button(actions, "炸薯条 · 循环", "frying")
+        self.outfit_button = self.button(actions, "换装", "outfit")
+        self.stop_action_button = self.button(actions, "停止动作", "stop_animation")
+        card.addLayout(actions)
         extras = QHBoxLayout()
         self.button(extras, "看看会话活动", "progress")
         self.button(extras, "安全退出 McPet", "quit")
@@ -299,6 +306,9 @@ class CompanionPanel(QDialog):
 
     def set_character(self, character_id, name, sheet, choices):
         self.character_name.setText(name)
+        for button in (self.frying_button, self.outfit_button, self.stop_action_button):
+            button.setEnabled(character_id == "maimai" and bool(sheet)
+                              and "frying" in getattr(sheet, "meta", {}).get("animations", {}))
         blue = character_id == "deepseek"
         if getattr(self, "_styled_character", None) != character_id:
             self.character_card.setStyleSheet("QFrame#card { background:" + ("#eaf4fb" if blue else "#fff0df") + "; }")

@@ -208,7 +208,7 @@ class AnimationSheet(SpriteSheet):
     frame/frames/row_for/frame_count API is identical to SpriteSheet.
     """
 
-    def __init__(self, directory: Path):
+    def __init__(self, directory: Path, *, base_sheet: SpriteSheet | None = None):
         try:
             manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
             size, columns = int(manifest["cell_size"]), int(manifest["columns"])
@@ -219,7 +219,7 @@ class AnimationSheet(SpriteSheet):
                 raise ValueError("invalid animation manifest")
             paths, counts = {}, {}
             row_of = {}
-            for row, (state, entry) in enumerate(animations.items()):
+            for row, (state, entry) in enumerate(animations.items(), start=base_sheet.rows if base_sheet else 0):
                 filenames, count = entry["pages"], int(entry["frames"])
                 if not isinstance(filenames, list) or len(filenames) != (count + columns - 1) // columns or count < 1 or count > 256 or size != 192 or columns != 12:
                     raise ValueError("invalid animation geometry")
@@ -235,46 +235,66 @@ class AnimationSheet(SpriteSheet):
                     pages.append(path)
                 row_of[state], paths[row], counts[row] = row, tuple(pages), count
             required = ("idle", "run-left", "working", "thinking", "greet", "happy", "error", "sleeping", "eating")
-            if any(state not in row_of for state in required):
+            if base_sheet is None and any(state not in row_of for state in required):
                 raise ValueError("missing animation")
-            right = len(paths)
-            paths[right], counts[right] = paths[row_of["run-left"]], counts[row_of["run-left"]]
-            row_of["run-right"] = right
-            for alias, state in {"remind": "greet", "coupon": "thinking", "balance": "thinking",
-                                 "progress": "working", "waiting": "thinking", "failed": "error"}.items():
-                row_of[alias] = row_of[state]
-            preview_file = manifest["preview"]
-            if not isinstance(preview_file, str) or Path(preview_file).name != preview_file:
-                raise ValueError("invalid preview path")
-            preview = QImage(str(directory / preview_file))
-            if preview.isNull() or preview.width() != size or preview.height() != size or not preview.hasAlphaChannel():
-                raise ValueError("invalid transparent preview")
-            super().__init__(preview, columns, len(paths), size, size, row_of=row_of,
-                             frames_by_row=counts, frame_delay_ms=int(manifest["frame_delay_ms"]),
-                             meta={**manifest, "character_id": "deepseek"})
+            right = -1
+            if base_sheet is None:
+                right = len(paths)
+                paths[right], counts[right] = paths[row_of["run-left"]], counts[row_of["run-left"]]
+                row_of["run-right"] = right
+                for alias, state in {"remind": "greet", "coupon": "thinking", "balance": "thinking",
+                                     "progress": "working", "waiting": "thinking", "failed": "error"}.items():
+                    row_of[alias] = row_of[state]
+                preview_file = manifest["preview"]
+                if not isinstance(preview_file, str) or Path(preview_file).name != preview_file:
+                    raise ValueError("invalid preview path")
+                preview = QImage(str(directory / preview_file))
+                if preview.isNull() or preview.width() != size or preview.height() != size or not preview.hasAlphaChannel():
+                    raise ValueError("invalid transparent preview")
+                super().__init__(preview, columns, len(paths), size, size, row_of=row_of,
+                                 frames_by_row=counts, frame_delay_ms=int(manifest["frame_delay_ms"]),
+                                 meta={**manifest, "character_id": "deepseek"})
+            else:
+                # Supplement the original atlas without changing its pixels,
+                # logical rows, previews, aliases or frame geometry.
+                super().__init__(base_sheet.image, base_sheet.columns, base_sheet.rows + len(paths),
+                                 base_sheet.cell_width, base_sheet.cell_height,
+                                 row_of={**base_sheet.row_of, **row_of},
+                                 frames_by_row={**base_sheet.frames_by_row, **counts},
+                                 frame_delay_ms=base_sheet.frame_delay_ms,
+                                 meta={**base_sheet.meta, "animations": animations})
+            self._base_sheet = base_sheet
+            self._page_size, self._page_columns = size, columns
             self._paths = paths
             self._mirrored_row = right
             self._atlases: OrderedDict[Path, QImage] = OrderedDict()
         except (OSError, ValueError, TypeError, KeyError) as exc:
-            raise SpriteLoadError("无法加载 DeepSeek 娘动画缓存") from exc
+            raise SpriteLoadError("无法加载角色动画缓存") from exc
 
     def row_for(self, state: str) -> int:
+        if self._base_sheet is not None:
+            return self.row_of.get(state, self._base_sheet.row_for(state))
         return self.row_of.get(state, self.row_of["idle"])
+
+    def is_paged(self, state: str) -> bool:
+        return self.row_for(state) in self._paths
 
     def frame(self, state: str, index: int) -> QPixmap:
         row = self.row_for(state)
+        if self._base_sheet is not None and row not in self._paths:
+            return self._base_sheet.frame(state, index)
         cell = index % self.frame_count(state)
-        path = self._paths[row][cell // self.columns]
+        path = self._paths[row][cell // self._page_columns]
         image = self._atlases.get(path)
         if image is None:
             image = QImage(str(path))
-            if image.isNull() or image.width() != self.columns * self.cell_width or image.height() != self.cell_height or not image.hasAlphaChannel():
+            if image.isNull() or image.width() != self._page_columns * self._page_size or image.height() != self._page_size or not image.hasAlphaChannel():
                 raise SpriteLoadError("无法读取角色动作缓存")
             self._atlases.clear()
             self._atlases[path] = image
-        frame = image.copy((cell % self.columns) * self.cell_width,
+        frame = image.copy((cell % self._page_columns) * self._page_size,
                            0,
-                           self.cell_width, self.cell_height)
+                           self._page_size, self._page_size)
         if row == self._mirrored_row:
             frame = frame.transformed(QTransform().scale(-1, 1))
         return QPixmap.fromImage(frame)

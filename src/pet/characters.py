@@ -28,4 +28,4 @@ def load_character(character_id: str) -> SpriteSheet:
     except (OSError, ValueError, TypeError, KeyError) as exc:
         raise SpriteLoadError("无法加载麦麦素材") from exc
     sheet.meta["character_id"] = "maimai"
-    return sheet
+    return AnimationSheet(ASSETS / "maimai-actions", base_sheet=sheet)

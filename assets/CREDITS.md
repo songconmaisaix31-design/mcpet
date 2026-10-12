@@ -29,6 +29,12 @@ README 中的书面授权说明截图，存放于本目录。
 
 ## 3. 代码参考
 
+### 用户提供的麦麦动作 `assets/maimai-actions/`
+
+2026-10-12 用户提供“桌宠炸薯条循环动画制作 (1).mp4”和“1-2秒换装转场视频制作.mp4”，
+要求接入本项目。仅离线抠去实色背景并转换为现有播放器使用的透明 PNG 分页，未生成新形象。
+来源、转换近似、实际时长及复现步骤见 [SOURCE.md](maimai-actions/SOURCE.md)。
+
 ### 新增角色：DeepSeek 娘 `assets/dsh-deepseek/`
 
 - 用户指定来源：[PC2005-cloud/dsh-pet](https://github.com/PC2005-cloud/dsh-pet)，固定上游 SHA `92662190cdd4dee05e38a5151584cc6254cd7a43`。
