@@ -28,8 +28,8 @@ DEFAULT_FRAME_DELAY_MS = 80
 MIN_FRAME_DELAY_MS = 16  # 再快也没意义：图集本身只有 4~8 帧
 
 
-def resolve_frame_delay(sheet: SpriteSheet | None) -> int:
-    """帧间隔（毫秒）。优先级：环境变量 > 图集自带 > 默认。
+def resolve_frame_delay(sheet: SpriteSheet | None, state: str = "idle") -> int:
+    """帧间隔（毫秒）。优先级：环境变量 > 待机专用配置 > 图集自带 > 默认。
 
     图集规格里没有帧时长定义（longniang 仓库只有素材与布局，不含播放规范），
     所以给一个可调默认值，方便给不同素材各自标定节奏。
@@ -40,9 +40,21 @@ def resolve_frame_delay(sheet: SpriteSheet | None) -> int:
             return max(MIN_FRAME_DELAY_MS, int(raw))
         except ValueError:
             pass
+    if sheet is not None and sheet.row_for(state) == sheet.row_for("idle"):
+        idle_delay = sheet.meta.get("idle_frame_delay_ms")
+        if isinstance(idle_delay, int) and idle_delay > 0:
+            return max(MIN_FRAME_DELAY_MS, idle_delay)
     if sheet is not None and sheet.frame_delay_ms:
         return max(MIN_FRAME_DELAY_MS, int(sheet.frame_delay_ms))
     return DEFAULT_FRAME_DELAY_MS
+
+
+def resolve_frame_hold(sheet: SpriteSheet | None, state: str) -> int:
+    if sheet is not None and sheet.row_for(state) == sheet.row_for("idle"):
+        hold = sheet.meta.get("idle_open_eye_hold_ms", 0)
+        if isinstance(hold, int) and hold > 0:
+            return hold
+    return 0
 
 
 class Bubble(QWidget):
@@ -250,8 +262,10 @@ class PetWindow(QWidget):
         presented = frames[index]
         if presented.isNull():
             raise SpriteLoadError("角色动作为空")
-        delay = resolve_frame_delay(sheet)
-        preserve_clock = self._anim.isActive() and delay == self._frame_delay_ms
+        delay = resolve_frame_delay(sheet, self.machine.state)
+        preserve_clock = (self._anim.isActive() and delay == self._frame_delay_ms
+                          and resolve_frame_hold(sheet, self.machine.state)
+                          == resolve_frame_hold(self.sheet, self.machine.state))
         self._index = index
         self.sheet, self._character_id = sheet, character_id
         if character_id == "deepseek":
@@ -265,7 +279,7 @@ class PetWindow(QWidget):
         # active timer with the same interval postpones its next frame, and on
         # Windows can prevent delivery inside the current Qt timer callback.
         if not preserve_clock:
-            self._next_frame = time.monotonic() + self._frame_delay_ms / 1000
+            self._next_frame = time.monotonic() + self._frame_duration_ms(self._index) / 1000
         if self.isVisible() and not preserve_clock:
             self._anim.start(self._frame_delay_ms)
         self.stop_action()
@@ -288,7 +302,7 @@ class PetWindow(QWidget):
 
     def set_spritesheet(self, sheet: SpriteSheet) -> None:
         self.sheet = sheet
-        self._frame_delay_ms = resolve_frame_delay(sheet)
+        self._frame_delay_ms = resolve_frame_delay(sheet, self.machine.state)
         self._cache.clear()
         self._visual_cache.clear()
         self._visual_key = None
@@ -383,16 +397,35 @@ class PetWindow(QWidget):
             return
         if force or not same_row:
             self._index = 0
-            self._next_frame = time.monotonic() + self._frame_delay_ms / 1000
+            self._frame_delay_ms = resolve_frame_delay(self.sheet, state)
+            self._next_frame = time.monotonic() + self._frame_duration_ms(0) / 1000
             self._anim.start(self._frame_delay_ms)
         self.canvas.setPixmap(frames[self._index % len(frames)])
+
+    def _frame_duration_ms(self, index: int) -> int:
+        hold = resolve_frame_hold(self.sheet, self._current_state or "idle") if index == 0 else 0
+        return self._frame_delay_ms + hold
 
     def _advance(self) -> None:
         if not self._frames:
             self._anim.stop()
             return
+        now = time.monotonic()
+        hold = resolve_frame_hold(self.sheet, self._current_state or "idle")
+        if hold:
+            if now < self._next_frame:
+                return
+            # Skip complete cycles after a delayed callback; do not replay them
+            # rapidly or lose the dwell when the short atlas wraps to frame zero.
+            cycle = (len(self._frames) * self._frame_delay_ms + hold) / 1000
+            self._next_frame += math.floor((now - self._next_frame) / cycle) * cycle
+            while now >= self._next_frame:
+                self._index = (self._index + 1) % len(self._frames)
+                self._next_frame += self._frame_duration_ms(self._index) / 1000
+            self.canvas.setPixmap(self._frames[self._index])
+            return
         delay = self._frame_delay_ms / 1000
-        steps = max(1, math.floor((time.monotonic() - self._next_frame) / delay) + 1)
+        steps = max(1, math.floor((now - self._next_frame) / delay) + 1)
         self._next_frame += steps * delay
         if (self._current_state == self._action_state and not self._action_loop
                 and self._index + steps >= len(self._frames)):
@@ -594,7 +627,7 @@ class PetWindow(QWidget):
         self._last_behavior = time.monotonic()
         self._behavior_timer.start()
         if self._frames:
-            self._next_frame = time.monotonic() + self._frame_delay_ms / 1000
+            self._next_frame = time.monotonic() + self._frame_duration_ms(self._index) / 1000
             self._anim.start(self._frame_delay_ms)
         if self.windowHandle() and self._screen_handle is None:
             self._screen_handle = self.windowHandle()

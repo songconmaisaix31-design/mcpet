@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QWidget
 from src.pet.behavior import RoamingBehavior, clamp_position
 from src.pet.preferences import PetPreferences
 from src.pet.window import PetWindow
+from src.pet.characters import load_character
 
 
 @pytest.fixture
@@ -230,6 +231,58 @@ def test_context_unknown_and_zero_are_distinct(pet):
     QApplication.processEvents()
     assert pet.size() == size
     assert pet.canvas.mapToGlobal(QPoint(0, 0)) == anchor
+
+
+def test_real_chatgpt_idle_holds_open_eyes_and_resumes_original_frames(pet, monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    pet.set_spritesheet(load_character("maimai"))
+    assert len(pet._frames) == 6 and pet._frame_delay_ms == 160
+    assert pet._next_frame == pytest.approx(104.16)
+    first = pet.canvas.pixmap().toImage()
+    for now in (100.16, 100.48, 102.0, 104.0):
+        clock[0] = now
+        pet._advance()
+        assert pet._index == 0 and pet.canvas.pixmap().toImage() == first
+    clock[0] = 104.17
+    pet._advance()
+    assert pet._index == 1 and pet._next_frame == pytest.approx(104.32)
+    clock[0] = 104.33
+    pet._advance()
+    assert pet._index == 2 and pet.canvas.pixmap().toImage() == pet._frames[2].toImage()
+    clock[0] = 104.97
+    pet._advance()
+    assert pet._index == 0 and pet._next_frame == pytest.approx(109.12)
+    deadline = pet._next_frame
+    for state in ("eating", "sleeping", "idle"):
+        pet.set_activity(state)
+        assert pet._index == 0 and pet._next_frame == deadline
+    # Delayed delivery skips full cycles without rapidly replaying all frames.
+    clock[0] = 109.12 + 20 * 4.96 + 0.17
+    pet._advance()
+    assert pet._index == 2
+    assert pet._next_frame > clock[0]
+
+
+def test_chatgpt_idle_hold_does_not_delay_actions_or_the_other_character(pet, monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(time, "monotonic", lambda: clock[0])
+    pet.set_spritesheet(load_character("maimai"))
+    pet.play_action("frying", loop=True)
+    assert pet._frame_delay_ms == 80 and pet._next_frame == pytest.approx(100.08)
+    pet.stop_action()
+    assert pet._next_frame == pytest.approx(104.16)
+    pet.set_activity("working")
+    assert pet._frame_delay_ms == 80 and pet._next_frame == pytest.approx(100.08)
+    pet.set_activity("idle")
+    monkeypatch.setenv("MCPET_FRAME_DELAY_MS", "60")
+    pet.set_spritesheet(load_character("maimai"))
+    assert pet._frame_delay_ms == 60 and pet._next_frame == pytest.approx(104.06)
+    pet.set_character("deepseek")
+    assert pet._frame_delay_ms == 60 and pet._next_frame == pytest.approx(100.06)
+    clock[0] = 100.07
+    pet._advance()
+    assert pet._index == 1
 
 
 def test_rest_toggle_returns_to_latest_work_without_fake_completion(pet):

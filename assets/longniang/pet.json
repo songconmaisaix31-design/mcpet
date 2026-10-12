@@ -3,5 +3,7 @@
   "displayName": "chatgpt龙娘",
   "description": "白紫色Q版龙娘，会陪伴 ChatGPT 和 Codex 的工作、等待、完成与失败状态。",
   "spriteVersionNumber": 2,
-  "spritesheetPath": "spritesheet.webp"
+  "spritesheetPath": "spritesheet.webp",
+  "idle_frame_delay_ms": 160,
+  "idle_open_eye_hold_ms": 4000
 }
