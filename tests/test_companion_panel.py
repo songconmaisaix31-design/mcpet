@@ -20,7 +20,7 @@ def test_progress_requested_bubble_stale_context_and_masked_failure(monster):
     monster.monitor.failed.emit("刷新失败 test-mcp-secret")
     monster.action_progress()
     text = monster.window.bubble.label.text()
-    assert "最后快照" in text and "刷新失败" in text and "test-mcp-secret" not in text
+    assert "上一次" in text and "过时" in text and "刷新失败" in text and "test-mcp-secret" not in text
     assert monster.panel is None and monster.monitor.starts == 1
 
 
@@ -29,7 +29,7 @@ def test_usage_requested_bubble_sample_unknown_and_not_vendor_quota(monster):
     monster.monitor.usage_ready.emit((usage, 100, False))
     monster.action_balance()
     text = monster.window.bubble.label.text()
-    assert "30" in text and "样本不足" in text and "不等于厂商余额" in text
+    assert "30" in text and "记录还太少" in text and "UNKNOWN" in text and "不等于厂商余额" in text
     assert monster.monitor.usage_requests == 1 and monster.panel is None
 
 
@@ -37,7 +37,7 @@ def test_waiting_condition_bubbles_once_and_idle_does_not_claim_completion(monst
     record = ProgressRecord(source="generic", session_id="fixture", state="needsinput")
     snapshot = ProgressSnapshot([SessionProgress(record)])
     monster.monitor.progress_ready.emit(snapshot)
-    assert "需要你输入" in monster.window.bubble.label.text()
+    assert "等你输入" in monster.window.bubble.label.text()
     monster.window.say("保留本次结果")
     monster.monitor.progress_ready.emit(snapshot)
     assert monster.window.bubble.label.text() == "保留本次结果"

@@ -123,7 +123,7 @@ def test_automatic_coffee_is_read_only_no_interactive_selection(monster, monkeyp
     monster.on_scheduled("coffee", False)
     pump_until(lambda: not monster.tasks.busy)
     assert calls == [("searchProductForMcp", {"deptId": 7, "query": "拿铁"})]
-    assert "只读" in monster.window.bubble.label.text() and "夹具拿铁" in monster.window.bubble.label.text()
+    assert "只查询，不下单" in monster.window.bubble.label.text() and "夹具拿铁" in monster.window.bubble.label.text()
     monster.action_reminders()
     monster.on_scheduled("coffee", False)
     assert len(calls) == 1

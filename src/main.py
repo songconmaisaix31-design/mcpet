@@ -127,7 +127,7 @@ class SerialTasks(QObject):
     def contains(self, key):
         return (self.active is not None and self.active[0] == key) or any(j[0] == key for j in self.pending)
 
-    def submit(self, key, fn, done, failed, label="处理中"):
+    def submit(self, key, fn, done, failed, label="我来办，稍等一下～"):
         if self.closing or self.contains(key):
             return False
         self.pending.append((key, fn, done, failed, label))
@@ -272,7 +272,8 @@ class MonsterApp(PetFunctions, QObject):
         self.scheduler.start()
         QTimer.singleShot(0, self._start_monitor)
         QTimer.singleShot(0, self._start_account_monitor)
-        self.window.say("McPet 上线了。右键选择功能，结果在宠物气泡里。", 6000)
+        greeting = "鲸鲸到岗！" if self.window.character_id == "deepseek" else "ChatGPT 娘来陪你啦！"
+        self.window.say(greeting + "右键找我，饭饭、咖啡和工作小账本都准备好啦。", 6000)
 
     def eventFilter(self, watched, event):
         if event.type() == QEvent.Quit and not self._allow_quit:
@@ -281,12 +282,12 @@ class MonsterApp(PetFunctions, QObject):
         return super().eventFilter(watched, event)
 
     def _load_sheet(self):
-        base = config.PROJECT_ROOT / "assets" / "longniang"
-        if not (base / "spritesheet.webp").exists():
-            return None
         try:
             from .pet.characters import load_character
-            return load_character("maimai")
+            from .pet.identity import DEFAULT_CHARACTER, CHARACTER_NAMES
+            from .pet.preferences import PetPreferences
+            selected = PetPreferences().load().get("character_id", DEFAULT_CHARACTER)
+            return load_character(selected if selected in CHARACTER_NAMES else DEFAULT_CHARACTER)
         except SpriteLoadError as exc:
             print(config.redact(f"图集加载失败：{exc}"))
             return None
@@ -321,16 +322,16 @@ class MonsterApp(PetFunctions, QObject):
     def _error(self, message):
         if not self.closing:
             self.window.say_state("error", config.redact(message), 10000)
-            self._business_message("请求失败：" + message)
+            self._business_message("这一步没办成，看看原因吧：" + message)
 
     def _cleanup_failed(self, message):
         self.shutdown_error = config.redact(message)
         print(self.shutdown_error)
 
-    def run_async(self, fn, on_done, on_error=None, *, key="action", label="处理中"):
+    def run_async(self, fn, on_done, on_error=None, *, key="action", label="我来办，稍等一下～"):
         return self.tasks.submit(key, fn, on_done, on_error or self._error, label)
 
-    def run_mcp(self, key, fn, done, failed=None, label="正在连接 / 查询麦当劳"):
+    def run_mcp(self, key, fn, done, failed=None, label="我去麦当劳看看，稍等一下～"):
         return self.run_async(lambda: fn(self.tasks.worker.ensure_client()), done, failed,
                               key=key, label=label)
 
@@ -348,7 +349,7 @@ class MonsterApp(PetFunctions, QObject):
             self.monitor.failed.connect(self._monitor_failed)
             self.monitor.task_completed.connect(self._task_completed)
             self.monitor.start()
-            self.monitor_error = "正在读取明确配置的日志目录…"
+            self.monitor_error = "我去看看你指定的工作记录，稍等一下～"
         except Exception as exc:
             self.monitor_error = config.redact(f"后台观测不可用：{type(exc).__name__}: {exc}")
             self._monitor_failed(self.monitor_error)
@@ -369,7 +370,7 @@ class MonsterApp(PetFunctions, QObject):
         snapshot = self.progress_snapshot
         active = snapshot.active if snapshot is not None else []
         if not active:
-            self._activity("idle", label="无活跃日志；任务是否完成未知")
+            self._activity("idle", label="暂时没看到活跃日志，任务是否完成还是未知哦")
             return
         priority = {"error": 5, "failed": 5, "waiting": 4, "needsinput": 4,
                     "thinking": 3, "working": 2}
@@ -437,7 +438,7 @@ class MonsterApp(PetFunctions, QObject):
             message = f"只查询：券中心 {roundup.available_count} 张；手上 {len(roundup.my_coupons)} 张。未主动领取。"
             self.window.say_state("coupon", message, 9000)
             self._business_message(message)
-        self.run_mcp("coupons", lambda b: b.coupon_roundup(claim=False), done, label="正在只读查询优惠券")
+        self.run_mcp("coupons", lambda b: b.coupon_roundup(claim=False), done, label="优惠券雷达启动，只查不领哦～")
 
     def action_claim_coupons(self):
         if self.tasks.contains("claim"):
@@ -451,7 +452,7 @@ class MonsterApp(PetFunctions, QObject):
                 message = f"主动领取返回：{roundup.claim_message or roundup.raw_claim or '已返回'}；新领 {len(roundup.claimed)} 张，手上 {len(roundup.my_coupons)} 张。"
                 self.window.say_state("coupon", config.redact(message), 9000)
                 self._business_message(message)
-        self.run_mcp("claim", lambda b: b.coupon_roundup(claim=True), done, label="正在主动领券")
+        self.run_mcp("claim", lambda b: b.coupon_roundup(claim=True), done, label="按你确认的范围去领券啦～")
 
     def action_best_deal(self):
         def work(brain):
@@ -471,7 +472,7 @@ class MonsterApp(PetFunctions, QObject):
             self._business_message(message)
         if not self.tasks.contains("deal"):
             self.pending_quote = self.pending_store = None
-        self.run_mcp("deal", work, done, label="正在查询门店 / 寻找实时报价")
+        self.run_mcp("deal", work, done, label="先找找营业中的门店～ / 寻找实时报价")
 
     def action_place_order(self):
         if self.tasks.contains("order") or self.tasks.contains("prepare-order"):
@@ -496,14 +497,14 @@ class MonsterApp(PetFunctions, QObject):
             return amount, payload, summary
         def prepared(request):
             amount, payload, summary = request
-            if not self._confirm("核对真实订单", summary + "\n\n请求参数：\n" + json.dumps(payload, ensure_ascii=False, indent=2), "下单"):
+            if not self._confirm("这份订单对了吗？", summary + "\n确认后会创建真实订单，付款还要你亲自操作哦。", "下单"):
                 self.window.say("已取消，没有提交订单。", 5000)
                 return
             # GUI 线程先消费候选，任何提交异常都不能复用原订单重试。
             self.pending_quote = self.pending_store = None
             self.run_mcp("order", lambda b: self._submit_order(b, quote, store, amount, payload, summary),
-                         self._order_done, label="正在核对报价 / 提交已确认订单")
-        self.run_mcp("prepare-order", prepare, prepared, label="正在获取取餐方式 / 核对订单")
+                         self._order_done, label="再核对一遍报价，提交你确认的订单～")
+        self.run_mcp("prepare-order", prepare, prepared, label="我来核对取餐方式和实付金额～")
 
     def _submit_order(self, brain, quote, store, amount, payload, summary):
         fresh = brain.quote_order(store, [quote.meal_code], coupon_id=quote.coupon_id, coupon_code=quote.coupon_code)
@@ -557,7 +558,7 @@ class MonsterApp(PetFunctions, QObject):
             return
         order_no = self.last_order_no
         payload = {"orderId": order_no, "cancelReasonCode": "1"}
-        if not self._confirm("确认撤单", "订单号：" + order_no + "\n请求：cancel-order\n" + json.dumps(payload, ensure_ascii=False), "撤单"):
+        if not self._confirm("确定撤销这一单吗？", "订单号：" + order_no + "\n确认后会向官方申请撤单，请核对是不是这单哦。", "撤单"):
             return
         def work(brain):
             result = brain.client.call_tool(T.TOOL_CANCEL_ORDER, payload)
@@ -696,7 +697,7 @@ class MonsterApp(PetFunctions, QObject):
 
     def _show_quitting(self):
         if self.closing and not self._allow_quit and self.tasks.busy:
-            self.window.say("正在退出，等待当前请求安全结束…", 6000)
+            self.window.say("准备回窝啦，等手头这件事安全结束就走～", 6000)
 
     @Slot()
     def _finish_quit(self):

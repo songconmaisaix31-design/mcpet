@@ -117,7 +117,7 @@ def test_empty_tracker_is_honest():
     tracker = ProgressTracker([])
     snapshot = tracker.snapshot()
     assert snapshot.has_data is False
-    assert "没读到" in bubble(snapshot)
+    assert "还没看到" in bubble(snapshot) and "UNKNOWN" in bubble(snapshot)
     assert "无可用数据源" in report(snapshot)
 
 

@@ -90,7 +90,7 @@ def main():
         reminders = host_event(args.host, payload)
         if args.host == "claude":
             if payload.get("hook_event_name") in {"UserPromptSubmit", "SessionStart"}:
-                context = "McPet 已接入当前会话。需要时使用 mcpet 工具；不启动单独窗口或模型。"
+                context = "McPet 来陪你啦～需要饭饭、咖啡或工作小账本时，就叫 mcpet 工具；在当前会话里就能用。"
                 if reminders["messages"]:
                     context += "\n" + "\n".join(reminders["messages"])
                 print(json.dumps({"hookSpecificOutput": {"hookEventName": payload["hook_event_name"],

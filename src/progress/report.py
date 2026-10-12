@@ -76,9 +76,9 @@ def context_bar(percent: int | None, width: int = 10) -> str:
 def bubble(snapshot: ProgressSnapshot) -> str:
     """桌宠气泡：一句话说清「谁在跑、跑到哪」。"""
     if not snapshot.has_data:
-        return "UNKNOWN：没读到任何 Agent 的会话。"
+        return "还没看到 Agent 的工作记录哦（UNKNOWN）。"
     if snapshot.errors:
-        return "UNKNOWN：部分数据源读取失败，保留已读取会话。"
+        return "有些工作记录没读到（UNKNOWN），已经读到的我先留着。"
 
     active = snapshot.active
     if not active:

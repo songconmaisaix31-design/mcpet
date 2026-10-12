@@ -21,9 +21,9 @@ PNG 页共33,264,844字节（约31.7MiB），是磁盘体积换取较小的按�
 复现：从上述固定提交下载 manifest 中九个源文件到独立临时目录后，执行：
 
 ```powershell
-& 'C:/Users/DW/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe' assets/dsh-deepseek/convert.py SOURCE_DIR FFMPEG_EXE
+python assets/dsh-deepseek/convert.py SOURCE_DIR FFMPEG_EXE
 # 从本项目旧九份WebP缓存无损重打包（证据目录必须全新）：
-& 'C:/Users/DW/.workbuddy-ai/binaries/python/envs/default/Scripts/python.exe' assets/dsh-deepseek/convert.py --repack NEW_EVIDENCE_DIR
+python assets/dsh-deepseek/convert.py --repack NEW_EVIDENCE_DIR
 ```
 
 本次使用 FFmpeg 9.0.2 essentials（Gyan，FFmpeg 官方下载页链接的 Windows 构建），临时目录内直接调用，不安装。

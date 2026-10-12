@@ -19,9 +19,10 @@ from .mcd_mcp.guards import OrderGuard, OrderAuditEntry
 from .nutrition.ledger import NutritionLedger
 from .pet.preferences import PetPreferences
 from .pet.skins import SKINS, validate_skin
+from .pet.identity import DEFAULT_CHARACTER, CHARACTER_NAMES
 
 ASSETS = config.PROJECT_ROOT / "assets"
-CHARACTERS = {"maimai": "麦麦", "deepseek": "DeepSeek 娘"}
+CHARACTERS = CHARACTER_NAMES
 ACTIONS = {"idle", "working", "thinking", "greet", "happy", "sleeping", "eating", "frying", "outfit"}
 
 
@@ -82,9 +83,9 @@ class AgentService:
     def status(self):
         with data_lock():
             prefs = PetPreferences().load()
-            character = prefs.get("character_id", "maimai")
+            character = prefs.get("character_id", DEFAULT_CHARACTER)
             if character not in CHARACTERS:
-                character = "maimai"
+                character = DEFAULT_CHARACTER
             skin = prefs.get("skin_id", "default") if character == "deepseek" else "default"
             if skin not in SKINS:
                 skin = "default"
@@ -96,7 +97,7 @@ class AgentService:
                     "pending_skin_id": prefs.get("pending_skin_id"),
                     "action": prefs.get("action", "idle"),
                     "animation": self.animation_info(character, animation, skin),
-                    "interaction": "直接在当前 Agent 会话提出查询、操作或配置请求",
+                    "interaction": "在这里告诉我想查什么、想换哪套衣服就好啦",
                     "model_requests": False}
 
     def pet(self, action="idle", character_id="", loop=False, skin_id=""):
@@ -105,7 +106,7 @@ class AgentService:
         with data_lock():
             preferences = PetPreferences()
             prefs = preferences.load()
-            character = character_id or prefs.get("character_id", "maimai")
+            character = character_id or prefs.get("character_id", DEFAULT_CHARACTER)
             if character not in CHARACTERS:
                 raise ValueError("未知角色")
             skin = skin_id or (prefs.get("deepseek_skin_id", prefs.get("skin_id", "default")) if character == "deepseek" else "default")
@@ -161,7 +162,7 @@ class AgentService:
                 "coffee_time": os.environ.get("MCPET_COFFEE_TIME", "15:00"),
                 "deepseek_configured": bool(config.deepseek_api_key()),
                 "independent_model_required": False,
-                "credentials": "沿用本机已有环境变量/用户配置，密钥不返回 Agent 对话"}
+                "credentials": "沿用你本机的小钥匙，聊天里不会显示密钥哦"}
 
     def configure(self, city="", lunch_time="", reminders_enabled=None, agent_roots=None, coffee_time=""):
         values = {}
@@ -172,12 +173,12 @@ class AgentService:
         if lunch_time:
             parsed = datetime.strptime(lunch_time, "%H:%M")
             if parsed.strftime("%H:%M") != lunch_time:
-                raise ValueError("提醒时间须为 HH:MM")
+                raise ValueError("提醒时间请写成 HH:MM，比如 11:30 哦")
             values["MCPET_LUNCH_TIME"] = lunch_time
         if coffee_time:
             parsed = datetime.strptime(coffee_time, "%H:%M")
             if parsed.strftime("%H:%M") != coffee_time:
-                raise ValueError("提醒时间须为 HH:MM")
+                raise ValueError("提醒时间请写成 HH:MM，比如 11:30 哦")
             values["MCPET_COFFEE_TIME"] = coffee_time
         if agent_roots is not None:
             keys = {"claude": "MCPET_AGENT_ROOT_CLAUDE", "codex": "MCPET_AGENT_ROOT_CODEX",
@@ -210,7 +211,7 @@ class AgentService:
 
     def claim_coupons(self, confirmed=False):
         if confirmed is not True:
-            return {"status": "needs_confirmation", "summary": "领取当前账号全部可领取优惠券，用户明确确认后再调用"}
+            return {"status": "needs_confirmation", "summary": "要领取当前账号全部可领的优惠券吗？确认这个范围后我再帮你领哦"}
         with data_lock(), self.brain() as brain:
             try:
                 result = brain.coupon_roundup(claim=True)
@@ -266,7 +267,7 @@ class AgentService:
                               "take_way_code": take_way_code, "amount": amount,
                               "summary": summary, "prepared_at": time.time()}
         return {"status": "needs_confirmation", "summary": summary, "amount_cents": amount,
-                "next": "在原 Agent 会话展示以上摘要；用户明确确认后调用确认订单"}
+                "next": "先核对上面的门店、餐品和实付，确认好了我再下单哦"}
 
     def confirm_order(self, confirmed=False):
         pending = self.pending_order
@@ -368,7 +369,7 @@ class AgentService:
                               "stale": session.stale, "context_percent": session.context_percent,
                               "context_estimated": session.record.context_limit_estimated,
                               "updated_at": session.record.updated_at} for session in snapshot.sessions],
-                "note": "上下文占用不是完成百分比；idle/Stop/日志停更不表示任务成功"}
+                "note": "上下文占用不是完成进度哦；idle、Stop 或日志停更都不能说明任务成功"}
 
     def usage(self, refresh=False):
         from .metering import build_meter, report, reminder_level
@@ -381,7 +382,7 @@ class AgentService:
             return {"status": snapshot.status, "snapshot": public(snapshot),
                     "summary": config.redact(report(snapshot, *projection)),
                     "reminder_level": reminder_level(snapshot, projection[0] if projection[2] else snapshot.window.tokens),
-                    "note": "本机日志用量台账，不是厂商额度或账单"}
+                    "note": "这是本机用量小本本哦，不是厂商额度或账单"}
 
     def host_usage_reminder(self):
         """Native usage events only; never scan unrelated transcript roots."""
@@ -437,5 +438,5 @@ class AgentService:
                 prefs["agent_lunch_last_fired"] = task.last_fired
                 if not prefs_store.save(prefs):
                     raise OSError(prefs_store.error)
-            return {"messages": ["该吃饭啦。需要的话，直接让我查今天的券或实时报价。" for _ in due],
+            return {"messages": ["饭点到啦～想吃什么？叫我看看今天的券和价格吧。" for _ in due],
                     "delivery": "原 Agent 会话/宿主原生通知，非独立弹窗"}

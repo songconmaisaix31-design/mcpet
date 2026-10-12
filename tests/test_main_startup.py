@@ -161,6 +161,7 @@ def test_duplicate_launch_does_not_initialize_or_scan(tmp_path):
         assert secondary.returncode == 0, secondary.stderr
         result = json.loads(secondary.stdout.strip().splitlines()[-1])
         assert result == {"secondary": True, "has_tasks": False, "has_window": False}
+        (tmp_path / "release-primary").write_text("done", encoding="utf-8")
         stdout, stderr = primary.communicate(timeout=10)
         assert primary.returncode == 0, stderr
         assert "QThread: Destroyed" not in stderr
@@ -238,7 +239,11 @@ def qt_smoke(mode):
     else:
         if mode == "hold":
             (config.data_dir() / "ready").write_text("ready", encoding="utf-8")
-        QTimer.singleShot(2200 if mode == "hold" else 180, monster.quit)
+            release_poll = QTimer(monster)
+            release_poll.timeout.connect(lambda: monster.quit() if (config.data_dir() / "release-primary").exists() else None)
+            release_poll.start(20)
+        else:
+            QTimer.singleShot(180, monster.quit)
     QTimer.singleShot(10000, monster.quit)
     result = monster.app.exec()
     heartbeat.stop()

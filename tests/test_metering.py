@@ -305,7 +305,7 @@ def test_bubble_and_report_say_no_data_honestly(tmp_path):
     meter = UsageMeter([], state_path=tmp_path / "usage.json")   # 一个数据源都没有
     snapshot = meter.snapshot()
     projected, remaining, sample_ok = meter.window_projection(snapshot)
-    assert "还没读到" in bubble(snapshot, projected, sample_ok)
+    assert "还没收到" in bubble(snapshot, projected, sample_ok) and "UNKNOWN" in bubble(snapshot, projected, sample_ok)
     assert reminder_level(snapshot, projected) == "unknown"
     text = report(snapshot, projected, remaining, sample_ok)
     assert "无可用数据源" in text

@@ -237,7 +237,7 @@ def test_default_export_connects_without_native_host_configs(isolated):
                 await session.initialize()
                 assert len((await session.list_tools()).tools) == 21
                 for action in ("frying", "outfit"):
-                    result = await session.call_tool("mcpet_pet", {"action": action})
+                    result = await session.call_tool("mcpet_pet", {"action": action, "character_id": "maimai"})
                     assert result.structuredContent["animation"]["uri"].endswith("/" + action)
                     resource = await session.read_resource("mcpet://animation/maimai/" + action)
                     assert resource.contents[0].mimeType == "image/gif"
@@ -260,7 +260,7 @@ def test_real_stdio_roundtrip_and_resource(isolated, entry):
                 assert next(t for t in listed.tools if t.name == "mcpet_confirm_order").annotations.destructiveHint
                 status = await session.call_tool("mcpet_status", {})
                 assert status.structuredContent["separate_window"] is False
-                assert status.structuredContent["character_name"] == "麦麦"
+                assert status.structuredContent["character_name"] == "DeepSeek 娘"
                 denied = await session.call_tool("mcpet_confirm_order", {"confirmed": True})
                 assert denied.structuredContent["status"] == "error"
                 usage = await session.call_tool("mcpet_usage", {})
@@ -352,7 +352,7 @@ console.log(JSON.stringify({toasts:toasts.length,message:toasts[0]?.body?.messag
                             encoding="utf-8", capture_output=True, timeout=20, env=dict(os.environ))
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout)["toasts"] == 1
-    assert json.loads(result.stdout)["message"].startswith("该吃饭啦")
+    assert json.loads(result.stdout)["message"].startswith("饭点到啦")
     text = (isolated / "inbox/host-events.jsonl").read_text(encoding="utf-8")
     assert "private-marker" not in text
     records = [json.loads(line) for line in text.splitlines()]

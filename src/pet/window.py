@@ -21,6 +21,7 @@ from .states import PetStateMachine
 from .behavior import RoamingBehavior, clamp_position
 from .preferences import PetPreferences
 from .characters import CHARACTER_IDS, load_character
+from .identity import DEFAULT_CHARACTER
 from .skins import validate_skin
 from ..agent_local import data_lock
 
@@ -200,7 +201,7 @@ class PetWindow(QWidget):
         self._deepseek_skin_id = saved.get("deepseek_skin_id", saved.get("skin_id", "default"))
         if self._deepseek_skin_id not in ("default", "maimai"):
             self._deepseek_skin_id = "default"
-        self._character_id = (sheet.meta.get("character_id", "maimai") if sheet else "maimai")
+        self._character_id = (sheet.meta.get("character_id", "maimai") if sheet else DEFAULT_CHARACTER)
         saved_character = saved.get("character_id", self._character_id)
         saved_skin = self._deepseek_skin_id if saved_character == "deepseek" else "default"
         if saved_character in CHARACTER_IDS and (sheet is None or saved_character != self._character_id
@@ -817,7 +818,7 @@ class PetWindow(QWidget):
     def _touch(self) -> None:
         self.stop_action()
         self.set_state("greet", ttl_ms=2000)
-        self.say("我在呢，陪你一起。右键选择功能，结果在气泡里。", 3000)
+        self.say("我在呢～右键戳戳我，今天也陪你一起。", 3000)
         self.clicked.emit()
 
     def mouseDoubleClickEvent(self, event):  # noqa: N802

@@ -451,12 +451,12 @@ class McdBrain:
             if progress:
                 progress(message)
 
-        say("正在拉取菜单…")
+        say("菜单拿来啦，看看今天吃什么～")
         meals = self._meal_index(store)
         if not meals:
             return []
 
-        say("正在拉取门店可用券…")
+        say("我再翻翻这家店能用的券～")
         coupons = self._store_coupons(store)
 
         # 券 → 适用餐品 的索引

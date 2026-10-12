@@ -3,14 +3,15 @@ from pathlib import Path
 
 from .spritesheet import AnimationSheet, SpriteLoadError, SpriteSheet
 from .skins import validate_skin
+from .identity import CHARACTER_NAMES
 
-CHARACTER_IDS = ("maimai", "deepseek")
+CHARACTER_IDS = tuple(CHARACTER_NAMES)
 ASSETS = Path(__file__).resolve().parents[2] / "assets"
 
 
 def character_name(character_id: str) -> str:
     try:
-        return {"maimai": "麦麦", "deepseek": "DeepSeek 娘"}[character_id]
+        return CHARACTER_NAMES[character_id]
     except (KeyError, TypeError) as exc:
         raise SpriteLoadError("未知桌宠角色") from exc
 
@@ -29,8 +30,8 @@ def load_character(character_id: str, skin_id: str = "default") -> SpriteSheet:
         sheet = SpriteSheet.load(runtime if runtime.exists() else directory / "spritesheet.webp", pet_json=directory / "pet.json",
                                  rows_json=directory / "sprite-rows.json")
         if getattr(sheet, "validation_issues", None):
-            raise SpriteLoadError("麦麦图集校验失败")
+            raise SpriteLoadError("ChatGPT 娘的图集没对上，先帮我检查一下素材吧。")
     except (OSError, ValueError, TypeError, KeyError) as exc:
-        raise SpriteLoadError("无法加载麦麦素材") from exc
+        raise SpriteLoadError("ChatGPT 娘的衣柜打不开啦，请检查素材文件。") from exc
     sheet.meta["character_id"] = "maimai"
     return AnimationSheet(ASSETS / "maimai-actions", base_sheet=sheet)
