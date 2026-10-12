@@ -9,6 +9,7 @@
 | [Agent 使用说明](AGENT-HOST.md) | 通用 MCP stdio 接入、可选宿主适配、17 项工具及动画资源 |
 | [本地动作演示](PORTABLE-AGENT-DEMO.md) | 原视频与透明动画预览、通用客户端验证 |
 | [DeepSeek 娘动作与皮肤](DEEPSEEK-SKINS.md) | 短循环、双向换装、持久皮肤及桌宠播放验证 |
+| [ChatGPT 龙娘待机节奏](CHATGPT-IDLE-FIX.md) | 短图集循环过快的修复与实际定时验证 |
 | [仓库结构](REPOSITORY.md) | 当前目录、入口与配置边界 |
 | [开发与验证](../CONTRIBUTING.md) | 依赖、隔离测试、提交与验证口径 |
 | [项目 Agent 约定](../AGENTS.md) | 事实源、写入范围和交付规则 |
