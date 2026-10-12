@@ -18,6 +18,7 @@ from .mcd_mcp.client import McdMcpClient, McpError
 from .mcd_mcp.guards import OrderGuard, OrderAuditEntry
 from .nutrition.ledger import NutritionLedger
 from .pet.preferences import PetPreferences
+from .pet.skins import SKINS, validate_skin
 
 ASSETS = config.PROJECT_ROOT / "assets"
 CHARACTERS = {"maimai": "麦麦", "deepseek": "DeepSeek 娘"}
@@ -67,21 +68,24 @@ class AgentService:
     def status(self):
         with data_lock():
             prefs = PetPreferences().load()
-            now = time.time()
-            if prefs.get("action_until", 0) and prefs["action_until"] <= now:
-                prefs["action"] = "idle"
-                prefs.pop("action_until", None)
             character = prefs.get("character_id", "maimai")
             if character not in CHARACTERS:
                 character = "maimai"
+            skin = prefs.get("skin_id", "default") if character == "deepseek" else "default"
+            if skin not in SKINS:
+                skin = "default"
+            animation = prefs.get("action_animation", prefs.get("action", "idle"))
             return {"hosted_by": "your Agent", "separate_window": False,
                     "character_id": character, "character_name": CHARACTERS[character],
+                    "skin_id": skin, "skin_name": SKINS[skin],
+                    "available_skins": SKINS if character == "deepseek" else {"default": SKINS["default"]},
+                    "pending_skin_id": prefs.get("pending_skin_id"),
                     "action": prefs.get("action", "idle"),
-                    "animation": self.animation_info(character, prefs.get("action", "idle")),
+                    "animation": self.animation_info(character, animation, skin),
                     "interaction": "直接在当前 Agent 会话提出查询、操作或配置请求",
                     "model_requests": False}
 
-    def pet(self, action="idle", character_id="", loop=False):
+    def pet(self, action="idle", character_id="", loop=False, skin_id=""):
         if action not in ACTIONS | {"stop"}:
             raise ValueError("未知动作")
         with data_lock():
@@ -90,29 +94,49 @@ class AgentService:
             character = character_id or prefs.get("character_id", "maimai")
             if character not in CHARACTERS:
                 raise ValueError("未知角色")
-            if action in {"frying", "outfit"} and character != "maimai":
-                raise ValueError("炸薯条与换装仅供麦麦使用")
+            skin = skin_id or (prefs.get("deepseek_skin_id", prefs.get("skin_id", "default")) if character == "deepseek" else "default")
+            validate_skin(character, skin)
             prefs.update(character_id=character, action="idle" if action == "stop" else action,
-                         resting=action == "sleeping")
+                         resting=action == "sleeping", skin_id=skin,
+                         action_loop=bool(loop and action == "frying"), pet_command_at=time.time())
             prefs.pop("action_until", None)
+            prefs.pop("pending_skin_id", None)
+            prefs.pop("action_animation", None)
+            animation = action
+            if character == "deepseek":
+                if action == "frying":
+                    skin = prefs["skin_id"] = "maimai"
+                elif action == "outfit":
+                    prefs["pending_skin_id"] = "maimai" if skin == "default" else "default"
+                    animation = "outfit" if skin == "default" else "outfit-default"
+                prefs["deepseek_skin_id"] = skin
+            prefs["action_animation"] = animation
             if action in {"frying", "outfit"} and not (loop and action == "frying"):
-                prefs["action_until"] = time.time() + 127 * 0.08
+                prefs["action_until"] = time.time() + self.animation_info(character, animation, skin)["duration_seconds"]
             if not preferences.save(prefs):
                 raise OSError(preferences.error)
         return self.status()
 
     @staticmethod
-    def animation_info(character, action):
+    def animation_info(character, action, skin="default"):
         if character == "maimai" and action in {"frying", "outfit"}:
             return {"uri": f"mcpet://animation/maimai/{action}", "mime_type": "image/gif",
                     "duration_seconds": 10.16, "rendering": "宿主支持图像资源时可展示；不创建播放窗口"}
+        if character == "deepseek":
+            if action in {"frying", "outfit", "outfit-default"}:
+                return {"uri": f"mcpet://animation/deepseek/{action}", "mime_type": "image/gif",
+                        "duration_seconds": 2.16 if action == "frying" else 3.84,
+                        "rendering": "支持图像资源的宿主可展示；已运行的桌宠可接收此动作"}
+            if skin == "maimai":
+                return {"uri": "mcpet://skin/deepseek/maimai", "mime_type": "image/gif",
+                        "duration_seconds": 1.92, "rendering": "持久麦麦皮肤；无对应穿装动作的状态复用穿装待机"}
         return {"rendering": "宿主中的角色状态；原素材保留，跨宿主动画显示能力未假定"}
 
     @staticmethod
-    def animation(action):
-        if action not in {"frying", "outfit"}:
+    def animation(action, character="maimai"):
+        if action not in ({"frying", "outfit", "outfit-default"} if character == "deepseek" else {"frying", "outfit"}):
             raise ValueError("未知动画资源")
-        return (ASSETS / "maimai-actions" / f"{action}.gif").read_bytes()
+        return (ASSETS / ("deepseek-actions" if character == "deepseek" else "maimai-actions") / f"{action}.gif").read_bytes()
 
     def settings(self):
         config.load_env()

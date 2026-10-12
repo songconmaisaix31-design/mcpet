@@ -242,6 +242,7 @@ class MonsterApp(QObject):
             self.window.chat_requested.connect(self.action_panel)
         self.window.show()
         self.tray = PetTray(self._icon(), self.menu_entries())
+        self.window.appearance_changed.connect(self._pet_appearance_changed)
         self.tray.on_activate = self.action_panel
         if self.instance:
             self.instance.activated.connect(self.action_panel)
@@ -472,6 +473,7 @@ class MonsterApp(QObject):
         self._sync_panel()
 
     def _sync_panel(self):
+        self.sheet = self.window.sheet
         if self.panel:
             self.panel.set_controls(self.window.roaming_enabled, self.window.resting, self.window.isVisible())
             self.panel.set_business_state(bool(self.pending_quote), bool(self.last_order_no))
@@ -807,6 +809,28 @@ class MonsterApp(QObject):
     def action_stop_animation(self):
         self.window.stop_action()
 
+    def _pet_appearance_changed(self):
+        self.sheet = self.window.sheet
+        self.tray.setIcon(self._icon())
+        self.tray.set_entries(self.menu_entries())
+        self._sync_panel()
+
+    def _set_pet_skin(self, skin_id):
+        try:
+            self.window.set_skin(skin_id)
+            self.sheet = self.window.sheet
+            self.tray.setIcon(self._icon())
+            self.tray.set_entries(self.menu_entries())
+            self._sync_panel()
+        except (ValueError, SpriteLoadError) as exc:
+            self._error(str(exc))
+
+    def action_skin_default(self):
+        self._set_pet_skin("default")
+
+    def action_skin_maimai(self):
+        self._set_pet_skin("maimai")
+
     def action_roaming(self):
         if hasattr(self.window, "set_roaming"):
             self.window.set_roaming(not self.window.roaming_enabled)
@@ -836,7 +860,9 @@ class MonsterApp(QObject):
     def menu_entries(self):
         actions = ([("炸薯条 · 循环", self.action_frying), ("换装", self.action_outfit),
                     ("停止动作", self.action_stop_animation)]
-                   if self.window.character_id == "maimai" else [])
+                   if self.window.sheet and "frying" in self.window.sheet.meta.get("animations", {}) else [])
+        if self.window.character_id == "deepseek":
+            actions += [("默认套装", self.action_skin_default), ("麦麦套装", self.action_skin_maimai)]
         return [("麦麦小窝", self.action_panel),
                 ("会话 / 本机用量", self.action_progress),
                 ("麦当劳快捷功能", lambda: self.action_panel("mcd")),

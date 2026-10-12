@@ -250,6 +250,10 @@ class CompanionPanel(QDialog):
         self.outfit_button = self.button(actions, "换装", "outfit")
         self.stop_action_button = self.button(actions, "停止动作", "stop_animation")
         card.addLayout(actions)
+        skins = QHBoxLayout()
+        self.default_skin_button = self.button(skins, "默认套装", "skin_default", checkable=True)
+        self.maimai_skin_button = self.button(skins, "麦麦套装", "skin_maimai", checkable=True)
+        card.addLayout(skins)
         extras = QHBoxLayout()
         self.button(extras, "看看会话活动", "progress")
         self.button(extras, "安全退出 McPet", "quit")
@@ -307,8 +311,11 @@ class CompanionPanel(QDialog):
     def set_character(self, character_id, name, sheet, choices):
         self.character_name.setText(name)
         for button in (self.frying_button, self.outfit_button, self.stop_action_button):
-            button.setEnabled(character_id == "maimai" and bool(sheet)
+            button.setEnabled(bool(sheet)
                               and "frying" in getattr(sheet, "meta", {}).get("animations", {}))
+        for skin, button in (("default", self.default_skin_button), ("maimai", self.maimai_skin_button)):
+            button.setVisible(character_id == "deepseek")
+            button.setChecked(bool(sheet) and sheet.meta.get("skin_id", "default") == skin)
         blue = character_id == "deepseek"
         if getattr(self, "_styled_character", None) != character_id:
             self.character_card.setStyleSheet("QFrame#card { background:" + ("#eaf4fb" if blue else "#fff0df") + "; }")

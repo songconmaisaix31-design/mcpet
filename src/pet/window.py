@@ -20,6 +20,8 @@ from .states import PetStateMachine
 from .behavior import RoamingBehavior, clamp_position
 from .preferences import PetPreferences
 from .characters import CHARACTER_IDS, load_character
+from .skins import validate_skin
+from ..agent_local import data_lock
 
 DEFAULT_SIZE = 180
 DEFAULT_FRAME_DELAY_MS = 80
@@ -82,6 +84,7 @@ class PetWindow(QWidget):
     clicked = Signal()
     chat_requested = Signal()
     menu_requested = Signal(object)  # 全局坐标 QPoint
+    appearance_changed = Signal()
 
     def __init__(self, sheet: SpriteSheet | None = None, size: int = DEFAULT_SIZE):
         super().__init__(
@@ -98,14 +101,22 @@ class PetWindow(QWidget):
         self._activity_state = "idle"
         self._action_state: str | None = None
         self._action_loop = False
+        self._action_target_skin: str | None = None
         self._preferences = PetPreferences()
         saved = self._preferences.load()
+        self._last_agent_command = saved.get("pet_command_at", 0)
+        self._deepseek_skin_id = saved.get("deepseek_skin_id", saved.get("skin_id", "default"))
+        if self._deepseek_skin_id not in ("default", "maimai"):
+            self._deepseek_skin_id = "default"
         self._character_id = (sheet.meta.get("character_id", "maimai") if sheet else "maimai")
-        if saved.get("character_id") in CHARACTER_IDS and (sheet is None or saved["character_id"] != self._character_id):
+        saved_character = saved.get("character_id", self._character_id)
+        saved_skin = self._deepseek_skin_id if saved_character == "deepseek" else "default"
+        if saved_character in CHARACTER_IDS and (sheet is None or saved_character != self._character_id
+                or saved_skin != sheet.meta.get("skin_id", "default")):
             try:
-                sheet = load_character(saved["character_id"])
-                self._character_id = saved["character_id"]
-            except SpriteLoadError:
+                sheet = load_character(saved_character, saved_skin)
+                self._character_id = saved_character
+            except (SpriteLoadError, ValueError):
                 self._preferences.error = "无法恢复角色，使用默认素材"
         self._frame_delay_ms = resolve_frame_delay(sheet)
         self.roaming_enabled = saved.get("roaming") is True
@@ -195,6 +206,10 @@ class PetWindow(QWidget):
         self._watch_screens()
         QApplication.instance().screenAdded.connect(self._watch_screens)
         QApplication.instance().screenRemoved.connect(self._watch_screens)
+        self._preference_timer = QTimer(self)
+        self._preference_timer.setInterval(1000)
+        self._preference_timer.timeout.connect(self._receive_agent_command)
+        self._preference_timer.start()
 
     # ---------- 素材 ----------
 
@@ -202,10 +217,25 @@ class PetWindow(QWidget):
     def character_id(self) -> str:
         return self._character_id
 
-    def set_character(self, character_id: str) -> None:
-        if character_id == self.character_id and self.sheet is not None:
+    @property
+    def skin_id(self) -> str:
+        return self.sheet.meta.get("skin_id", "default") if self.sheet else "default"
+
+    def set_skin(self, skin_id: str) -> None:
+        validate_skin(self.character_id, skin_id)
+        # Selecting even the currently worn skin cancels any transition.
+        if self.skin_id == skin_id:
+            self.stop_action()
+            self._save_preferences()
             return
-        sheet = load_character(character_id)
+        self.set_character(self.character_id, skin_id=skin_id)
+
+    def set_character(self, character_id: str, *, skin_id: str | None = None) -> None:
+        selected_skin = (skin_id if skin_id is not None else
+                         self._deepseek_skin_id if character_id == "deepseek" else "default")
+        if character_id == self.character_id and selected_skin == self.skin_id and self.sheet is not None:
+            return
+        sheet = load_character(character_id) if selected_skin == "default" else load_character(character_id, selected_skin)
         # Prepare real current-state frames before changing any visible or saved
         # state, so a broken asset leaves the previous character fully usable.
         key = (sheet.row_for(self.machine.state), sheet.frame_count(self.machine.state),
@@ -224,6 +254,8 @@ class PetWindow(QWidget):
         preserve_clock = self._anim.isActive() and delay == self._frame_delay_ms
         self._index = index
         self.sheet, self._character_id = sheet, character_id
+        if character_id == "deepseek":
+            self._deepseek_skin_id = selected_skin
         self._frame_delay_ms = delay
         self._cache = {self.machine.state: frames}
         self._visual_cache = {key: frames}
@@ -238,6 +270,7 @@ class PetWindow(QWidget):
             self._anim.start(self._frame_delay_ms)
         self.stop_action()
         self._save_preferences()
+        self.appearance_changed.emit()
 
     def _scaled_frames(self, sheet: SpriteSheet, state: str, dpr: float, *, initial_index: int = 0):
         if isinstance(sheet, AnimationSheet) and sheet.is_paged(state):
@@ -272,13 +305,22 @@ class PetWindow(QWidget):
     # ---------- 状态与动画 ----------
 
     def play_action(self, state: str, *, loop: bool = False) -> None:
-        if (self.character_id != "maimai" or self.sheet is None
+        if (self.sheet is None
                 or state not in ("frying", "outfit")
                 or state not in self.sheet.meta.get("animations", {})):
-            raise SpriteLoadError("此动作仅供麦麦使用")
+            raise SpriteLoadError("此角色没有该动作")
+        target_skin = None
+        if self.character_id == "deepseek":
+            if state == "frying":
+                self.set_skin("maimai")
+            else:
+                target_skin = "maimai" if self.skin_id == "default" else "default"
+                state = "outfit" if target_skin == "maimai" else "outfit-default"
+                loop = False
         self._click_timer.stop()
         self.resting = False
         self._action_state, self._action_loop = state, loop
+        self._action_target_skin = target_skin
         self._apply_base()
         self._load_frames(self.machine.state, force=True)
         self._save_preferences()
@@ -286,7 +328,10 @@ class PetWindow(QWidget):
     def stop_action(self) -> None:
         if self._action_state is not None:
             self._action_state = None
+            self._action_target_skin = None
+            self._action_loop = False
             self._apply_base()
+            self._save_preferences()
 
     def set_state(self, state: str, ttl_ms: int | None = None, *, force: bool = False) -> None:
         resolved = self.machine.set(state, ttl_ms)
@@ -351,7 +396,10 @@ class PetWindow(QWidget):
         self._next_frame += steps * delay
         if (self._current_state == self._action_state and not self._action_loop
                 and self._index + steps >= len(self._frames)):
+            target = self._action_target_skin
             self.stop_action()
+            if target is not None:
+                self.set_skin(target)
             return
         self._index = (self._index + steps) % len(self._frames)
         self.canvas.setPixmap(self._frames[self._index])
@@ -403,6 +451,7 @@ class PetWindow(QWidget):
         self.resting = bool(enabled)
         if self.resting:
             self._action_state = None
+            self._action_target_skin = None
             self._click_timer.stop()
             self.bubble.hide()
         self._apply_base()
@@ -474,10 +523,63 @@ class PetWindow(QWidget):
     def _save_preferences(self) -> None:
         screen = self.screen()
         area = screen.availableGeometry()
-        self._preferences.save({"position": [self.x(), self.y()], "screen": screen.name(),
-                                "available_geometry": [area.x(), area.y(), area.width(), area.height()],
-                                "roaming": self.roaming_enabled, "resting": self.resting,
-                                "character_id": self.character_id})
+        with data_lock():
+            saved = self._preferences.load()
+            incoming = saved.get("pet_command_at", 0)
+            if isinstance(incoming, (int, float)) and incoming > self._last_agent_command:
+                # A position save can run before the 1s command poll. Keep the
+                # unread Agent command, rather than overwriting its costume/action.
+                saved.update(position=[self.x(), self.y()], screen=screen.name(),
+                             available_geometry=[area.x(), area.y(), area.width(), area.height()],
+                             roaming=self.roaming_enabled)
+                self._preferences.save(saved)
+                return
+            saved.update(position=[self.x(), self.y()], screen=screen.name(),
+                         available_geometry=[area.x(), area.y(), area.width(), area.height()],
+                         roaming=self.roaming_enabled, resting=self.resting,
+                         character_id=self.character_id, skin_id=self.skin_id,
+                         deepseek_skin_id=self._deepseek_skin_id)
+            saved.update(action=("outfit" if self._action_state == "outfit-default" else
+                                 self._action_state or ("sleeping" if self.resting else self._activity_state)),
+                         action_loop=self._action_loop)
+            if self._action_target_skin:
+                saved["pending_skin_id"] = self._action_target_skin
+            else:
+                saved.pop("pending_skin_id", None)
+            if self._action_state:
+                saved["action_animation"] = self._action_state
+                if not self._action_loop and "action_until" not in saved:
+                    saved["action_until"] = time.time() + self.sheet.frame_count(self._action_state) * self._frame_delay_ms / 1000
+            else:
+                saved.pop("action_animation", None)
+                saved.pop("action_until", None)
+            self._preferences.save(saved)
+
+    def _receive_agent_command(self) -> None:
+        saved = self._preferences.load()
+        stamp = saved.get("pet_command_at", 0)
+        if not isinstance(stamp, (int, float)) or stamp <= self._last_agent_command:
+            return
+        self._last_agent_command = stamp
+        try:
+            character = saved.get("character_id", self.character_id)
+            skin = saved.get("skin_id", "default")
+            self.set_character(character, skin_id=skin)
+            self.stop_action()
+            action = saved.get("action", "idle")
+            if saved.get("action_until", 0) and saved["action_until"] <= time.time():
+                if saved.get("pending_skin_id"):
+                    self.set_skin(saved["pending_skin_id"])
+                return
+            if action in ("frying", "outfit"):
+                self.play_action(action, loop=saved.get("action_loop") is True)
+            elif action == "sleeping":
+                self.set_resting(True)
+            else:
+                self.set_resting(False)
+                self.set_activity(action)
+        except (SpriteLoadError, ValueError, TypeError):
+            self._preferences.error = "无法应用 Agent 的桌宠动作"
 
     def moveEvent(self, event):  # noqa: N802
         super().moveEvent(event)
@@ -510,6 +612,7 @@ class PetWindow(QWidget):
         self._load_frames(self.machine.state)
 
     def closeEvent(self, event):  # noqa: N802
+        self._preference_timer.stop()
         self._save_preferences()
         for timer in (self._anim, self._decay_timer, self._behavior_timer, self._bubble_timer,
                       self._click_timer, self._save_timer):
@@ -557,6 +660,7 @@ class PetWindow(QWidget):
                     return
                 self._drag_active = True
                 self._action_state = None
+                self._action_target_skin = None
                 self._click_timer.stop()
             self.move(clamp_position(point - self._drag_offset, self.size(), self._areas()))
             self._motion_x = None

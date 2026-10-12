@@ -17,8 +17,14 @@ Unknown/stale account values are not zero. Local usage is not vendor quota/billi
 
 Use `mcpet_configure` for city, HH:MM lunch time and reminder toggle. Existing local
 credentials are inherited; never request or display secrets in chat. `mcpet_pet`
-changes logical role/action and returns an animation resource URI. Frying can loop;
-outfit is one shot. Rendering depends on host image/resource support; never open an
+changes role/action and returns an animation resource URI. For DeepSeek use
+`character_id="deepseek"`; `skin_id="maimai"` wears the persistent McDonald's costume,
+and `skin_id="default"` restores the original dress immediately. Either choice cancels
+an ongoing action; do not lock the user to one costume. `action="outfit"` plays the
+3.84-second transition to the other skin and persists its target; `action="frying"`
+wears the maimai skin and can loop every 2.16 seconds. An already-running desktop pet
+receives these commands from its own local preferences; MCP never launches it.
+Rendering depends on host image/resource support; never open an
 external animation window. If rendering is unavailable, explain that briefly.
 Host reminders arrive through native context/toasts during host activity. Tell the
 user when a lunch reminder appears in context; background/offline notification is

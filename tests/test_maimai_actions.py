@@ -106,11 +106,11 @@ def test_replay_rest_touch_and_character_switch_cancel_manual_action(pet):
     pet.play_action("frying", loop=True)
     pet.set_character("deepseek")
     assert pet._action_state is None and pet.machine.state == "greet"
-    with pytest.raises(SpriteLoadError):
-        pet.play_action("outfit")
+    pet.play_action("outfit")
+    assert pet.machine.state == "outfit" and len(pet._frames) == 48
 
 
-def test_panel_has_clickable_actions_and_disables_them_for_deepseek(pet):
+def test_panel_has_clickable_actions_for_both_characters(pet):
     panel = CompanionPanel(sheet=pet.sheet)
     def action(name):
         if name == "frying":
@@ -129,6 +129,7 @@ def test_panel_has_clickable_actions_and_disables_them_for_deepseek(pet):
         QTest.mouseClick(panel.outfit_button, Qt.LeftButton)
         assert pet.machine.state == "outfit"
         panel.set_character("deepseek", "DeepSeek 娘", load_character("deepseek"), ())
-        assert not panel.frying_button.isEnabled() and not panel.outfit_button.isEnabled()
+        assert panel.frying_button.isEnabled() and panel.outfit_button.isEnabled()
+        assert not panel.default_skin_button.isHidden() and not panel.maimai_skin_button.isHidden()
     finally:
         panel.close()

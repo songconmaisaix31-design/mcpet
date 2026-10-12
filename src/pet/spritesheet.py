@@ -262,7 +262,8 @@ class AnimationSheet(SpriteSheet):
                                  row_of={**base_sheet.row_of, **row_of},
                                  frames_by_row={**base_sheet.frames_by_row, **counts},
                                  frame_delay_ms=base_sheet.frame_delay_ms,
-                                 meta={**base_sheet.meta, "animations": animations})
+                                 meta={**base_sheet.meta, "animations": {
+                                     **base_sheet.meta.get("animations", {}), **animations}})
             self._base_sheet = base_sheet
             self._page_size, self._page_columns = size, columns
             self._paths = paths
@@ -277,7 +278,8 @@ class AnimationSheet(SpriteSheet):
         return self.row_of.get(state, self.row_of["idle"])
 
     def is_paged(self, state: str) -> bool:
-        return self.row_for(state) in self._paths
+        return (self.row_for(state) in self._paths or
+                isinstance(self._base_sheet, AnimationSheet) and self._base_sheet.is_paged(state))
 
     def frame(self, state: str, index: int) -> QPixmap:
         row = self.row_for(state)

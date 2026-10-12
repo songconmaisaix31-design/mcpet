@@ -1,0 +1,54 @@
+{
+  "cell_size": 192,
+  "columns": 12,
+  "frame_delay_ms": 80,
+  "animations": {
+    "frying": {
+      "frames": 27,
+      "pages": [
+        "frying-000.png",
+        "frying-001.png",
+        "frying-002.png"
+      ]
+    },
+    "outfit": {
+      "frames": 48,
+      "pages": [
+        "outfit-000.png",
+        "outfit-001.png",
+        "outfit-002.png",
+        "outfit-003.png"
+      ]
+    },
+    "outfit-default": {
+      "frames": 48,
+      "pages": [
+        "outfit-default-000.png",
+        "outfit-default-001.png",
+        "outfit-default-002.png",
+        "outfit-default-003.png"
+      ]
+    }
+  },
+  "character_id": "deepseek",
+  "clips": {
+    "frying": [
+      1.84,
+      4.0
+    ],
+    "outfit": [
+      0.48,
+      4.32
+    ]
+  },
+  "fixed_transform": {
+    "size": [
+      172,
+      172
+    ],
+    "offset": [
+      22,
+      18
+    ]
+  }
+}
