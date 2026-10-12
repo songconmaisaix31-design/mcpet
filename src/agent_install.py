@@ -1,4 +1,4 @@
-"""Install native project-scoped host config; preserve unrelated settings."""
+"""Export a portable stdio definition, or explicitly install native adapters."""
 from __future__ import annotations
 
 import argparse
@@ -39,18 +39,27 @@ def write(path, text):
             Path(temporary).unlink(missing_ok=True)
 
 
-def install(project, client="both", python=None):
+def server_definition(python=None):
+    """Common stdio fields; clients may use their own configuration container."""
+    return {"type": "stdio", "command": str(Path(python or sys.executable).resolve()),
+            "args": [str(ROOT / "scripts/agent_host.py")]}
+
+
+def install(project, client="generic", python=None):
+    if client not in {"generic", "both", "claude", "opencode"}:
+        raise ValueError("未知接入适配")
     project = Path(project).resolve()
     if not project.is_dir():
         raise ValueError("接入目标必须是已存在的项目目录")
-    python = str(Path(python or sys.executable).resolve())
-    host = str(ROOT / "scripts/agent_host.py")
+    definition = server_definition(python)
+    python = definition["command"]
+    host = definition["args"][0]
     hook = str(ROOT / "scripts/agent_hook.py")
     files = {}
     if client in {"both", "claude"}:
         path = project / ".mcp.json"
         settings = read_json(path)
-        settings.setdefault("mcpServers", {})["mcpet"] = {"type": "stdio", "command": python, "args": [host]}
+        settings.setdefault("mcpServers", {})["mcpet"] = definition
         files[path] = json.dumps(settings, ensure_ascii=False, indent=2) + "\n"
         path = project / ".claude/settings.local.json"
         settings = read_json(path)
@@ -96,10 +105,13 @@ def main():
         sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", type=Path, default=Path.cwd())
-    parser.add_argument("--client", choices=("both", "claude", "opencode"), default="both")
+    parser.add_argument("--client", choices=("generic", "both", "claude", "opencode"), default="generic")
     args = parser.parse_args()
-    print(json.dumps({"installed": install(args.project, args.client),
-                      "next": "在此项目重开原 Agent，会沿用宿主原生初次信任/工具审批"}, ensure_ascii=False))
+    print(json.dumps({"server_name": "mcpet", "server": server_definition(),
+                      "installed": install(args.project, args.client),
+                      "next": ("将 command/args 填入当前宿主的 MCP stdio 接入设置；配置容器由宿主决定，无需插件"
+                               if args.client == "generic" else
+                               "在此项目重开原 Agent，会沿用宿主原生初次信任/工具审批")}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

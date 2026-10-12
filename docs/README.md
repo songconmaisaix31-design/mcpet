@@ -6,7 +6,8 @@
 
 | 文档 | 内容 |
 |---|---|
-| [Agent 使用说明](AGENT-HOST.md) | OpenCode / Claude Code 接入、17 项工具、提醒及动画资源 |
+| [Agent 使用说明](AGENT-HOST.md) | 通用 MCP stdio 接入、可选宿主适配、17 项工具及动画资源 |
+| [本地动作演示](PORTABLE-AGENT-DEMO.md) | 原视频与透明动画预览、通用客户端验证 |
 | [仓库结构](REPOSITORY.md) | 当前目录、入口与配置边界 |
 | [开发与验证](../CONTRIBUTING.md) | 依赖、隔离测试、提交与验证口径 |
 | [项目 Agent 约定](../AGENTS.md) | 事实源、写入范围和交付规则 |

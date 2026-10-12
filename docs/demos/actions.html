@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>麦麦 · 两段动作预览</title>
+<style>
+  *{box-sizing:border-box}body{margin:0;background:#faf7ed;color:#242820;font:16px/1.5 system-ui,"Microsoft YaHei",sans-serif}
+  main{max-width:960px;margin:28px auto;padding:0 24px}.eyebrow{color:#5d7350;font-size:13px;letter-spacing:2px}
+  h1{font-size:30px;margin:8px 0}p{color:#666958;margin:8px 0 20px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  article{background:white;border:1px solid #e6e6d6;border-radius:20px;padding:18px;box-shadow:0 8px 25px #262e1608}
+  h2{font-size:20px;margin:0 0 12px}.tag{font-size:12px;background:#edf2e6;border-radius:20px;padding:4px 8px;float:right;color:#49633a}
+  video{display:block;width:100%;max-height:280px;border-radius:12px;background:#f4f3ef}
+  .animation{display:flex;align-items:center;justify-content:center;margin-top:12px;border-radius:12px;background:repeating-conic-gradient(#ecefe6 0% 25%,#fff 0% 50%) 0/20px 20px;height:160px}
+  img{height:160px;width:160px;object-fit:contain}.label{font-size:12px;color:#727565;margin-top:6px}
+  button{background:#bf3527;color:#fff;border:0;padding:11px 20px;border-radius:12px;font:inherit;cursor:pointer;margin:0 0 20px}
+  footer{font-size:12px;color:#777a6b;margin-top:18px}@media(max-width:650px){.grid{grid-template-columns:1fr}main{margin-top:16px}}
+</style>
+<main>
+  <div class="eyebrow">MCPET / 动作演示</div>
+  <h1>炸薯条，换一身。</h1>
+  <p>上面是你提供的原视频，下面是已导入项目的透明动画。</p>
+  <button id="replay" type="button">播放 / 重播两段</button>
+  <div class="grid">
+    <article>
+      <span class="tag">循环</span><h2>🍟 炸薯条</h2>
+      <video id="frying-video" controls muted playsinline loop preload="auto" src="/source/frying.mp4"></video>
+      <div class="label">原视频 · 保留原画面与音轨，默认静音</div>
+      <div class="animation"><img id="frying-animation" src="/assets/maimai-actions/frying.gif" alt="麦麦炸薯条透明循环动画"></div>
+      <div class="label">透明动画 · 10.16 秒，持续循环</div>
+    </article>
+    <article>
+      <span class="tag">一次</span><h2>✨ 换装</h2>
+      <video id="outfit-video" controls muted playsinline preload="auto" src="/source/outfit.mp4"></video>
+      <div class="label">原视频 · 实际约 10 秒，保留完整片段</div>
+      <div class="animation"><img id="outfit-animation" src="/assets/maimai-actions/outfit.gif" alt="麦麦换装透明动画"></div>
+      <div class="label">透明动画 · 10.16 秒，播放一次；点击上方重播</div>
+    </article>
+  </div>
+  <footer>本地素材预览。McPet 的日常交互仍在你当前的 Agent 会话中；图像是否内嵌播放由宿主支持决定。</footer>
+</main>
+<script>
+  document.getElementById('replay').addEventListener('click', async () => {
+    const videos = [...document.querySelectorAll('video')];
+    videos.forEach(video => { video.currentTime = 0; });
+    document.querySelectorAll('img').forEach(img => { img.src = img.src.split('?')[0] + '?replay=' + Date.now(); });
+    const outcomes = await Promise.allSettled(videos.map(video => video.play()));
+    document.getElementById('replay').textContent = outcomes.some(result => result.status === 'rejected')
+      ? '请点击视频播放按钮' : '重新播放两段';
+  });
+</script>
+</html>
