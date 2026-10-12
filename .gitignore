@@ -32,4 +32,5 @@ logs/
 opencode.json
 .claude/settings.local.json
 .claude/rules/mcpet.md
+.claude/skills/mcpet/
 .opencode/

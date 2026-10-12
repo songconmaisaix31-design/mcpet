@@ -4,6 +4,7 @@
 
 | 路径 | 职责 |
 |---|---|
+| `.agents/skills/mcpet/` | 通用 Agent 技能源与餐饮操作引用；原生适配安装同一份内容 |
 | `src/agent_mcp.py` | 面向原 Agent 的官方 MCP SDK stdio 服务、工具、资源与 prompt |
 | `src/agent_service.py` | 接入现有业务、确认流程和本机状态，无 Qt 或独立模型 |
 | `src/agent_install.py` | 默认输出通用 stdio 定义；显式原生适配保留其他 MCP/权限/hook |
@@ -26,6 +27,7 @@
 | 入口 | 用途 |
 |---|---|
 | `python -m src.agent_install` | 输出任意 MCP stdio 宿主可使用的 command/args，不写品牌配置 |
+| `python -m src.agent_install --skill-dir PATH` | 显式复制可移植技能到指定 skills 目录，不要求品牌适配 |
 | `python -m src.agent_install --client both --project PATH` | 显式安装指定项目的可选 OpenCode / Claude Code 适配 |
 | `python scripts/demo_actions.py --frying-video PATH --outfit-video PATH` | 一次性本地素材演示，不由 MCP 服务启动 |
 | `scripts/agent_host.py` | 宿主 stdio 启动器，不受宿主 cwd 影响 |
