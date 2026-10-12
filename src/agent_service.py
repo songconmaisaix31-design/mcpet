@@ -45,6 +45,20 @@ class AgentService:
         self.pending_order = None
         self.pending_nutrition = {}
         self.deal_options = None
+        from .luckin import LuckinService
+        self.coffee = LuckinService()
+
+    def coffee_query(self, tool, arguments):
+        return {"status": "ok", "data": self.coffee.query(tool, arguments)}
+
+    def coffee_prepare(self, dept_id, products, longitude, latitude):
+        return self.coffee.prepare(dept_id, products, longitude, latitude)
+
+    def coffee_confirm(self, confirmed=False):
+        return self.coffee.confirm(confirmed)
+
+    def coffee_cancel(self, order_id, confirmed=False):
+        return self.coffee.cancel(order_id, confirmed)
 
     @staticmethod
     def _client():
@@ -143,11 +157,13 @@ class AgentService:
         return {"city": os.environ.get("MCPET_CITY", "北京"),
                 "lunch_time": os.environ.get("MCPET_LUNCH_TIME", "11:30"),
                 "mcd_configured": bool(config.mcp_token()),
+                "luckin_configured": bool(config.luckin_token()),
+                "coffee_time": os.environ.get("MCPET_COFFEE_TIME", "15:00"),
                 "deepseek_configured": bool(config.deepseek_api_key()),
                 "independent_model_required": False,
                 "credentials": "沿用本机已有环境变量/用户配置，密钥不返回 Agent 对话"}
 
-    def configure(self, city="", lunch_time="", reminders_enabled=None, agent_roots=None):
+    def configure(self, city="", lunch_time="", reminders_enabled=None, agent_roots=None, coffee_time=""):
         values = {}
         if city:
             if len(city) > 80 or any(c in city for c in "\r\n\0"):
@@ -158,6 +174,11 @@ class AgentService:
             if parsed.strftime("%H:%M") != lunch_time:
                 raise ValueError("提醒时间须为 HH:MM")
             values["MCPET_LUNCH_TIME"] = lunch_time
+        if coffee_time:
+            parsed = datetime.strptime(coffee_time, "%H:%M")
+            if parsed.strftime("%H:%M") != coffee_time:
+                raise ValueError("提醒时间须为 HH:MM")
+            values["MCPET_COFFEE_TIME"] = coffee_time
         if agent_roots is not None:
             keys = {"claude": "MCPET_AGENT_ROOT_CLAUDE", "codex": "MCPET_AGENT_ROOT_CODEX",
                     "generic": "MCPET_AGENT_ROOT_GENERIC"}

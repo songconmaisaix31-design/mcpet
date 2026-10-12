@@ -62,9 +62,9 @@ def create_server(service=None):
 
     @server.tool(annotations=local)
     async def mcpet_configure(city: str = "", lunch_time: str = "", reminders_enabled: bool | None = None,
-                              agent_roots: dict[str, str] | None = None) -> dict[str, Any]:
+                              agent_roots: dict[str, str] | None = None, coffee_time: str = "") -> dict[str, Any]:
         """原会话配置城市、HH:MM 饭点、提醒开关；日志来源只用用户明确指定的 claude/codex/generic 目录。"""
-        return await invoke("configure", city, lunch_time, reminders_enabled, agent_roots)
+        return await invoke("configure", city, lunch_time, reminders_enabled, agent_roots, coffee_time)
 
     @server.tool(annotations=read)
     async def mcpet_coupons() -> dict[str, Any]:
@@ -132,6 +132,26 @@ def create_server(service=None):
     async def mcpet_reminders() -> dict[str, Any]:
         """检查饭点提醒，复用原调度逻辑，同一天跨 Agent 不重复。在原会话呈现。"""
         return await invoke("reminders")
+
+    @server.tool(annotations=read)
+    async def mcpet_luckin_query(tool: Literal["queryShopList", "searchProductForMcp", "queryProductDetailInfo", "switchProduct", "previewOrder", "queryOrderDetailInfo"], arguments: dict[str, Any]) -> dict[str, Any]:
+        """瑞幸官方只读查询：门店（longitude/latitude）、商品（deptId/query）、规格、订单（orderId）。参数按官方实时 schema 校验，绝不下单。"""
+        return await invoke("coffee_query", tool, arguments)
+
+    @server.tool(annotations=read)
+    async def mcpet_luckin_prepare(dept_id: int, products: list[dict[str, Any]], longitude: float, latitude: float) -> dict[str, Any]:
+        """预览瑞幸订单。products 来自真实商品结果，含 productId/skuCode/amount；展示实付和规格，等待明确确认。"""
+        return await invoke("coffee_prepare", dept_id, products, longitude, latitude)
+
+    @server.tool(annotations=write)
+    async def mcpet_luckin_confirm(confirmed: bool = False) -> dict[str, Any]:
+        """明确确认已展示的瑞幸订单后提交一次。五分钟过期、价格/规格变化均须重新确认；delivery_unknown 不重试。"""
+        return await invoke("coffee_confirm", confirmed)
+
+    @server.tool(annotations=write)
+    async def mcpet_luckin_cancel(order_id: str, confirmed: bool = False) -> dict[str, Any]:
+        """展示瑞幸订单号并获明确确认后撤单；未知效果不重试。"""
+        return await invoke("coffee_cancel", order_id, confirmed)
 
     @server.resource("mcpet://animation/maimai/frying", mime_type="image/gif", description="用户提供的炸薯条透明循环动画；宿主按自身资源能力呈现")
     def frying_animation() -> bytes:

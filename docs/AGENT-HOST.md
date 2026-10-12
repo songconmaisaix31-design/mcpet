@@ -12,7 +12,7 @@ python -m src.agent_install
 
 默认 `--client generic` 只输出 `server_name` 和通用 stdio `server` 定义，不读取或修改宿主配置。
 把其中 `command` 和 `args` 填入任意支持 stdio 的 MCP 客户端；外层配置结构由该客户端决定。
-绝对启动器不依赖宿主的工作目录。17 个工具、7 个资源和服务端 prompt 均不依赖宿主品牌或 hooks。
+绝对启动器不依赖宿主的工作目录。21 个工具、7 个资源和服务端 prompt 均不依赖宿主品牌或 hooks。
 支持 MCP 工具调用的客户端可直接查询 `mcpet_reminders` / `mcpet_progress`；自动事件/提醒是可选适配。
 
 已有宿主可选择显式原生接入：
@@ -54,6 +54,7 @@ python -m src.agent_install --client claude --project "你的项目目录"
 | 门店、餐品、价格 | `mcpet_deals` | 沿用真实官方 MCP 查询；失败明确返回，禁止模型编造 |
 | 下单 | `mcpet_prepare_order` / `mcpet_confirm_order` | 从当前会话真实报价选择，5 分钟有效；复核价格变化即重新确认 |
 | 撤单 | `mcpet_cancel_order` | 核对具体订单号再确认 |
+| 瑞幸 | `mcpet_luckin_query` / `mcpet_luckin_prepare` / `mcpet_luckin_confirm` / `mcpet_luckin_cancel` | 官方门店、商品、规格、预览、下单、订单/取餐码、撤单；本机 LUCKIN_MCP_TOKEN；明确确认、金额护栏、未知结果不重试 |
 | 营养 | `mcpet_nutrition` / `mcpet_nutrition_log` / `mcpet_nutrition_today` | 选真实查询餐品，确认份数再记账；跨宿主写入加锁避免覆盖 |
 | 额度 | `mcpet_balances` | 复用 Orca 缓存/官方 DeepSeek 余额；窗口、桶、币种独立，未知不填零 |
 | 会话状态 | `mcpet_progress` | 原 provider + 宿主事件；idle/Stop 不意味着任务成功 |

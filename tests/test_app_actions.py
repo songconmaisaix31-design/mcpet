@@ -61,6 +61,8 @@ def monster(tmp_path, monkeypatch):
     monkeypatch.setenv("MCPET_DATA_DIR", str(tmp_path))
     monkeypatch.setenv("MCD_MCP_TOKEN", "test-mcp-secret")
     monkeypatch.setenv("STEPFUN_API_KEY", "test-step-secret")
+    monkeypatch.setenv("MCPET_REMINDERS", "true")
+    monkeypatch.setenv("LUCKIN_MCP_TOKEN", "none")
     monkeypatch.setattr(config, "load_env", lambda: None)  # 绝不读根 .env
     monkeypatch.setattr(main.QtDailyScheduler, "start", lambda self: None)
     monkeypatch.setattr(main.MonsterApp, "_load_sheet", lambda s: None)
@@ -222,8 +224,9 @@ def test_confirmed_mock_order_has_payment_ui_and_cancel_confirmation(monster, mo
     monster.action_place_order()
     pump_until(lambda: not monster.tasks.busy)
     assert monster.last_order_no == "O-1"
-    assert monster.panel.open_button.isEnabled()
-    assert monster.panel.copy_button.isEnabled()
+    assert monster.panel is None
+    assert monster.pay_url == "https://pay.example/order"
+    assert "O-1" in monster.window.bubble.label.text()
     monkeypatch.setattr(monster, "_confirm", lambda *a: False)
     monster.action_cancel_last_order()
     assert [c[0] for c in brain.client.calls] == ["create-order"]
@@ -237,18 +240,18 @@ def test_known_mock_order_survives_audit_disk_failure(monster, monkeypatch):
     monster.action_place_order()
     pump_until(lambda: not monster.tasks.busy)
     assert monster.last_order_no == "O-1"
-    assert "审计保存失败" in monster.panel.payment_text.text()
+    assert "审计保存失败" in monster.window.bubble.label.text()
     assert len(brain.client.calls) == 1
 
 
 def test_nutrition_select_second_item_quantity_and_cancel_no_write(monster, monkeypatch):
     facts = [NutritionFact("第一项", energy_kcal=1), NutritionFact("用户选择", energy_kcal=100)]
     monster.tasks.worker.ensure_client = lambda: SimpleNamespace(nutrition=lambda: facts)
-    monkeypatch.setattr(main.NutritionSelectDialog, "selection", lambda self: None)
+    monkeypatch.setattr(monster, "_select_nutrition", lambda facts: None)
     monster.action_log_meal()
     pump_until(lambda: not monster.tasks.busy)
     assert not monster.ledger.entries and not monster.ledger.path.exists()
-    monkeypatch.setattr(main.NutritionSelectDialog, "selection", lambda self: (facts[1], 2.5))
+    monkeypatch.setattr(monster, "_select_nutrition", lambda facts: (facts[1], 2.5))
     monster.action_log_meal()
     pump_until(lambda: not monster.tasks.busy)
     assert len(monster.ledger.entries) == 1
@@ -279,10 +282,11 @@ def test_monitor_uses_real_context_estimate_no_stale_success(monster):
     monster.action_progress()
     assert monster.monitor.progress_requests == 1
     monster.monitor.failed.emit("刷新失败 test-step-secret")
-    text = monster.panel.progress_detail.toPlainText()
     monster.action_progress()
-    assert monster.panel.progress_detail.toPlainText() == text
-    assert "test-step-secret" not in text and "最后成功快照" in text
+    text = monster.window.bubble.label.text()
+    monster.action_progress()
+    assert monster.window.bubble.label.text() == text
+    assert "test-step-secret" not in text and "最后快照" in text
     assert monster.monitor.starts == 1
 
 

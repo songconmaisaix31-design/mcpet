@@ -25,6 +25,7 @@ Agent 接入修改的协议与业务回归：
 
 ```powershell
 python -m pytest tests/test_deepseek_skins.py tests/test_agent_host.py tests/test_brain.py tests/test_guards.py tests/test_client.py tests/test_ledger.py tests/test_agentbridge.py tests/test_progress.py tests/test_metering.py tests/test_account_balances.py tests/test_main_startup.py tests/test_companion_panel.py tests/test_dual_pet_render.py tests/test_maimai_actions.py tests/test_schedule.py tests/test_config.py -q
+python -m pytest tests/test_luckin.py tests/test_pet_menu.py tests/test_app_actions.py tests/test_quota_panel.py tests/test_pet_behavior.py tests/test_settings.py tests/test_skill.py -q
 python -m compileall -q src scripts tests
 git diff --check
 ```
@@ -32,6 +33,7 @@ git diff --check
 完整测试可运行 `python -m pytest -q`，但历史桌面/原生前台性能项存在尚未解决的 RED，
 见 [接入验证](docs/AGENT-HOST-VALIDATION.md) 与 [桌面 Handoff](docs/companion/README.md)。
 以上适用回归通过不等于完整测试或旧桌面动态验收。
+当前宠物菜单与瑞幸接入的完整适用命令和结果见 [验证记录](docs/PET-MENU-LUCKIN-VALIDATION.md)。
 
 宿主本机检查：安装接入后使用 `opencode mcp list` / `claude mcp get mcpet`。
 前者连接成功和后者发现配置分别记录；Claude 原生首次信任由用户确认。

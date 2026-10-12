@@ -6,7 +6,8 @@
 
 | 文档 | 内容 |
 |---|---|
-| [Agent 使用说明](AGENT-HOST.md) | 通用 MCP stdio 接入、可选宿主适配、17 项工具及动画资源 |
+| [Agent 使用说明](AGENT-HOST.md) | 通用 MCP stdio 接入、可选宿主适配、21 项工具及动画资源 |
+| [宠物菜单与瑞幸](PET-MENU-LUCKIN.md) | 右键菜单、气泡交互、时间/条件触发及瑞幸官方接入 |
 | [本地动作演示](PORTABLE-AGENT-DEMO.md) | 原视频与透明动画预览、通用客户端验证 |
 | [DeepSeek 娘动作与皮肤](DEEPSEEK-SKINS.md) | 短循环、双向换装、持久皮肤及桌宠播放验证 |
 | [ChatGPT 龙娘待机节奏](CHATGPT-IDLE-FIX.md) | 短图集循环过快的修复与实际定时验证 |
@@ -25,6 +26,7 @@
 | [Agent 接入计划](AGENT-HOST-PLAN.md) | 从桌面入口切到原 Agent 的范围与假设 |
 | [Agent 接入验证](AGENT-HOST-VALIDATION.md) | 315 项回归、真实 stdio、首次失败和待人工项 |
 | [仓库整理记录](REPOSITORY-CLEANUP.md) | 文档整理、主分支归拢与本轮检查 |
+| [菜单与瑞幸验证](PET-MENU-LUCKIN-VALIDATION.md) | 426 项适用回归、真实 stdio、可见菜单/气泡及保留的性能 RED |
 | [动作导入验证](maimai-actions-verification.md) | 两段用户视频转换与旧桌面动作验证 |
 
 ## 历史实现与证据

@@ -16,6 +16,7 @@ from dotenv import load_dotenv, dotenv_values
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MCP_URL = "https://mcp.mcd.cn"
+LUCKIN_MCP_URL = "https://gwmcp.lkcoffee.com/order/user/mcp"
 
 # 麦当劳 MCP 限流：每个 Token 每分钟 600 次。留 10% 余量。
 DEFAULT_RATE_LIMIT_PER_MINUTE = 540
@@ -27,7 +28,8 @@ def load_env() -> None:
     load_dotenv(PROJECT_ROOT / ".env", override=False, interpolate=False)
 
 
-SETTINGS_KEYS = ("MCD_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY", "MCPET_CITY", "MCPET_LUNCH_TIME",
+SETTINGS_KEYS = ("MCD_MCP_TOKEN", "LUCKIN_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY", "MCPET_CITY", "MCPET_LUNCH_TIME",
+                 "MCPET_COFFEE_TIME", "MCPET_COFFEE_QUERY", "MCPET_COFFEE_DEPT_ID", "MCPET_LONGITUDE", "MCPET_LATITUDE",
                  "MCPET_AGENT_ROOT_CLAUDE", "MCPET_AGENT_ROOT_CODEX",
                  "MCPET_AGENT_ROOT_GENERIC")
 
@@ -78,6 +80,11 @@ def mcp_token() -> str | None:
 
 def mcp_url() -> str:
     return os.environ.get("MCD_MCP_URL") or DEFAULT_MCP_URL
+
+
+def luckin_token() -> str | None:
+    value = os.environ.get("LUCKIN_MCP_TOKEN", "")
+    return None if _is_placeholder(value) else value.strip()
 
 
 def stepfun_api_key() -> str | None:
@@ -179,7 +186,7 @@ def redact(text: str, token: str | None = None, *, personal: bool = True) -> str
     if not text:
         return text
     out = text
-    for key in ("MCD_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY"):
+    for key in ("MCD_MCP_TOKEN", "LUCKIN_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY"):
         secret = os.environ.get(key, "")
         if secret and not _is_placeholder(secret):
             out = out.replace(secret, "***")
