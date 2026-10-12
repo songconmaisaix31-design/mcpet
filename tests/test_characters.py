@@ -10,8 +10,8 @@ from src.pet.spritesheet import AnimationSheet
 
 
 def test_shared_character_contract():
-    assert CHARACTER_IDS == ("maimai", "deepseek")
-    assert character_name("maimai") == "麦麦"
+    assert CHARACTER_IDS == ("deepseek", "maimai")
+    assert character_name("maimai") == "ChatGPT 娘"
     assert character_name("deepseek") == "DeepSeek 娘"
     for identity in CHARACTER_IDS:
         sheet = load_character(identity)

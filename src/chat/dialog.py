@@ -67,7 +67,7 @@ class ChatDialog(QDialog):
     def __init__(self, store, parent=None):
         super().__init__(parent)
         self.store = store
-        self.setWindowTitle("问麦麦 · 持续聊天")
+        self.setWindowTitle("问桌宠 · 持续聊天")
         self.resize(580, 560)
         layout = QVBoxLayout(self)
         self.mode = QComboBox()
@@ -100,7 +100,7 @@ class ChatDialog(QDialog):
 
     def reload(self):
         self.transcript.setPlainText("\n\n".join(
-            ("你：" if m["role"] == "user" else "麦麦：") + m["content"] for m in self.store.messages))
+            ("你：" if m["role"] == "user" else "搭子：") + m["content"] for m in self.store.messages))
         self.transcript.verticalScrollBar().setValue(self.transcript.verticalScrollBar().maximum())
 
     def submit(self):

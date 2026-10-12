@@ -13,7 +13,7 @@ from collections.abc import Sequence
 
 from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal, QEventLoop
 from PySide6.QtGui import QFont, QPixmap
-from PySide6.QtWidgets import QApplication, QLabel, QMenu, QProgressBar, QVBoxLayout, QWidget, QPushButton, QLineEdit, QScrollArea, QSizePolicy
+from PySide6.QtWidgets import QApplication, QLabel, QMenu, QVBoxLayout, QWidget, QPushButton, QLineEdit, QScrollArea, QSizePolicy
 from .menu import populate_menu
 
 from .spritesheet import AnimationSheet, ScaledAnimationFrames, SpriteLoadError, SpriteSheet
@@ -225,33 +225,10 @@ class PetWindow(QWidget):
         self.canvas.setAlignment(Qt.AlignCenter)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
-        self.activity_label = QLabel(self)
-        self.activity_label.setAlignment(Qt.AlignCenter)
-        self.activity_label.setStyleSheet("color:#614819;background:#FFF8E7;border-radius:4px;")
-        self.activity_label.setFixedHeight(20)
-        self.context_bar = QProgressBar(self)
-        self.context_bar.setRange(0, 100)
-        self.context_bar.setFormat("上下文 %p%")
-        self.context_bar.setFixedHeight(18)
-        self.context_bar.setStyleSheet(
-            "QProgressBar{background:#FFF8E7;color:#3A2A12;border:1px solid #E0B24C;"
-            "border-radius:4px;text-align:center;}"
-            "QProgressBar::chunk{background:#F0C34D;border-radius:3px;}"
-        )
-        # Reserve fixed header space: UNKNOWN -> measured context must not move
-        # the sprite's screen anchor on every background refresh.
-        for control in (self.activity_label, self.context_bar):
-            policy = control.sizePolicy()
-            policy.setRetainSizeWhenHidden(True)
-            control.setSizePolicy(policy)
-        self.activity_label.hide()
-        self.context_bar.hide()
-        layout.addWidget(self.activity_label)
-        layout.addWidget(self.context_bar)
+        layout.setSpacing(0)
         layout.addWidget(self.canvas)
         self.setLayout(layout)
-        self.setFixedSize(size, size + 42)
+        self.setFixedSize(size, size)
 
         self._frames: Sequence[QPixmap] = []
         self._cache: dict[str, Sequence[QPixmap]] = {}
@@ -540,15 +517,8 @@ class PetWindow(QWidget):
         self.say(text, ttl_ms)
 
     def set_activity(self, state: str, context_percent=None, label: str = "") -> None:
+        # Progress details stay in the menu/Agent; polling only drives animation.
         self._activity_state = state
-        valid = (isinstance(context_percent, (int, float)) and not isinstance(context_percent, bool)
-                 and math.isfinite(context_percent) and 0 <= context_percent <= 100)
-        self.context_bar.setVisible(valid)
-        if valid:
-            self.context_bar.setValue(round(context_percent))
-        text = label if valid else (f"{label} · 上下文未知" if label else "上下文未知")
-        self.activity_label.setText(text)
-        self.activity_label.setVisible(bool(text))
         self._apply_base()
         self._clamp()
 

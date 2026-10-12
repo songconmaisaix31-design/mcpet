@@ -4,6 +4,8 @@ DeepSeek 娘到岗啦：陪你查麦当劳优惠、挑瑞幸咖啡，记饭饭�
 
 新用户默认 **DeepSeek 娘**，**ChatGPT 娘** 也可随时切换。DeepSeek 娘的默认套装和麦麦套装都在衣柜里，不用固定穿某一套；已有选择会继续记住。
 
+宠物上方不再常驻状态条或上下文容器，也不留空白占位。右键查看进度时才冒个气泡，后台活动照常驱动动作。
+
 **首发 v0.1.0**：[下载发行包](https://github.com/songconmaisaix31-design/mcpet/releases/tag/v0.1.0) · [召唤与接入小抄](docs/RELEASE-QUICKSTART.md)。Windows 便携包解压后双击 `Start-Pet.vbs`；通用 Agent 包沿用 Python 接入。
 
 Agent 里的我沿用你正在聊的会话和模型，不用多开聊天窗口，也不用再买一份模型 Key。领取、下单、撤单和记账前，我们会先核对具体内容，再按你的明确确认操作。

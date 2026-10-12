@@ -406,7 +406,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_models = sub.add_parser("models", help="列出阶跃星辰可用对话模型")
     p_models.set_defaults(func=cmd_models)
 
-    p_ask = sub.add_parser("ask", help="问麦麦（大模型调度 MCP 工具）")
+    p_ask = sub.add_parser("ask", help="问桌宠（大模型调度 MCP 工具）")
     p_ask.add_argument("question")
     p_ask.add_argument("--allow-write", action="store_true",
                        help="允许大模型直接执行领券/下单等写操作（默认需人工确认）")

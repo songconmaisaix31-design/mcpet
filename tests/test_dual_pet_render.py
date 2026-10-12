@@ -43,7 +43,7 @@ def test_switch_preserves_touch_deadline_latest_base_position_and_bubble(pet):
     assert pet.character_id == "deepseek" and pet.machine.state == "greet"
     assert pet.machine._expires_at == expires
     assert pet.pos() == position and pet.bubble.label.text() == text
-    assert pet.context_bar.isHidden() and "未知" in pet.activity_label.text()
+    assert pet.size() == pet.canvas.size() and pet.layout().count() == 1
     assert not pet.canvas.pixmap().isNull()
     pet.machine._expires_at = time.monotonic() - 1
     pet._decay()
