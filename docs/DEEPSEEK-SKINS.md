@@ -79,6 +79,10 @@ python -m pytest tests/test_deepseek_skins.py tests/test_agent_host.py tests/tes
 与默认启动的 MCP 服务共享皮肤/动作指令。启动时空日志源及空业务/模型凭证仅作用于该进程，
 不修改用户凭证或宿主配置。隔离演示进程已通过菜单退出，两个已知 PID 随后均不存在。
 退出动作的工具后状态返回 app_not_found，进程退出效果按 PID 读回记录。
+合并后默认偏好启动的桌宠子进程 PID 39852 实际显示麦麦套装。用同一 AgentService 发炸薯条循环、
+切默认套装、正向换装，逐项捕获原生画面并目视检查；最后读回 `skin_id=maimai`、`action=idle`、
+无待完成皮肤，进程仍在运行且 stderr 为空。证据为演示目录 `delivery-*.json` / `delivery-stderr.log`。
+真实 stdio 工具调用由上述测试单独验证；本机服务指令演示不等于特定宿主会话已重新加载 MCP。
 
 GIF 实际编码时长分别 2160 / 3840 / 3840 ms，炸薯条 loop=0，两个换装无 loop。
 真实 stdio 验证新参数及四个新资源、默认依赖仍不导入 Qt/独立模型。
