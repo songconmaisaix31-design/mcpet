@@ -8,68 +8,105 @@
     4.64,
     5.68
   ],
+  "open_eye_hold_ms": 4000,
   "animations": {
     "idle": {
-      "frames": 13,
+      "frames": 63,
       "pages": [
         "idle-000.png",
-        "idle-001.png"
+        "idle-001.png",
+        "idle-002.png",
+        "idle-003.png",
+        "idle-004.png",
+        "idle-005.png"
       ]
     },
     "run-left": {
-      "frames": 13,
+      "frames": 63,
       "pages": [
         "idle-000.png",
-        "idle-001.png"
+        "idle-001.png",
+        "idle-002.png",
+        "idle-003.png",
+        "idle-004.png",
+        "idle-005.png"
       ]
     },
     "working": {
-      "frames": 13,
+      "frames": 63,
       "pages": [
         "idle-000.png",
-        "idle-001.png"
+        "idle-001.png",
+        "idle-002.png",
+        "idle-003.png",
+        "idle-004.png",
+        "idle-005.png"
       ]
     },
     "thinking": {
-      "frames": 13,
+      "frames": 63,
       "pages": [
         "idle-000.png",
-        "idle-001.png"
+        "idle-001.png",
+        "idle-002.png",
+        "idle-003.png",
+        "idle-004.png",
+        "idle-005.png"
       ]
     },
     "greet": {
-      "frames": 13,
+      "frames": 63,
       "pages": [
         "idle-000.png",
-        "idle-001.png"
+        "idle-001.png",
+        "idle-002.png",
+        "idle-003.png",
+        "idle-004.png",
+        "idle-005.png"
       ]
     },
     "happy": {
-      "frames": 13,
+      "frames": 63,
       "pages": [
         "idle-000.png",
-        "idle-001.png"
+        "idle-001.png",
+        "idle-002.png",
+        "idle-003.png",
+        "idle-004.png",
+        "idle-005.png"
       ]
     },
     "error": {
-      "frames": 13,
+      "frames": 63,
       "pages": [
         "idle-000.png",
-        "idle-001.png"
+        "idle-001.png",
+        "idle-002.png",
+        "idle-003.png",
+        "idle-004.png",
+        "idle-005.png"
       ]
     },
     "sleeping": {
-      "frames": 13,
+      "frames": 63,
       "pages": [
         "idle-000.png",
-        "idle-001.png"
+        "idle-001.png",
+        "idle-002.png",
+        "idle-003.png",
+        "idle-004.png",
+        "idle-005.png"
       ]
     },
     "eating": {
-      "frames": 13,
+      "frames": 63,
       "pages": [
         "idle-000.png",
-        "idle-001.png"
+        "idle-001.png",
+        "idle-002.png",
+        "idle-003.png",
+        "idle-004.png",
+        "idle-005.png"
       ]
     }
   },
