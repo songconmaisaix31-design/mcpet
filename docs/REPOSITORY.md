@@ -6,7 +6,7 @@
 |---|---|
 | `src/agent_mcp.py` | 面向原 Agent 的官方 MCP SDK stdio 服务、工具、资源与 prompt |
 | `src/agent_service.py` | 接入现有业务、确认流程和本机状态，无 Qt 或独立模型 |
-| `src/agent_install.py` | 生成原宿主项目配置，保留其他 MCP/权限/hook |
+| `src/agent_install.py` | 默认输出通用 stdio 定义；显式原生适配保留其他 MCP/权限/hook |
 | `src/agent_hook.py` / `src/agent_local.py` | 宿主事件 allowlist、本机跨进程写锁 |
 | `src/mcd_mcp/` | 麦当劳 HTTP 客户端、业务、订单护栏；旧模型 Skill 保留 |
 | `src/nutrition/` | 本机营养台账 |
@@ -16,7 +16,7 @@
 | `src/pet/` / `src/runtime/` / `src/main.py` | 旧桌面兼容与后台 monitor；默认模块入口提前进入 MCP |
 | `src/cli.py` / `src/llm/` | 显式 CLI；独立模型问答仅保留为可选兼容 |
 | `integrations/opencode/` | 原宿主插件模板，安装器填入机器路径后运行 |
-| `scripts/` | 绝对路径启动器、离线素材转换与既有诊断工具 |
+| `scripts/` | 绝对路径启动器、显式本地素材预览、离线素材转换与既有诊断工具 |
 | `assets/` | 图集、分页和 GIF、来源说明与上游许可证 |
 | `tests/` | 现有协议、业务、台账、原生 Qt 与回归测试 |
 | `docs/` | 当前使用说明、计划/验证记录与历史 Handoff |
@@ -25,7 +25,9 @@
 
 | 入口 | 用途 |
 |---|---|
-| `python -m src.agent_install --client both --project PATH` | 一次接入指定项目的 OpenCode / Claude Code |
+| `python -m src.agent_install` | 输出任意 MCP stdio 宿主可使用的 command/args，不写品牌配置 |
+| `python -m src.agent_install --client both --project PATH` | 显式安装指定项目的可选 OpenCode / Claude Code 适配 |
+| `python scripts/demo_actions.py --frying-video PATH --outfit-video PATH` | 一次性本地素材演示，不由 MCP 服务启动 |
 | `scripts/agent_host.py` | 宿主 stdio 启动器，不受宿主 cwd 影响 |
 | `scripts/agent_hook.py --host claude/opencode` | 宿主原生命令 hook，输入 JSON 元数据 |
 | `python -m src.main` / `python -m src.agent_mcp` | 默认 stdio 服务，通常由宿主启停 |

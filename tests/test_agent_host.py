@@ -185,8 +185,8 @@ def test_configuration_preserves_servers_permissions_hooks(isolated):
     settings = {"permissions": {"deny": ["Bash(rm *)"]},
                 "hooks": {"Stop": [{"hooks": [other]}]}}
     (isolated / ".claude/settings.local.json").write_text(json.dumps(settings))
-    install(isolated)
-    install(isolated)
+    install(isolated, "both")
+    install(isolated, "both")
     mcp = json.loads((isolated / ".mcp.json").read_text())
     assert mcp["mcpServers"]["other"] == {"command": "other"}
     actual = json.loads((isolated / ".claude/settings.local.json").read_text())
@@ -199,7 +199,7 @@ def test_configuration_preserves_servers_permissions_hooks(isolated):
 
 def test_jsonc_refusal_does_not_partially_change_claude(isolated):
     (isolated / "opencode.jsonc").write_text("// custom\n{}")
-    with pytest.raises(ValueError, match="jsonc"): install(isolated)
+    with pytest.raises(ValueError, match="jsonc"): install(isolated, "both")
     assert not (isolated / ".mcp.json").exists()
 
 
@@ -211,6 +211,38 @@ def test_fresh_process_does_not_import_qt_or_llm(isolated):
         capture_output=True, text=True, timeout=15)
     assert result.returncode == 0, result.stderr
     assert "headless-ok" in result.stdout
+
+
+def test_default_export_connects_without_native_host_configs(isolated):
+    # Deliberately provide malformed native configs: generic integration never reads them.
+    (isolated / "opencode.jsonc").write_text("// existing native config\n{}")
+    (isolated / ".mcp.json").write_text("native-config-is-not-json")
+    before = {path: path.read_bytes() for path in isolated.iterdir() if path.is_file()}
+    output = subprocess.run([sys.executable, "-m", "src.agent_install", "--project", str(isolated)],
+                            cwd=ROOT, env=dict(os.environ), capture_output=True, text=True,
+                            encoding="utf-8", timeout=15)
+    assert output.returncode == 0, output.stderr
+    exported = json.loads(output.stdout)
+    assert exported["installed"] == []
+    assert {path: path.read_bytes() for path in isolated.iterdir() if path.is_file()} == before
+    assert not (isolated / ".claude").exists()
+    assert not (isolated / ".opencode").exists()
+
+    async def run():
+        server = exported["server"]
+        parameters = StdioServerParameters(command=server["command"], args=server["args"],
+                                          cwd=str(isolated), env=dict(os.environ))
+        async with stdio_client(parameters) as (read, write):
+            async with ClientSession(read, write) as session:
+                await session.initialize()
+                assert len((await session.list_tools()).tools) == 17
+                for action in ("frying", "outfit"):
+                    result = await session.call_tool("mcpet_pet", {"action": action})
+                    assert result.structuredContent["animation"]["uri"].endswith("/" + action)
+                    resource = await session.read_resource("mcpet://animation/maimai/" + action)
+                    assert resource.contents[0].mimeType == "image/gif"
+                    assert base64.b64decode(resource.contents[0].blob).startswith(b"GIF89a")
+    asyncio.run(run())
 
 
 @pytest.mark.parametrize("entry", ["launcher", "default"])

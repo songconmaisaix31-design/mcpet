@@ -1,17 +1,29 @@
 # 在原 Agent 里使用 McPet
 
-用户只和正在使用的 OpenCode / Claude Code 对话。McPet 是该会话的一组 MCP 工具，
+用户只和正在使用的 Agent 对话；宿主只需支持标准 MCP stdio。McPet 是该会话的一组 MCP 工具，
 由宿主通过 stdio 启停，无 QWidget、托盘、独立聊天界面或模型调用。现有业务与本机台账复用。
 
 ## 一次接入
 
 ```powershell
 python -m pip install -r requirements-agent.txt
-python -m src.agent_install --client both --project "你的项目目录"
+python -m src.agent_install
+```
+
+默认 `--client generic` 只输出 `server_name` 和通用 stdio `server` 定义，不读取或修改宿主配置。
+把其中 `command` 和 `args` 填入任意支持 stdio 的 MCP 客户端；外层配置结构由该客户端决定。
+绝对启动器不依赖宿主的工作目录。17 个工具、3 个资源和服务端 prompt 均不依赖宿主品牌或 hooks。
+支持 MCP 工具调用的客户端可直接查询 `mcpet_reminders` / `mcpet_progress`；自动事件/提醒是可选适配。
+
+已有宿主可选择显式原生接入：
+
+```powershell
+python -m src.agent_install --client opencode --project "你的项目目录"
+python -m src.agent_install --client claude --project "你的项目目录"
 ```
 
 在 McPet 仓库运行接入命令；`--project` 是以后使用原 Agent 的项目，不必进入 McPet 才能对话。
-可只接一个宿主：`--client opencode` 或 `--client claude`。安装器将当前 Python 和 McPet 路径写到
+`--client both` 可同时安装两份可选适配。原生安装器将当前 Python 和 McPet 路径写到
 项目配置，不修改全局账号、权限或其他 MCP 服务。移动 McPet 或切换 Python 后重跑安装器。
 当前机器的本仓库已生成这两份接入配置。Claude Code 的首次项目 MCP 信任由其原生流程处理。
 已运行的宿主需要重开此项目会话以加载新配置。
@@ -55,7 +67,7 @@ python -m src.agent_install --client both --project "你的项目目录"
 `delivery_unknown`，同会话已消耗的订单不允许重放；先核对已有账号订单，禁止自动重下。
 宿主自己的工具审批不会被安装器绕过。
 
-## 两个宿主的配置
+## 可选原生宿主配置
 
 OpenCode：`opencode.json` 添加 `mcp.mcpet` 的 `type: local`、绝对 `command` 数组；原生
 `.opencode/plugins/mcpet.js` 仅接会话状态、权限等待和已完成助手消息中的数值用量，饭点走已有 toast。
@@ -85,6 +97,8 @@ GIF 的颜色/透明度是调色板形式，原 RGBA PNG 未改动。
 
 工具和资源通路可验证，但 OpenCode/Claude Code 的普通终端不保证播放 GIF；当前没有把动画
 强行塞进另一窗口。需要宿主支持图像资源或提供工作台渲染插槽才可内嵌播放。
+用户要求演示时，可用 [本地动作预览](PORTABLE-AGENT-DEMO.md) 在工作台浏览器同时播放原视频和透明动画。
+它是显式运行的素材预览，MCP 服务不会启动它，也不承载业务交互。
 
 ## 验证范围
 
