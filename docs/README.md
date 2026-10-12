@@ -26,6 +26,7 @@
 | [Agent 接入计划](AGENT-HOST-PLAN.md) | 从桌面入口切到原 Agent 的范围与假设 |
 | [Agent 接入验证](AGENT-HOST-VALIDATION.md) | 315 项回归、真实 stdio、首次失败和待人工项 |
 | [仓库整理记录](REPOSITORY-CLEANUP.md) | 文档整理、主分支归拢与本轮检查 |
+| [菜单与瑞幸验证](PET-MENU-LUCKIN-VALIDATION.md) | 426 项适用回归、真实 stdio、可见菜单/气泡及保留的性能 RED |
 | [动作导入验证](maimai-actions-verification.md) | 两段用户视频转换与旧桌面动作验证 |
 
 ## 历史实现与证据

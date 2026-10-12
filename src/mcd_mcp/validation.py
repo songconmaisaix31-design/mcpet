@@ -25,4 +25,3 @@ def validate_arguments(arguments: Any, schema: dict[str, Any]) -> None:
     if isinstance(arguments, list) and "items" in schema:
         for value in arguments:
             validate_arguments(value, schema["items"])
-
