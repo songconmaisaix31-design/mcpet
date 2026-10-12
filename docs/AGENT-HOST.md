@@ -92,7 +92,7 @@ Claude hooks 不读取 transcript，因此没有自动采集其 token 用量；�
 ## 动画资源
 
 当前 DeepSeek 娘使用 [短动作与可切换皮肤](DEEPSEEK-SKINS.md)：
-`mcpet://animation/deepseek/frying` 为 2.16 秒循环，`mcpet://animation/deepseek/outfit`
+`mcpet://animation/deepseek/frying` 为 2.40 秒循环，`mcpet://animation/deepseek/outfit`
 及 `outfit-default` 为 3.84 秒正向/反向换装；`mcpet://skin/deepseek/maimai` 为穿装待机。
 `mcpet_pet(character_id="deepseek", skin_id="maimai")` / `skin_id="default"` 立即切换并保存。
 `action="outfit"` 结束后保存目标套装，重启也可恢复；切皮肤、中止动作会取消未完成的换装。

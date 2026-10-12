@@ -22,7 +22,7 @@ changes role/action and returns an animation resource URI. For DeepSeek use
 and `skin_id="default"` restores the original dress immediately. Either choice cancels
 an ongoing action; do not lock the user to one costume. `action="outfit"` plays the
 3.84-second transition to the other skin and persists its target; `action="frying"`
-wears the maimai skin and can loop every 2.16 seconds. An already-running desktop pet
+wears the maimai skin and can loop every 2.40 seconds. An already-running desktop pet
 receives these commands from its own local preferences; MCP never launches it.
 Rendering depends on host image/resource support; never open an
 external animation window. If rendering is unavailable, explain that briefly.

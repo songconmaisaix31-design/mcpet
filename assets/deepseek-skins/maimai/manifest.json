@@ -4,65 +4,69 @@
   "frame_delay_ms": 80,
   "preview": "preview.png",
   "skin_id": "maimai",
+  "clip": [
+    4.64,
+    5.68
+  ],
   "animations": {
     "idle": {
-      "frames": 24,
+      "frames": 13,
       "pages": [
         "idle-000.png",
         "idle-001.png"
       ]
     },
     "run-left": {
-      "frames": 24,
+      "frames": 13,
       "pages": [
         "idle-000.png",
         "idle-001.png"
       ]
     },
     "working": {
-      "frames": 24,
+      "frames": 13,
       "pages": [
         "idle-000.png",
         "idle-001.png"
       ]
     },
     "thinking": {
-      "frames": 24,
+      "frames": 13,
       "pages": [
         "idle-000.png",
         "idle-001.png"
       ]
     },
     "greet": {
-      "frames": 24,
+      "frames": 13,
       "pages": [
         "idle-000.png",
         "idle-001.png"
       ]
     },
     "happy": {
-      "frames": 24,
+      "frames": 13,
       "pages": [
         "idle-000.png",
         "idle-001.png"
       ]
     },
     "error": {
-      "frames": 24,
+      "frames": 13,
       "pages": [
         "idle-000.png",
         "idle-001.png"
       ]
     },
     "sleeping": {
-      "frames": 24,
+      "frames": 13,
       "pages": [
         "idle-000.png",
         "idle-001.png"
       ]
     },
     "eating": {
-      "frames": 24,
+      "frames": 13,
       "pages": [
         "idle-000.png",
         "idle-001.png"

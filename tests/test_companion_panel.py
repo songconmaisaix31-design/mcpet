@@ -50,7 +50,7 @@ def test_imported_actions_use_real_panel_and_tray_without_network(monster, monke
     panel.default_skin_button.click()
     assert monster.window.skin_id == "default" and panel.default_skin_button.isChecked()
     panel.frying_button.click()
-    assert monster.window.machine.state == "frying" and len(monster.window._frames) == 27
+    assert monster.window.machine.state == "frying" and len(monster.window._frames) == 30
     assert monster.window.skin_id == "maimai"
     assert "炸薯条 · 循环" in [action.text() for action in monster.tray.contextMenu().actions()]
 

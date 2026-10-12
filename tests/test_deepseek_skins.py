@@ -76,7 +76,7 @@ def test_skin_switch_any_time_cancels_action_and_late_commit(pet, action):
 
 def test_frying_loop_uses_short_frames_keeps_skin_until_explicit_change(pet):
     pet.play_action("frying", loop=True)
-    assert pet.skin_id == "maimai" and len(pet._frames) == 27
+    assert pet.skin_id == "maimai" and len(pet._frames) == 30
     QTest.qWait(180)
     assert pet._index > 0
     finish(pet)
@@ -95,7 +95,7 @@ def test_live_widget_receives_agent_skin_and_action_without_host_brand(pet):
     assert pet.skin_id == "maimai"
     service.pet("frying", loop=True)
     pet._receive_agent_command()
-    assert pet._action_state == "frying" and len(pet._frames) == 27
+    assert pet._action_state == "frying" and len(pet._frames) == 30
     service.pet(skin_id="default")
     pet._receive_agent_command()
     assert pet.skin_id == "default" and pet._action_state is None
@@ -139,7 +139,7 @@ def test_real_stdio_skin_switch_and_new_transparent_resources(pet):
                     result = await session.call_tool("mcpet_pet", {"character_id":"deepseek", "skin_id":skin})
                     assert result.structuredContent["skin_id"] == skin
                 result = await session.call_tool("mcpet_pet", {"action":"frying", "loop":True})
-                assert result.structuredContent["animation"]["duration_seconds"] == 2.16
+                assert result.structuredContent["animation"]["duration_seconds"] == 2.40
                 for uri in ("mcpet://animation/deepseek/frying", "mcpet://animation/deepseek/outfit",
                             "mcpet://animation/deepseek/outfit-default", "mcpet://skin/deepseek/maimai"):
                     resource = await session.read_resource(uri)
