@@ -240,8 +240,9 @@ def native_probe(mode):
                 refresh()
             phase = "work"
         elif phase == "work" and monster.window.machine.base_state == "working" and monster.usage_snapshot[0].lifetime.tokens == 110:
-            assert monster.window.context_bar.value() == 25
-            assert "controlled work" in monster.window.activity_label.text()
+            assert any(s.context_percent == 25 and s.label == "controlled work"
+                       for s in monster.progress_snapshot.active)
+            assert monster.window.size() == monster.window.canvas.size()
             assert not completed
             result["working"] = True
             append(kind="task_complete", taskId="explicit-controlled-completion", project="contract-only")

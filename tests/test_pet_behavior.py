@@ -217,17 +217,17 @@ def test_background_poll_keeps_touch_bubble_and_restores_new_base(pet, monkeypat
     assert pet.machine.state == "working"
 
 
-def test_context_unknown_and_zero_are_distinct(pet):
+def test_activity_refresh_has_no_header_or_reserved_space(pet):
     anchor = pet.canvas.mapToGlobal(QPoint(0, 0))
     size = pet.size()
-    for unknown in (None, float("nan"), float("inf"), -1, 101, True, "45"):
-        pet.set_activity("working", unknown, "开发")
-        assert pet.context_bar.isHidden()
-        assert "上下文未知" in pet.activity_label.text()
-    pet.set_activity("working", 0, "开发")
-    assert not pet.context_bar.isHidden()
-    assert pet.context_bar.value() == 0
-    assert "未知" not in pet.activity_label.text()
+    assert size == pet.canvas.size()
+    assert pet.layout().count() == 1
+    assert not hasattr(pet, "context_bar") and not hasattr(pet, "activity_label")
+    pet.say("陪你一起", 8000)
+    for percent in (None, float("nan"), float("inf"), -1, 101, True, "45", 0, 25, 100):
+        pet.set_activity("working", percent, "开发")
+        assert pet.machine.base_state == "working"
+        assert pet.bubble.isVisible() and pet.bubble.label.text() == "陪你一起"
     QApplication.processEvents()
     assert pet.size() == size
     assert pet.canvas.mapToGlobal(QPoint(0, 0)) == anchor

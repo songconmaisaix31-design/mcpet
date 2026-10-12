@@ -295,7 +295,7 @@ def native_probe(mode, screenshots=None):
             monitor.refresh_progress()
             phase = "work"
         elif phase == "work" and monster.window.machine.base_state == "working":
-            result["working"] = monster.window.context_bar.value() == 25
+            result["working"] = any(s.context_percent == 25 for s in monster.progress_snapshot.active)
             begin = time.monotonic()
             monster.action_panel()
             result["first_panel_ms"] = round((time.monotonic() - begin) * 1000, 2)

@@ -31,6 +31,8 @@ from PySide6.QtWidgets import (
 
 from .. import config
 from .spritesheet import AnimationSheet
+from .identity import DEFAULT_CHARACTER
+from .characters import character_name
 
 
 def character_preview(sheet):
@@ -202,7 +204,8 @@ class CompanionPanel(QDialog):
         hero_row = QHBoxLayout()
         hero_row.addWidget(self.preview)
         hero_words = QVBoxLayout()
-        self.character_name = self.label(hero_words, "麦麦")
+        initial_character = sheet.meta.get("character_id", DEFAULT_CHARACTER) if sheet else DEFAULT_CHARACTER
+        self.character_name = self.label(hero_words, character_name(initial_character))
         self.character_name.setStyleSheet("font-size:18px; font-weight:700;")
         self.character_activity = self.label(hero_words, "会话状态 UNKNOWN · 等待本机日志")
         self.character_buttons = {}
@@ -301,12 +304,12 @@ class CompanionPanel(QDialog):
         self.mcd_layout.addStretch()
         self.settings = SettingsForm()
         self.settings_layout.addWidget(self.settings)
-        self.status = QLabel("麦麦在这里 · 会话只读观测")
+        self.status = QLabel("搭子在这里 · 会话只读观测")
         self.status.setTextFormat(Qt.PlainText)
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
         self.set_business_state(False, False)
-        self.set_character("maimai", "麦麦", sheet, ())
+        self.set_character(initial_character, character_name(initial_character), sheet, ())
 
     def set_character(self, character_id, name, sheet, choices):
         self.character_name.setText(name)
@@ -677,7 +680,7 @@ class CompanionPanel(QDialog):
 
     def set_controls(self, roaming, resting, visible):
         for button, checked, text in ((self.roaming_button, roaming, "闲逛 · " + ("开启" if roaming else "关闭")),
-                                      (self.resting_button, resting, "唤醒麦麦" if resting else "让麦麦休息")):
+                                      (self.resting_button, resting, "唤醒搭子" if resting else "让搭子休息")):
             button.blockSignals(True)
             button.setChecked(checked)
             button.setText(text)
@@ -722,7 +725,7 @@ class CompanionPanel(QDialog):
         self.usage_status.setText(config.redact(summary))
 
     def set_busy(self, busy, label=""):
-        self.status.setText(config.redact(label + "…" if busy else "麦麦在这里 · 会话只读观测"))
+        self.status.setText(config.redact(label + "…" if busy else "搭子在这里 · 会话只读观测"))
         self.settings.save_button.setEnabled(not busy)
 
     def set_business_state(self, has_quote, has_order):

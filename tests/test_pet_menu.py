@@ -37,6 +37,8 @@ def test_all_features_in_compact_nested_menu_no_panel_or_model(monster, monkeypa
     top = monster.tray.contextMenu().actions()
     assert len(top) <= 11
     labels = {a.text() for a in all_actions(monster.tray.contextMenu())}
+    assert {"DeepSeek 娘", "ChatGPT 娘", "麦麦套装"} <= labels
+    assert "麦麦" not in labels
     assert {"会话进度", "本机用量", "账号额度 / 余额", "主动领券", "确认订单", "今日营养", "瑞幸 Token", "饭点", "咖啡时间", "调整规格", "查订单 / 取餐码"} <= labels
     monster.window.chat_requested.emit()
     monster.tray.on_activate()
