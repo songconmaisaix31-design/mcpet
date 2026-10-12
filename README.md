@@ -12,6 +12,8 @@ python -m src.agent_install
 命令输出通用 stdio 服务的 `command` 和 `args`，填入当前宿主的 MCP 设置即可；默认不生成品牌配置或安装插件。宿主沿用自己的信任流程。麦当劳与余额操作复用已有本机凭证。
 已有 OpenCode / Claude Code 的可选原生安装器仍可显式使用 `--client opencode` / `--client claude` / `--client both`。
 
+Agent 技能入口在 [.agents/skills/mcpet/SKILL.md](.agents/skills/mcpet/SKILL.md)，包含工具路由、瑞幸/麦当劳确认流程、营养和可切换皮肤。支持项目 `.agents/skills` 的宿主可直接发现；其他宿主可用 `python -m src.agent_install --skill-dir "宿主的 skills 目录"` 安装同一份技能。技能仍需上述 MCP 连接；原生安装器同时安装相应的技能目录。[技能接入与验证](docs/AGENT-SKILL.md)。
+
 直接说：“今天有什么券”“准备这个午餐订单”“确认记账 1.5 份”“饭点改成 12:15”“DeepSeek 娘炸薯条循环”“穿麦麦套装”“切回默认套装”。外部写入前会展示摘要并要求明确确认。
 
 DeepSeek 娘新增 2.40 秒炸薯条循环和 3.84 秒双向换装；麦麦套装是可保存、随时切换的皮肤。

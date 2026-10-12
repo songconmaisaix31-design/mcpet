@@ -1,7 +1,7 @@
 # McPet in this Agent
 
 McPet tools belong to this existing conversation. Use the `mcpet_*` MCP tools for
-coupons, real meal prices, ordering/cancellation, nutrition, account observations,
+coupons, real meal prices, Luckin coffee, ordering/cancellation, nutrition, account observations,
 local usage/progress, city/reminder preferences, character and actions. No separate
 window, chat app, model API key, or model request is needed by the integration.
 
@@ -12,6 +12,9 @@ specific scope/summary and obtain explicit user confirmation. `confirmed=true`
 means this confirmation was actually given. Ordinary queries do not imply consent.
 Prepare orders from `mcpet_deals` choices; show the reviewed amount and store before
 `mcpet_confirm_order`. Never automatically replay a `delivery_unknown` write.
+For Luckin, use `mcpet_luckin_query`, then `mcpet_luckin_prepare` and explicit
+`mcpet_luckin_confirm`; cancellation uses `mcpet_luckin_cancel`. Load the installed
+`mcpet` skill for the query/selection/confirmation workflow and tool routing.
 Unknown/stale account values are not zero. Local usage is not vendor quota/billing.
 `idle`, `Stop` and stale logs do not establish task completion.
 

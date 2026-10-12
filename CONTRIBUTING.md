@@ -30,6 +30,10 @@ python -m compileall -q src scripts tests
 git diff --check
 ```
 
+技能或安装器修改另运行 `python -m pytest tests/test_agent_skill.py tests/test_agent_host.py -q`；
+验证通用/原生技能复制、配置保留、实时工具 schema、隔离数据下的真实 stdio 动作和确认护栏。
+技能格式可用 skill-creator 的 `scripts/quick_validate.py .agents/skills/mcpet` 检查（开发工具需 PyYAML，非产品依赖）。
+
 完整测试可运行 `python -m pytest -q`，但历史桌面/原生前台性能项存在尚未解决的 RED，
 见 [接入验证](docs/AGENT-HOST-VALIDATION.md) 与 [桌面 Handoff](docs/companion/README.md)。
 以上适用回归通过不等于完整测试或旧桌面动态验收。

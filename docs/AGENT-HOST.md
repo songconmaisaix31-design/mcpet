@@ -15,6 +15,11 @@ python -m src.agent_install
 绝对启动器不依赖宿主的工作目录。21 个工具、7 个资源和服务端 prompt 均不依赖宿主品牌或 hooks。
 支持 MCP 工具调用的客户端可直接查询 `mcpet_reminders` / `mcpet_progress`；自动事件/提醒是可选适配。
 
+技能层见 [.agents/skills/mcpet/SKILL.md](../.agents/skills/mcpet/SKILL.md)。通用导出同时给出技能来源；
+`--skill-dir` 可显式复制技能和相对引用到任意宿主指定的 skills 目录。原生接入会同时复制至
+`.claude/skills/mcpet` / `.opencode/skills/mcpet`。技能发现与 MCP 服务连接分别负责操作指导与工具执行，
+不要求新增模型或聊天入口。安装示例与验证边界见 [技能层说明](AGENT-SKILL.md)。
+
 已有宿主可选择显式原生接入：
 
 ```powershell
