@@ -48,16 +48,16 @@ def gif(directory, name, sequence, loop=False):
 
 
 def main():
-    frying = frames("frying", 23, 50)  # 1.84–4.00s, basket lowering/raising cycle.
+    frying = frames("frying", 96, 126)  # 7.68–10.08s, stable basket after the faulty early motion.
     outfit = frames("outfit", 6, 54)  # 0.48–4.32s, remove empty lead and tail.
-    idle = frames("outfit", 53, 77)   # 4.24–6.16s, dressed front-facing blink.
+    idle = frames("outfit", 58, 71)   # 4.64–5.68s, clean front-facing blink, no effects/tail.
     animations = {}
     for name, sequence in (("frying", frying), ("outfit", outfit), ("outfit-default", outfit[::-1])):
         animations[name] = pages(DEST, name, sequence)
         gif(DEST, name, sequence, loop=name == "frying")
     manifest = {"cell_size": 192, "columns": 12, "frame_delay_ms": 80,
                 "animations": animations, "character_id": "deepseek",
-                "clips": {"frying": [1.84, 4.00], "outfit": [0.48, 4.32]},
+                "clips": {"frying": [7.68, 10.08], "outfit": [0.48, 4.32]},
                 "fixed_transform": {"size": [172, 172], "offset": [22, 18]}}
     (DEST / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     skin = ROOT / "assets/deepseek-skins/maimai"
@@ -67,6 +67,7 @@ def main():
     states = ("idle", "run-left", "working", "thinking", "greet", "happy", "error", "sleeping", "eating")
     (skin / "manifest.json").write_text(json.dumps({"cell_size": 192, "columns": 12,
         "frame_delay_ms": 80, "preview": "preview.png", "skin_id": "maimai",
+        "clip": [4.64, 5.68],
         "animations": {state: entry for state in states},
         "fallback": "All logical states reuse the dressed idle; separate dressed poses are unavailable."},
         indent=2) + "\n", encoding="utf-8")

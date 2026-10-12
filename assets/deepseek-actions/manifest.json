@@ -4,7 +4,7 @@
   "frame_delay_ms": 80,
   "animations": {
     "frying": {
-      "frames": 27,
+      "frames": 30,
       "pages": [
         "frying-000.png",
         "frying-001.png",
@@ -33,8 +33,8 @@
   "character_id": "deepseek",
   "clips": {
     "frying": [
-      1.84,
-      4.0
+      7.68,
+      10.08
     ],
     "outfit": [
       0.48,

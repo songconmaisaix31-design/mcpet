@@ -125,11 +125,11 @@ class AgentService:
         if character == "deepseek":
             if action in {"frying", "outfit", "outfit-default"}:
                 return {"uri": f"mcpet://animation/deepseek/{action}", "mime_type": "image/gif",
-                        "duration_seconds": 2.16 if action == "frying" else 3.84,
+                        "duration_seconds": 2.40 if action == "frying" else 3.84,
                         "rendering": "支持图像资源的宿主可展示；已运行的桌宠可接收此动作"}
             if skin == "maimai":
                 return {"uri": "mcpet://skin/deepseek/maimai", "mime_type": "image/gif",
-                        "duration_seconds": 1.92, "rendering": "持久麦麦皮肤；无对应穿装动作的状态复用穿装待机"}
+                        "duration_seconds": 1.04, "rendering": "持久麦麦皮肤；无对应穿装动作的状态复用穿装待机"}
         return {"rendering": "宿主中的角色状态；原素材保留，跨宿主动画显示能力未假定"}
 
     @staticmethod
