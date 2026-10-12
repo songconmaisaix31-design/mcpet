@@ -27,7 +27,7 @@ def load_env() -> None:
     load_dotenv(PROJECT_ROOT / ".env", override=False, interpolate=False)
 
 
-SETTINGS_KEYS = ("MCD_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY", "MCPET_CITY",
+SETTINGS_KEYS = ("MCD_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY", "MCPET_CITY", "MCPET_LUNCH_TIME",
                  "MCPET_AGENT_ROOT_CLAUDE", "MCPET_AGENT_ROOT_CODEX",
                  "MCPET_AGENT_ROOT_GENERIC")
 

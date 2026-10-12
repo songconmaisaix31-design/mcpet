@@ -8,6 +8,14 @@ import inspect
 import json
 import os
 import sys
+
+# The public command now belongs to the existing Agent host. Keep the old GUI
+# only behind an explicit compatibility flag and avoid importing Qt headlessly.
+if __name__ == "__main__" and "--desktop" not in sys.argv:
+    from src.agent_mcp import main as agent_main
+    agent_main()
+    raise SystemExit(0)
+
 from collections import deque
 from datetime import datetime
 
