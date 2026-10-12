@@ -62,3 +62,16 @@ git diff --check
 原 MP4 无 alpha，抠图边缘/半透明光效为近似；两个新动作与原麦麦占位图集存在形象差异。
 换装视频实际约 10 秒，本次未自行剪成文件名中的 1–2 秒。详见
 `assets/maimai-actions/SOURCE.md`。
+
+## 合并启动前的接线补验
+
+用户要求合并并启动后，检查真实入口发现 `MonsterApp._load_sheet` 仍直接加载原图集，
+首次启动的默认麦麦不能加载新增动作；此前单独角色加载/播放测试没有覆盖此入口。
+现已改为复用 `load_character("maimai")`，新增真实默认加载器回归。
+
+```powershell
+python -m pytest -q tests/test_maimai_actions.py tests/test_main_startup.py tests/test_companion_panel.py tests/test_dual_pet_render.py
+```
+
+结果 **39 passed / 17.80s**；`compileall -q src` 与 `git diff --check` 通过。
+该定向结果不覆盖前文两项既有失败或替代完整项目验收。

@@ -13,6 +13,14 @@ from src.pet.spritesheet import ScaledAnimationFrames, SpriteLoadError, SpriteSh
 from src.pet.window import PetWindow
 
 
+def test_default_application_loader_includes_both_imported_actions():
+    from src.main import MonsterApp
+    sheet = MonsterApp._load_sheet(None)
+    assert sheet.meta["character_id"] == "maimai"
+    assert sheet.frame_count("frying") == sheet.frame_count("outfit") == 127
+    assert sheet.is_paged("frying") and sheet.is_paged("outfit")
+
+
 @pytest.fixture
 def pet(tmp_path, monkeypatch):
     monkeypatch.setenv("MCPET_DATA_DIR", str(tmp_path))

@@ -272,8 +272,8 @@ class MonsterApp(QObject):
         if not (base / "spritesheet.webp").exists():
             return None
         try:
-            return SpriteSheet.load(base / "spritesheet.webp", pet_json=base / "pet.json",
-                                    rows_json=base / "sprite-rows.json")
+            from .pet.characters import load_character
+            return load_character("maimai")
         except SpriteLoadError as exc:
             print(config.redact(f"图集加载失败：{exc}"))
             return None
