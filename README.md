@@ -1,5 +1,7 @@
 # McPet · 鲸鲸来陪你啦 🐳
 
+**余额有人盯，进度有人陪，干饭有人喊。** 参赛桌面版当前处于 M0 验收阶段，目标使用 Tauri 2、原创默认形象与系统密钥链；下述现行发行仍为 Python/Qt。见 [M0 验收报告与阶段计划](docs/contest/M0-REPORT.md)、[两家实际工具清单](docs/contest/M0-ACTUAL-TOOLS.md)。
+
 DeepSeek 娘到岗啦：陪你查麦当劳优惠、挑瑞幸咖啡，记饭饭小本本，也看看工作的用量小账本。想做什么，在正在用的 Agent 里说一句就好；宿主支持 MCP stdio 就能接入。
 
 新用户默认 **DeepSeek 娘**，**ChatGPT 娘** 也可随时切换。DeepSeek 娘的默认套装和麦麦套装都在衣柜里，不用固定穿某一套；已有选择会继续记住。

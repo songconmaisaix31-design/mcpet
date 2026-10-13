@@ -6,6 +6,13 @@
       "headers": {
         "Authorization": "Bearer ${MCD_MCP_TOKEN}"
       }
+    },
+    "luckin-mcp": {
+      "type": "streamablehttp",
+      "url": "https://gwmcp.lkcoffee.com/order/user/mcp",
+      "headers": {
+        "Authorization": "Bearer ${LUCKIN_MCP_TOKEN}"
+      }
     }
   }
 }

@@ -1,5 +1,7 @@
 # MCP 集成说明
 
+2026-10-14 实测：麦当劳 35 项工具、瑞幸 8 项工具，两个服务认证与工具发现通过。本次未执行餐饮业务写入。完整名称、必填参数及参赛功能映射见 [M0 实测清单](docs/contest/M0-ACTUAL-TOOLS.md)，Tauri/TypeScript 迁移与后续验收见 [阶段计划](docs/contest/M0-REPORT.md)。
+
 默认入口为现有 Agent 内的 McPet stdio 服务。宿主接入和工具清单见
 [Agent 使用说明](docs/AGENT-HOST.md)，当前验证范围见
 [Agent 接入验证](docs/AGENT-HOST-VALIDATION.md)。本文件保留麦当劳上游协议与历史实测结构。
