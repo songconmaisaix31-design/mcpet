@@ -220,9 +220,10 @@ class AgentService:
                 return {"status": "delivery_unknown", "reason": config.redact(str(exc)),
                         "retry": "不要自动重发领取；先查询当前优惠券核对"}
 
-    def deals(self, keyword=""):
+    def deals(self, keyword="", store_keyword=""):
         with self.brain() as brain:
-            store = brain.resolve_default_store()
+            store = (brain.resolve_default_store(store_keyword=store_keyword)
+                     if store_keyword else brain.resolve_default_store())
             if store is None:
                 raise McpError("没有可用门店，请在原 Agent 会话设置城市")
             quotes = brain.best_deal(store, keyword=keyword)

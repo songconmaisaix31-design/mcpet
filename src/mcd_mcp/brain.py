@@ -262,18 +262,20 @@ class McdBrain:
 
     # ---------- 门店解析 ----------
 
-    def resolve_default_store(self) -> StoreInfo | None:
+    def resolve_default_store(self, *, store_keyword: str = "") -> StoreInfo | None:
         """无地址时默认用「到店自取」场景。先找外送地址，没有就按城市搜附近门店。
 
         2026-10-10 实测：该账号无配送地址，fallback 到 query-nearby-stores。
         ⚠ 必须优先挑 businessStatus=True 的门店——营业中的门店才查得到菜单，
           否则 query-meals 会报 600057「门店可能已关闭或不在营业时间」。
         """
-        if self._default_store is not None:
+        store_keyword = store_keyword.strip()
+        if self._default_store is not None and (not store_keyword or store_keyword in
+                (self._default_store.store_name + self._default_store.address)):
             return self._default_store
 
         # 1) 尝试外送地址
-        addresses = _checked(self.client.call_tool(T.TOOL_DELIVERY_ADDRESSES)).as_list()
+        addresses = [] if store_keyword else _checked(self.client.call_tool(T.TOOL_DELIVERY_ADDRESSES)).as_list()
         closed_seen = False
         for address in addresses:
             address_id = str(_pick(address, "addressId", "id", default="") or "")
@@ -310,7 +312,7 @@ class McdBrain:
                 T.ARG_KEYS["order_type"]: 1,
                 T.ARG_KEYS["search_type"]: 2,
                 T.ARG_KEYS["city"]: city,
-                T.ARG_KEYS["keyword"]: "麦当劳",
+                T.ARG_KEYS["keyword"]: store_keyword or "麦当劳",
             },
         )).as_list()
         if not stores:
@@ -327,6 +329,9 @@ class McdBrain:
             code = str(_pick(store, "storeCode", "id", default="") or "")
             if not code or not _is_open(store):
                 continue
+            if store_keyword and store_keyword not in (
+                    _text_of(store, "storeName", "name") + _text_of(store, "address")):
+                continue
             self._default_store = StoreInfo(
                 store_code=code,
                 store_name=_text_of(store, "storeName", "name"),
@@ -338,6 +343,8 @@ class McdBrain:
                 business_status=True,
             )
             return self._default_store
+        if store_keyword:
+            raise StoreUnavailable("没有找到名称或地址匹配的营业门店，请换个门店关键词再查")
         raise StoreUnavailable("查询到的门店均未营业或营业状态 UNKNOWN；无法获取菜单和报价")
 
     # ---------- 1. 领券汇报 ----------

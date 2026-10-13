@@ -83,9 +83,9 @@ def create_server(service=None):
         return await invoke("claim_coupons", confirmed)
 
     @server.tool(annotations=read)
-    async def mcpet_deals(keyword: str = "") -> dict[str, Any]:
-        """查询营业门店和真实餐品/券实付报价，返回编码用于准备订单，不下单。"""
-        return await invoke("deals", keyword)
+    async def mcpet_deals(keyword: str = "", store_keyword: str = "") -> dict[str, Any]:
+        """查询真实餐品报价；store_keyword 指定门店名称/地址关键词，须匹配营业门店，不下单。"""
+        return await invoke("deals", keyword, store_keyword)
 
     @server.tool(annotations=read)
     async def mcpet_prepare_order(product_codes: list[str], meal_names: list[str], store: dict,

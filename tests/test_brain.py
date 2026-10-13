@@ -193,6 +193,32 @@ def test_resolve_default_store_reports_no_store_when_nothing(guard):
         McdBrain(client, guard).resolve_default_store()
 
 
+def test_requested_store_ignores_default_and_unrelated_nearer_stores(guard):
+    client = FakeClient({T.TOOL_NEARBY_STORES: [wrapped([
+        {"storeCode": "other", "storeName": "别处餐厅", "businessStatus": True, "distance": 1},
+        {"storeCode": "target", "storeName": "西红门餐厅", "address": "西红门荟聚三层",
+         "businessStatus": True, "distance": 200},
+    ])]})
+    brain = McdBrain(client, guard)
+    brain._default_store = StoreInfo("cached-other", "原默认餐厅")
+    store = brain.resolve_default_store(store_keyword="西红门荟聚")
+    assert store.store_code == "target" and store.order_type == 1
+    assert [name for name, _ in client.calls] == [T.TOOL_NEARBY_STORES]
+    assert client.calls[0][1][T.ARG_KEYS["keyword"]] == "西红门荟聚"
+
+
+@pytest.mark.parametrize("status", [True, False, None])
+def test_requested_store_never_falls_back_to_unrelated_or_closed_store(guard, status):
+    client = FakeClient({T.TOOL_NEARBY_STORES: [wrapped([
+        {"storeCode":"other", "storeName":"别处餐厅", "businessStatus":True},
+        {"storeCode":"target", "storeName":"荟聚餐厅" if status is not True else "另一个餐厅",
+         "businessStatus":status},
+    ])]})
+    with pytest.raises(McpError):
+        McdBrain(client, guard).resolve_default_store(store_keyword="荟聚")
+    assert [name for name, _ in client.calls] == [T.TOOL_NEARBY_STORES]
+
+
 # ---------------------------------------------------------------- 最划算一单
 
 MEALS_SAMPLE = {
