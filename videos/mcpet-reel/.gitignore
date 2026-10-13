@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+.env
+
+# Ignore the output video from Git but not videos you import into src/.
+out
+
+# 可重新生成的样板混音，不包含凭证。
+public/audio/worry-mix.wav
+public/audio/worry-mix-raw.wav
+public/audio/loudness.json

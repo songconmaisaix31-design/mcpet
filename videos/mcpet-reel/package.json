@@ -1,0 +1,36 @@
+{
+  "name": "mcpet-reel",
+  "version": "1.0.0",
+  "description": "McPet 行为驱动发布视频：鲸鲸帮你盯着小钱包",
+  "repository": {},
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@remotion/cli": "4.0.535",
+    "@remotion/fonts": "4.0.535",
+    "@remotion/media": "4.0.535",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.535"
+  },
+  "devDependencies": {
+    "@remotion/eslint-config-flat": "4.0.535",
+    "@types/node": "26.6.5",
+    "@types/react": "19.2.7",
+    "@types/web": "0.0.166",
+    "eslint": "9.39.5",
+    "prettier": "3.8.1",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "predev": "npm run prepare",
+    "dev": "remotion studio",
+    "measure": "tsx scripts/voice.ts && tsx scripts/measure.ts",
+    "prepare": "npm run measure && tsx scripts/audio.ts",
+    "test": "tsx --test scripts/behavior.test.ts",
+    "build": "remotion bundle",
+    "upgrade": "remotion upgrade",
+    "lint": "eslint src scripts && tsc"
+  }
+}

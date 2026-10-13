@@ -34,3 +34,7 @@ opencode.json
 .claude/rules/mcpet.md
 .claude/skills/mcpet/
 .opencode/
+
+# Remotion 技能通过上游安装，固定版本见 skills-lock.json。
+.claude/skills/remotion-*/
+.agents/skills/remotion-*/
