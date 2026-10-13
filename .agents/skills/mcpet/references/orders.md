@@ -5,7 +5,7 @@
 ## 麦当劳
 
 1. `mcpet_coupons()` 查可领券和已有券；要领取时说明“领取全部当前可领券”，已获明确确认再调用 `mcpet_claim_coupons(confirmed=true)`。
-2. `mcpet_deals(keyword=用户需求)` 查询真实报价；使用其中的 `store` 和餐品/券字段。当前服务只接受本会话查询结果中的选择。
+2. `mcpet_deals(keyword=用户需求, store_keyword=用户指定的门店名称或地址关键词)` 查询真实报价；城市沿用当前设置。指定门店时须名称或地址匹配，不用其他门店代替；未指定时才用默认门店。使用其中的 `store` 和餐品/券字段，当前服务只接受本会话查询结果中的选择。
 3. 用户选定方案后调用 `mcpet_prepare_order(product_codes, meal_names, store, coupon_id, coupon_code, coupon_name, take_way_code)`。没有券时券字段留空；取餐方式仅 `eat-in`（堂食）或 `take-in-store`（外带）。
 4. 展示返回 `summary`：门店、餐品、券、取餐方式、实付金额。`amount_cents` 单位是分；如需自行格式化，用十进制除以 100。准备仅算价，不创建订单。
 5. 用户确认后 `mcpet_confirm_order(confirmed=true)`；报价有效期 5 分钟，金额变化会重新要求确认。返回已知订单号与付款入口后在当前会话呈现，创建订单不等于已付款。
