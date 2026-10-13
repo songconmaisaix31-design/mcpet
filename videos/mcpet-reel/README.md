@@ -2,7 +2,7 @@
 
 余额有人盯，进度有人陪，干饭有人喊。
 
-当前交付是 v2 流水线第一步：`Pet.worry(Balance)` 风格样板。原创几何鲸鲸看见小钱包降到 ¥4.37，短暂慌张后稳住，用气泡安慰你。配音由 Aliyun 百炼 CLI 的 `cosyvoice-v3-flash / longhua_v3` 合成；小敲击音效由代码生成。
+当前交付是 v2 流水线第一步：`Pet.worry(Balance)` 风格样板。按用户最新要求，使用项目里的蓝发 DeepSeek 娘与白紫色 ChatGPT 龙娘形象；鲸鲸看见小钱包降到 ¥4.37，短暂抖动后稳住，用气泡安慰你。配音由 Aliyun 百炼 CLI 的 `cosyvoice-v3-flash / longhua_v3` 合成；小敲击音效由代码生成。
 
 这段展示使用演示余额，不调用用户模型余额或餐饮账号，不代表任何外部交易的实测。既有 Python 桌宠入口继续沿用，新视频工程独立放在本目录。
 
@@ -16,6 +16,19 @@ npm run dev -- --port=3327
 ```
 
 打开 `http://localhost:3327/WorrySample`，点击播放，确认画风、语气、气泡大小和衰减动作。`predev` 会先生成时间轴和样板混音。源配音已随工程提供，预览不需要模型凭证。
+
+`http://localhost:3327/CastPreview` 是双角色静态选角预览，两套形象均来自现有透明素材。ChatGPT 娘已接入 `Dragon` 组件，咖啡行为在后续阶段制作。
+
+角色图片只在本地 `public/pet-skins/` 生成并被 Git 忽略。当前工作区从既有 `assets/dsh-deepseek` 和 `assets/longniang` 提取首张睁眼待机帧；没有对应表情或动作时用气泡表达。皮肤自身保留原始配色，界面保留黑蓝、金、告急红；不通过反复眨眼或切换不同尺寸的动作帧表达慌张。
+
+也可自行导入本地皮肤包，包含 `deepseek-idle.png` 与 `chatgpt-idle.png` 两张透明图片：
+
+```powershell
+$env:MCPET_REEL_SKIN_DIR = '你的本地皮肤包目录'
+npm run dev -- --port=3327
+```
+
+导入路径只在进程环境内使用，不写入时间轴、源码或配置。请保留原皮肤包的来源与许可说明；本修订不新增提交角色图片。
 
 删除 `timeline.json` 后，一条命令重新生成：
 

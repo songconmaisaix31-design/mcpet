@@ -19,7 +19,7 @@
       "enterPose": {
         "x": 745,
         "y": 1240,
-        "heading": "left",
+        "heading": "front",
         "expression": "curious",
         "scale": 1,
         "rotation": 0
@@ -27,7 +27,7 @@
       "exitPose": {
         "x": 710,
         "y": 1240,
-        "heading": "left",
+        "heading": "front",
         "expression": "focus",
         "scale": 1,
         "rotation": 0

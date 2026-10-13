@@ -1,7 +1,7 @@
 export type Pose = Readonly<{
   x: number;
   y: number;
-  heading: 'left' | 'right';
+  heading: 'left' | 'right' | 'front';
   expression: 'curious' | 'worry' | 'focus';
   scale: number;
   rotation: number;

@@ -16,9 +16,11 @@
   "devDependencies": {
     "@remotion/eslint-config-flat": "4.0.535",
     "@types/node": "26.6.5",
+    "@types/pngjs": "6.0.5",
     "@types/react": "19.2.7",
     "@types/web": "0.0.166",
     "eslint": "9.39.5",
+    "pngjs": "7.0.0",
     "prettier": "3.8.1",
     "tsx": "4.23.15",
     "typescript": "5.9.3"
@@ -27,8 +29,9 @@
     "predev": "npm run prepare",
     "dev": "remotion studio",
     "measure": "tsx scripts/voice.ts && tsx scripts/measure.ts",
-    "prepare": "npm run measure && tsx scripts/audio.ts",
-    "test": "tsx --test scripts/behavior.test.ts",
+    "skins": "tsx scripts/skins.ts",
+    "prepare": "npm run skins && npm run measure && tsx scripts/audio.ts",
+    "test": "tsx --test scripts/behavior.test.ts scripts/skins.test.ts",
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
     "lint": "eslint src scripts && tsc"

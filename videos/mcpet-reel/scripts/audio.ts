@@ -1,23 +1,12 @@
-import {createRequire} from 'node:module';
-import {dirname, join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {writeFileSync} from 'node:fs';
 import {measure} from '../src/behavior';
 import {alarmCue, worry} from '../src/behaviors/worry';
 import {design} from '../src/design';
 import {readWav, writeWav} from './wav';
+import {ffmpegPath} from './ffmpeg';
 
-const require = createRequire(join(process.cwd(), 'package.json'));
-const binaryPackages: Record<string, string> = {
-  'win32-x64': 'compositor-win32-x64-msvc',
-  'darwin-arm64': 'compositor-darwin-arm64',
-  'darwin-x64': 'compositor-darwin-x64',
-  'linux-x64': 'compositor-linux-x64-gnu',
-  'linux-arm64': 'compositor-linux-arm64-gnu',
-};
-const binaryPackage = binaryPackages[`${process.platform}-${process.arch}`];
-if (!binaryPackage) throw new Error('当前平台需要安装可用的 FFmpeg');
-const ffmpeg = join(dirname(require.resolve(`@remotion/${binaryPackage}`)), process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+const ffmpeg = ffmpegPath();
 const voice = readWav('public/audio/worry-voice-source.wav');
 const frames = measure(worry, design.fps).durationInFrames;
 const cue = alarmCue(design.fps);

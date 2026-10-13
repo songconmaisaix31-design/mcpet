@@ -10,3 +10,6 @@ out
 public/audio/worry-mix.wav
 public/audio/worry-mix-raw.wav
 public/audio/loudness.json
+
+# 角色素材从本机已有素材或用户皮肤包提取，不额外分发。
+public/pet-skins/

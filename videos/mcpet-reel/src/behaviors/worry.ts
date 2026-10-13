@@ -4,7 +4,7 @@ import {Behavior, Pose} from '../behavior';
 import {design, rhythm} from '../design';
 
 export const dialogue = '小钱包只剩四块三毛七啦。\n先别慌，我陪你盯着。';
-export const startPose: Pose = {x: 745, y: 1240, heading: 'left', expression: 'curious', scale: 1, rotation: 0};
+export const startPose: Pose = {x: 745, y: 1240, heading: 'front', expression: 'curious', scale: 1, rotation: 0};
 export const focusPose: Pose = {...startPose, x: 710, expression: 'focus'};
 const startingBalance = 12.80;
 const finalBalance = 4.37;
