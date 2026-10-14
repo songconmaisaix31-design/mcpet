@@ -9,7 +9,7 @@
 | 项目 | 当前状态 | 证据 |
 |---|---|---|
 | v0.1.0 | 已发布 Windows x64 便携包与通用 Agent 包，现行 Python/Qt 版 | [首发记录](docs/FIRST-RELEASE.md)、[版本说明](docs/releases/v0.1.0.md) |
-| main | 含现行业务与 M0、宣传视频、九姿态、GIF、README / 指南和状态整理；普通合并为 `dc98ebd` | `git log main` |
+| main | 含现行业务与 M0、宣传视频、九姿态、GIF、README / 指南、状态整理和公开试用；公开试用普通合并为 `095ef1b` | `git log main` |
 | 文档开发分支 | `000f47a` 已包含于 main；整理基线时在原主分支 `a52fd7d` 上增加 11 个阶段提交 | `git log a52fd7d..461c969 --oneline` |
 | Tauri 参赛版本 | M0 报告与工具映射完成，等待阶段确认；M1～M5 尚未实施 | [M0 报告](docs/contest/M0-REPORT.md) |
 | 新版发布视频 | 余额样板、双角色与九姿态预览已实现，等待画风与声音确认 | [视频说明](videos/mcpet-reel/README.md)、[验收报告](videos/mcpet-reel/REPORT.md) |
@@ -37,7 +37,7 @@
 
 ## 分支与工作树
 
-已核对本地 26 个分支 tip 均包含于 main。下表阶段提交已合并主分支，原开发分支保留。
+2026-10-14 整理时核对本地 26 个分支 tip 均包含于 main；2026-10-15 新增的公开试用分支也已普通合并。下表阶段提交已合并主分支，原开发分支保留。
 
 | 阶段分支 | 已核对 tip | 内容 |
 |---|---|---|
@@ -47,6 +47,7 @@
 | `codex/cetapet-actions-20261014` | `ee51419` | 早期九姿态的本机导入与桌宠 / Agent 接入 |
 | `codex/deepseek-gif-recording-20261014` | `f04b9dd` | 全动作 GIF 录制、资源及验收 |
 | `codex/docs-readme-guide-20261014` | `000f47a` | README、使用指南、展示素材与仓库状态 |
+| `codex/public-trial-20261015` | `fff7298` | 两家公开试用凭证、个人配置优先、真实服务与验证包检查 |
 
 另有四个保留的旧开发 worktree，核对时均无未提交改动，tip 均已包含于 main：
 
