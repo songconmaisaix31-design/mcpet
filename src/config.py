@@ -1,8 +1,4 @@
-"""配置与凭证管理。
-
-原则：真实 Token 只从环境变量 / 项目根目录 .env 读取，绝不写进仓库里任何文件；
-所有对外输出（日志、README 截图、气泡文案）在落地前必须经过 redact()。
-"""
+# 配置使用本机凭证或用户明确公开的试用凭证；输出经过 redact()。
 
 from __future__ import annotations
 
@@ -15,6 +11,8 @@ from pathlib import Path
 from dotenv import load_dotenv, dotenv_values
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+TRIAL_PATH = Path(__file__).resolve().parents[1] / ".env.trial"
+TRIAL_KEYS = ("MCD_MCP_TOKEN", "LUCKIN_MCP_TOKEN")
 DEFAULT_MCP_URL = "https://mcp.mcd.cn"
 LUCKIN_MCP_URL = "https://gwmcp.lkcoffee.com/order/user/mcp"
 
@@ -23,9 +21,29 @@ DEFAULT_RATE_LIMIT_PER_MINUTE = 540
 
 
 def load_env() -> None:
-    """环境变量 > 本机用户配置 > 项目配置；不向输出暴露文件内容。"""
+    # 环境变量、本机用户配置、项目配置优先；未填写的餐饮凭证使用公开试用配置。
     load_dotenv(data_dir() / ".env", override=False, interpolate=False)
     load_dotenv(PROJECT_ROOT / ".env", override=False, interpolate=False)
+    for key, value in trial_tokens().items():
+        if _is_placeholder(os.environ.get(key, "")):
+            os.environ[key] = value
+
+
+def trial_tokens() -> dict[str, str]:
+    if not TRIAL_PATH.is_file():
+        raise FileNotFoundError("试用配置缺失，请保留项目的 .env.trial 文件")
+    values = dotenv_values(TRIAL_PATH, interpolate=False)
+    if set(values) != set(TRIAL_KEYS):
+        raise ValueError("试用配置应只包含麦当劳和瑞幸的两个 Token")
+    if any(value is None or _is_placeholder(value) for value in values.values()):
+        raise ValueError("试用配置中的 Token 未填写")
+    return {key: values[key].strip() for key in TRIAL_KEYS}
+
+
+def credential_mode(key: str) -> str:
+    if key not in TRIAL_KEYS:
+        raise ValueError("未知餐饮凭证")
+    return "trial" if os.environ.get(key, "").strip() == trial_tokens()[key] else "personal"
 
 
 SETTINGS_KEYS = ("MCD_MCP_TOKEN", "LUCKIN_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY", "MCPET_CITY", "MCPET_LUNCH_TIME",
@@ -187,7 +205,7 @@ def redact(text: str, token: str | None = None, *, personal: bool = True) -> str
         return text
     out = text
     for key in ("MCD_MCP_TOKEN", "LUCKIN_MCP_TOKEN", "STEPFUN_API_KEY", "DEEPSEEK_API_KEY"):
-        secret = os.environ.get(key, "")
+        secret = os.environ.get(key, "").strip()
         if secret and not _is_placeholder(secret):
             out = out.replace(secret, "***")
     if token:

@@ -17,7 +17,7 @@ description: 在当前 Agent 会话调用 McPet，查询麦当劳优惠、瑞幸
 
 先检查宿主可用工具中的 `mcpet_*`（宿主可能给名称加服务前缀）。工具的实时 inputSchema 是参数事实源，本文只说明路由和业务顺序。
 缺少工具时，在已有 McPet 仓库执行 `python -m src.agent_install` 获取 stdio 的 command/args，按宿主的 MCP 配置方式接入后重新加载会话。技能文件不能代替 MCP 连接。无需改换宿主或新增模型 Key；不要扫描其他账号的配置或凭证。
-接入后按需调用 `mcpet_status`、`mcpet_settings` 检查角色、功能和凭证是否配置；settings 不返回密钥。凭证缺失时说明需在本机配置，避免让用户把 Token 发到聊天里。
+接入后按需调用 `mcpet_status`、`mcpet_settings` 检查角色、功能和凭证模式；settings 不返回密钥。`mcd_credential_mode` / `luckin_credential_mode` 为 `trial` 时使用公开共享试用账号，长期使用请配置自己的 Token；个人配置优先。遇到服务报告凭证失效或限流时保留错误，不声称查询成功。
 
 ## 按请求选择能力
 

@@ -36,6 +36,8 @@ Claude Code 的首次项目 MCP 信任由其原生流程处理。
 仅 Agent 模式的依赖不含 Qt；完整旧桌面兼容依赖仍在 `requirements.txt`。
 麦当劳相关操作沿用已有 `MCD_MCP_TOKEN`；官方余额查询沿用 `DEEPSEEK_API_KEY`。
 本机设置位于原数据目录 `.env`（`MCPET_DATA_DIR` 可覆盖），不把凭证发送到对话或配置文件。
+
+最新源码的餐饮能力支持[公开试用配置](PUBLIC-TRIAL.md)：未填写自己的 Token 时使用 `.env.trial` 中的共享账号；长期使用填写自己的两家 Token，个人配置优先。设置查询仅返回是否配置与凭证模式。
 无需给 McPet 再配置模型 Key。原宿主会话照常使用其现有模型与计费。
 
 ## 正常对话

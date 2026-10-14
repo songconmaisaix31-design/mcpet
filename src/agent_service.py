@@ -179,10 +179,12 @@ class AgentService:
                 "lunch_time": os.environ.get("MCPET_LUNCH_TIME", "11:30"),
                 "mcd_configured": bool(config.mcp_token()),
                 "luckin_configured": bool(config.luckin_token()),
+                "mcd_credential_mode": config.credential_mode("MCD_MCP_TOKEN"),
+                "luckin_credential_mode": config.credential_mode("LUCKIN_MCP_TOKEN"),
                 "coffee_time": os.environ.get("MCPET_COFFEE_TIME", "15:00"),
                 "deepseek_configured": bool(config.deepseek_api_key()),
                 "independent_model_required": False,
-                "credentials": "沿用你本机的小钥匙，聊天里不会显示密钥哦"}
+                "credentials": "可以用公开试用账号尝尝鲜；长期使用请配置自己的 Token，自己的配置优先哦"}
 
     def configure(self, city="", lunch_time="", reminders_enabled=None, agent_roots=None, coffee_time=""):
         values = {}
