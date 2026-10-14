@@ -31,6 +31,7 @@
 | [仓库整理记录](REPOSITORY-CLEANUP.md) | 文档整理、主分支归拢与本轮检查 |
 | [菜单与瑞幸验证](PET-MENU-LUCKIN-VALIDATION.md) | 426 项适用回归、真实 stdio、可见菜单/气泡及保留的性能 RED |
 | [动作导入验证](maimai-actions-verification.md) | 两段用户视频转换与旧桌面动作验证 |
+| [GIF 全动作录制验收](DEEPSEEK-GIF-VALIDATION.md) | 112 个本机 GIF、完整帧/时间核对与实际 stdio 读取 |
 
 ## 历史实现与证据
 
