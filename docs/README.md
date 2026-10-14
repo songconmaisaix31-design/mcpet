@@ -13,6 +13,7 @@
 | [本地动作演示](PORTABLE-AGENT-DEMO.md) | 原视频与透明动画预览、通用客户端验证 |
 | [DeepSeek 娘动作与皮肤](DEEPSEEK-SKINS.md) | 短循环、双向换装、持久皮肤及桌宠播放验证 |
 | [ChatGPT 龙娘待机节奏](CHATGPT-IDLE-FIX.md) | 短图集循环过快的修复与实际定时验证 |
+| [DeepSeek 娘 GIF 小相册](../assets/deepseek-recordings/SOURCE.md) | 两套皮肤全部动作的本机录制、分类导出与 Agent 资源 |
 | [仓库结构](REPOSITORY.md) | 当前目录、入口与配置边界 |
 | [开发与验证](../CONTRIBUTING.md) | 依赖、隔离测试、提交与验证口径 |
 | [项目 Agent 约定](../AGENTS.md) | 事实源、写入范围和交付规则 |
@@ -32,6 +33,8 @@
 | [动作导入验证](maimai-actions-verification.md) | 两段用户视频转换与旧桌面动作验证 |
 
 ## 历史实现与证据
+
+GIF 录制的范围与验证计划见 [录制计划](DEEPSEEK-GIF-PLAN.md)。
 
 - [旧桌面兼容说明](LEGACY-DESKTOP.md)：显式 `--desktop` 入口。
 - [桌面开发轨与 Handoff](companion/README.md)：保留原计划、归属与未通过项。

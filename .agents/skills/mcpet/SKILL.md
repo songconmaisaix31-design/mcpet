@@ -58,6 +58,8 @@ description: 在当前 Agent 会话调用 McPet，查询麦当劳优惠、瑞幸
 
 需要展示动画时读取工具返回的资源 URI；宿主不支持图像资源就说明已设置的动作/皮肤，不声称已播放。用户要求桌宠时沿用已有显式桌面入口，技能接入不自动打开窗口。
 
+本机已录制 GIF 小相册时，动作返回额外的 `recording` URI。`mcpet://recordings/deepseek` 列出两套皮肤的全部动作；`mcpet://recording/deepseek/{skin}/{action}/{size}` 可读取 192 原尺寸或 512 放大显示版。早期单帧为静态，别名和工装待机复用照实说明；512 放大不称作新高清原画。
+
 早期鲸鲸姿态已在本机导入时，可用 `character_id="deepseek"` 和动作
 `ceta_nothing`（待机）、`ceta_eat`（吃饭）、`ceta_think`（思考）、`ceta_pickup`（被提起来）、
 `ceta_touch`（摸摸回应）、`ceta_nomoney`（余额告急）、`ceta_cheerup`（元气登场）、

@@ -15,6 +15,9 @@ python -m pip install -r requirements.txt
 素材离线转换另需 Pillow、numpy、opencv-python 和 FFmpeg，按各素材 SOURCE 说明安装；
 这些不是 Agent 服务运行依赖。
 
+GIF 录制及 `tests/test_deepseek_recordings.py` 另需 Pillow：`python -m pip install Pillow`。
+该工具使用现有 Qt 显示帧导出，素材说明见 [GIF 小相册](assets/deepseek-recordings/SOURCE.md)。
+
 配置示例见 [.env.example](.env.example)。测试不需要真实模型 Key 或麦当劳 Token。
 `tests/conftest.py` 默认隔离本机数据目录并使用 Qt offscreen；现有测试共享 Qt fixture，
 因此即使只运行宿主测试，也需要完整测试依赖。

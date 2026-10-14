@@ -139,6 +139,17 @@ class AgentService:
 
     @staticmethod
     def animation_info(character, action, skin="default"):
+        from .pet.recordings import info
+        recording = info(skin, action) if character == "deepseek" else None
+        result = AgentService._original_animation_info(character, action, skin)
+        if recording:
+            if "uri" not in result:
+                result.update(recording)
+            result["recording"] = recording
+        return result
+
+    @staticmethod
+    def _original_animation_info(character, action, skin="default"):
         if character == "maimai" and action in {"frying", "outfit"}:
             return {"uri": f"mcpet://animation/maimai/{action}", "mime_type": "image/gif",
                     "duration_seconds": 10.16, "rendering": "宿主支持图像资源时可展示；不创建播放窗口"}

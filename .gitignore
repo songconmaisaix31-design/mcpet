@@ -42,3 +42,7 @@ opencode.json
 # 早期姿态为用户本地导入素材，不进入参赛发行包。
 assets/cetapet/original/
 assets/cetapet/runtime/
+
+# 本机录制的角色 GIF 不进入 Git 或发行包；只保留来源说明。
+assets/deepseek-recordings/*
+!assets/deepseek-recordings/SOURCE.md

@@ -189,6 +189,16 @@ def create_server(service=None):
         from .pet.cetapet import require_pose
         return require_pose(action).read_bytes()
 
+    @server.resource("mcpet://recordings/deepseek", mime_type="application/json")
+    def deepseek_recordings() -> str:
+        from .pet.recordings import catalog
+        return json.dumps(catalog(), ensure_ascii=False)
+
+    @server.resource("mcpet://recording/deepseek/{skin}/{action}/{size}", mime_type="image/gif")
+    def deepseek_recording(skin: str, action: str, size: int) -> bytes:
+        from .pet.recordings import image_path
+        return image_path(skin, action, size).read_bytes()
+
     @server.resource("mcpet://guide", mime_type="text/plain")
     def guide() -> str:
         return INSTRUCTIONS
