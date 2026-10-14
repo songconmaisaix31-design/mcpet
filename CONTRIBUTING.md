@@ -1,6 +1,6 @@
 # 开发与验证
 
-先读 [README](README.md)、[项目 Agent 约定](AGENTS.md) 与本次任务相关计划。
+先读 [开发交接](HANDOFF.md)、[当前状态](STATUS.md)、[README](README.md)、[执行协议](AGENTS.md) 与本次任务相关计划。
 当前默认运行在原 Agent；目录与兼容入口见 [仓库结构](docs/REPOSITORY.md)。
 
 ## 环境
@@ -50,7 +50,7 @@ git diff --check
 ## 修改和提交
 
 小任务单 Agent；并行仅用于可按互斥文件路径拆开的任务，并遵守用户的 Orca 轨道协议。
-保留现有目录与技术栈，跨轨修改交 Handoff。按阶段 commit，最终分支 push，普通合并，
+保留现有目录与使用的技术，跨轨修改交 Handoff。按阶段 commit，最终分支 push，普通合并，
 不 force push 或覆盖公共历史。不要删除队友分支、worktree 或无法解释的文件。
 
 本机生成的宿主路径配置、真实凭证和个人运行数据不入库。只整理能解释来源的缓存，

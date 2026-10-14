@@ -4,6 +4,7 @@
 
 | 路径 | 职责 |
 |---|---|
+| `HANDOFF.md` / `STATUS.md` | 开发接管、当前功能 / 分支 / 阶段状态与待验收事项 |
 | `.agents/skills/mcpet/` | 通用 Agent 技能源与餐饮操作引用；原生适配安装同一份内容 |
 | `src/agent_mcp.py` | 面向原 Agent 的官方 MCP SDK stdio 服务、工具、资源与 prompt |
 | `src/agent_service.py` | 接入现有业务、确认流程和本机状态，无 Qt 或独立模型 |
@@ -22,6 +23,8 @@
 | `assets/` | 图集、分页和 GIF、来源说明与上游许可证 |
 | `tests/` | 现有协议、业务、台账、原生 Qt 与回归测试 |
 | `docs/` | 当前使用说明、计划/验证记录与历史 Handoff |
+| `docs/media/deepseek/` | 用户指定的 README GIF 展示副本、来源与许可证 |
+| `videos/mcpet-reel/` | 独立 Remotion 发布视频工程；当前交付余额样板，成片待样板确认 |
 
 ## 运行入口
 
@@ -46,5 +49,5 @@
 - `.mcp.json`、`opencode.json`、`.claude/settings.local.json`、`.opencode/`：本机生成的宿主接线，不提交。
 - 真实 `.env`、运行台账、测试输出和缓存由 `.gitignore` 排除。
 
-根目录保留 README、贡献/Agent 约定与既有参赛材料。历史文档有明确索引与范围标记，
+根目录保留 README、交接、当前状态、贡献/Agent 约定与既有参赛材料。历史文档有明确索引与范围标记，
 保留原链接和证据路径。旧开发分支与 worktree 保留，整理不删除贡献历史。

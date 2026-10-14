@@ -137,6 +137,7 @@ python -m venv .venv
 | [发行包快速开始](docs/RELEASE-QUICKSTART.md) | Windows 便携包和通用 Agent 包的首次启动 |
 | [Agent 技术说明](docs/AGENT-HOST.md) / [技能说明](docs/AGENT-SKILL.md) | 工具、资源、宿主事件和技能复制 |
 | [开发与验证](CONTRIBUTING.md) / [仓库结构](docs/REPOSITORY.md) | 开发环境、目录、测试命令与提交约定 |
+| [开发交接](HANDOFF.md) / [当前状态](STATUS.md) | 接管入口、分支归属、已实现功能、阶段进度与待验收事项 |
 | [全部文档](docs/README.md) | 功能说明、素材说明和历史验收记录 |
 
 遇到问题可提交 [GitHub Issue](https://github.com/songconmaisaix31-design/mcpet/issues)，附上版本、系统、运行入口、复现步骤和脱敏后的错误信息；请先查阅[常见问题](docs/USER-GUIDE.md#常见问题)。
