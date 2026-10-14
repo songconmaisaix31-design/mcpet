@@ -2,6 +2,9 @@ import {copyFileSync, existsSync, mkdirSync, readFileSync} from 'node:fs';
 import {resolve, join} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {ffmpegPath} from './ffmpeg';
+import {importCeTaPet} from './import-cetapet';
+
+importCeTaPet();
 
 const output = resolve('public/pet-skins');
 mkdirSync(output, {recursive: true});
@@ -9,18 +12,16 @@ const imported = process.env.MCPET_REEL_SKIN_DIR;
 
 if (imported) {
   // 用户导入的本地皮肤包仅留在忽略目录，路径不写入产物。
-  for (const name of ['deepseek-idle.png', 'chatgpt-idle.png']) {
+  for (const name of ['chatgpt-idle.png']) {
     const source = join(resolve(imported), name);
     if (!existsSync(source)) throw new Error(`导入皮肤包缺少 ${name}`);
     copyFileSync(source, join(output, name));
   }
 } else {
   const assets = resolve('../../assets');
-  const manifest = JSON.parse(readFileSync(join(assets, 'dsh-deepseek/manifest.json'), 'utf8'));
-  const deepseek = join(assets, 'dsh-deepseek', manifest.animations.idle.pages[0]);
   const dragonDir = join(assets, 'longniang');
   const dragon = join(dragonDir, 'spritesheet-runtime.png');
-  if (!existsSync(deepseek) || !existsSync(dragon)) throw new Error('缺少两套本地角色素材，请使用 MCPET_REEL_SKIN_DIR 导入皮肤包');
+  if (!existsSync(dragon)) throw new Error('缺少 ChatGPT 娘素材，请使用 MCPET_REEL_SKIN_DIR 导入皮肤包');
   const meta = JSON.parse(readFileSync(join(dragonDir, 'pet.json'), 'utf8'));
   const rows = JSON.parse(readFileSync(join(dragonDir, 'sprite-rows.json'), 'utf8')).rows as {state: string; row: number}[];
   const idle = rows.find(row => row.state === 'idle');
@@ -34,7 +35,6 @@ if (imported) {
     const result = spawnSync(ffmpegPath(), ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-i', source, '-vf', crop, '-frames:v', '1', '-c:v', 'png', join(output, name)], {encoding: 'utf8'});
     if (result.status !== 0) throw new Error(result.stderr || result.error?.message || '角色素材提取失败');
   }
-  extract(deepseek, `crop=${manifest.cell_size}:${manifest.cell_size}:0:0`, 'deepseek-idle.png');
   extract(dragon, `crop=${cellWidth}:${cellHeight}:0:${idle.row * cellHeight}`, 'chatgpt-idle.png');
 }
-console.log('DeepSeek 娘 / ChatGPT 娘：本地透明待机形象已准备（未上传皮肤）');
+console.log('早期 DeepSeek 娘九种姿态 / ChatGPT 娘：本地素材已准备（未上传皮肤）');

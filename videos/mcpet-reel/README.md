@@ -2,7 +2,7 @@
 
 余额有人盯，进度有人陪，干饭有人喊。
 
-当前交付是 v2 流水线第一步：`Pet.worry(Balance)` 风格样板。按用户最新要求，使用项目里的蓝发 DeepSeek 娘与白紫色 ChatGPT 龙娘形象；鲸鲸看见小钱包降到 ¥4.37，短暂抖动后稳住，用气泡安慰你。配音由 Aliyun 百炼 CLI 的 `cosyvoice-v3-flash / longhua_v3` 合成；小敲击音效由代码生成。
+当前交付是 v2 流水线第一步：`Pet.worry(Balance)` 风格样板。按用户最新要求，DeepSeek 娘使用早期 CeTaPet 仓库的形象与全部九种姿态，ChatGPT 娘使用白紫龙娘素材；鲸鲸看见小钱包降到 ¥4.37，短暂抖动后稳住，用气泡安慰你。配音由 Aliyun 百炼 CLI 的 `cosyvoice-v3-flash / longhua_v3` 合成；小敲击音效由代码生成。
 
 这段展示使用演示余额，不调用用户模型余额或餐饮账号，不代表任何外部交易的实测。既有 Python 桌宠入口继续沿用，新视频工程独立放在本目录。
 
@@ -19,9 +19,19 @@ npm run dev -- --port=3327
 
 `http://localhost:3327/CastPreview` 是双角色静态选角预览，两套形象均来自现有透明素材。ChatGPT 娘已接入 `Dragon` 组件，咖啡行为在后续阶段制作。
 
-角色图片只在本地 `public/pet-skins/` 生成并被 Git 忽略。当前工作区从既有 `assets/dsh-deepseek` 和 `assets/longniang` 提取首张睁眼待机帧；没有对应表情或动作时用气泡表达。皮肤自身保留原始配色，界面保留黑蓝、金、告急红；不通过反复眨眼或切换不同尺寸的动作帧表达慌张。
+`http://localhost:3327/CeTaPetActions` 展示早期参考的完整九种姿态：待机、吃饭、思考、拖拽、点击、余额告急、登场、成功和失败。它们原本是九张静态 PNG，不是序列动画；`Pet` 的 `action` 参数可按原状态选择，余额样板使用 `nomoney` 姿态。
 
-也可自行导入本地皮肤包，包含 `deepseek-idle.png` 与 `chatgpt-idle.png` 两张透明图片：
+角色图片只在本地 `public/pet-skins/` 生成并被 Git 忽略。DeepSeek 来源为 [早期 CeTaPet 固定版本](https://github.com/kmjs1915/CeTaPet-AI-DeskTopPet-DeepSeek/tree/d0725b0e0aa58cd547c48b1681988ee708120d31)，其九张姿态按原目录结构复制，LICENSE 与 README 一并保留。ChatGPT 娘仍从现有 `assets/longniang` 提取睁眼待机帧。没有对应动作时用气泡表达；保留原始配色，不把静态图片称作连续动作动画。
+
+独立重新导入九种姿态：
+
+```sh
+npm run import:cetapet
+```
+
+准备脚本优先复用已有早期参考缓存；缺少缓存时下载同一参考仓库，并校验固定提交。也可用 `MCPET_CETAPET_SOURCE` 显式指定检出该固定提交的本地仓库目录。路径不会写入生成产物。素材沿用当前项目 `assets/CREDITS.md` 的本地开发边界，不新增到发行包。
+
+ChatGPT 娘也可自行导入本地皮肤包，包含透明图片 `chatgpt-idle.png`：
 
 ```powershell
 $env:MCPET_REEL_SKIN_DIR = '你的本地皮肤包目录'
@@ -63,7 +73,7 @@ npm run build
 
 ## 字体与参考
 
-**本视频软件使用 HarmonyOS Sans 字体**，附带未修改的简体中文常规字重及 [HarmonyOS Sans 字体许可](public/fonts/HarmonyOS-Sans-LICENSE.txt)。数字与代码使用 JetBrains Mono，附带 [OFL 许可](public/fonts/JetBrainsMono-OFL.txt)。这些字体许可独立于工程源码；没有复制参考项目的代码或角色资源。Remotion 自身的使用条件见 [Remotion 许可](https://github.com/remotion-dev/remotion/blob/main/LICENSE.md)。
+**本视频软件使用 HarmonyOS Sans 字体**，附带未修改的简体中文常规字重及 [HarmonyOS Sans 字体许可](public/fonts/HarmonyOS-Sans-LICENSE.txt)。数字与代码使用 JetBrains Mono，附带 [OFL 许可](public/fonts/JetBrainsMono-OFL.txt)。这些字体许可独立于工程源码；角色素材的本地导入来源与文件保留方式见上文。没有复制参考项目的运行代码。Remotion 自身的使用条件见 [Remotion 许可](https://github.com/remotion-dev/remotion/blob/main/LICENSE.md)。
 
 - [Remotion Skills](https://github.com/remotion-dev/skills)：已安装 best-practices、create、markup、studio；安装来源与内容锁记录在根目录 `skills-lock.json`。安装命令：`npx skills add remotion-dev/skills --skill remotion-best-practices remotion-create remotion-markup remotion-studio --agent claude-code --yes`。
 - [OneTake](https://github.com/feitangyuan/OneTake)：学习持续存在的角色、道具与姿态锚点原则，不复制实现。

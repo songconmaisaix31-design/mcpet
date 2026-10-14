@@ -485,6 +485,12 @@ class PetFunctions:
             actions += [("炸薯条 · 循环", self.action_frying), ("换装", self.action_outfit)]
         if self.window.character_id == "deepseek":
             actions += [("默认套装", self.action_skin_default), ("麦麦套装", self.action_skin_maimai)]
+            from .cetapet import ACTIONS as CETAPET_ACTIONS
+            installed = self.window.sheet.meta.get("animations", {}) if self.window.sheet else {}
+            legacy = [(row["label"], lambda action=key: self._play_pet_action(action, loop=True))
+                      for key, row in CETAPET_ACTIONS.items() if key in installed]
+            if legacy:
+                actions.append(("早期鲸鲸姿态", legacy))
         settings = [("查看设置", self.action_settings), ("自动提醒：" + ("开" if self._reminders_enabled() else "关"), self.action_reminders)]
         setting_groups = {"时间与位置": [], "账号凭证": [], "日志来源": []}
         for key, label in (("MCPET_CITY", "城市"), ("MCPET_LUNCH_TIME", "饭点"), ("MCPET_COFFEE_TIME", "咖啡时间"),

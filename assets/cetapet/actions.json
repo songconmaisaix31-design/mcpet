@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/kmjs1915/CeTaPet-AI-DeskTopPet-DeepSeek",
+  "commit": "d0725b0e0aa58cd547c48b1681988ee708120d31",
+  "actions": [
+    {"id": "nothing", "label": "待机", "file": "move/idle/nothing/nothing.png"},
+    {"id": "eat", "label": "吃饭", "file": "move/idle/eat/eat.png"},
+    {"id": "think", "label": "思考", "file": "move/idle/think/think.png"},
+    {"id": "pickup", "label": "被提起来", "file": "move/PickUp/pickup.png"},
+    {"id": "touch", "label": "摸摸回应", "file": "move/touch/touch.png"},
+    {"id": "nomoney", "label": "余额告急", "file": "move/query/nomoney.png"},
+    {"id": "cheerup", "label": "元气登场", "file": "move/cheerup/cheerup.png"},
+    {"id": "true", "label": "成功", "file": "move/file/true/true.png"},
+    {"id": "wrong", "label": "失败", "file": "move/file/wrong/wrong.png"}
+  ]
+}

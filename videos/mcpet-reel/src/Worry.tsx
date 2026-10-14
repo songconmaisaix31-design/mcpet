@@ -34,7 +34,7 @@ export const WorrySample: React.FC = () => {
       <div style={{fontFamily: design.fonts.data, fontSize: 126, letterSpacing: -6, lineHeight: 1.15, color: state.alarm ? alarm : gold, marginTop: 14}}>¥{state.balance.toFixed(2)}</div>
       <div style={{fontSize: 27, opacity: 0.68, marginTop: 10}}>演示余额 · 低于 ¥5 提醒</div>
     </div>
-    <Pet pose={state.pose} angle={state.angle} />
+    <Pet pose={state.pose} angle={state.angle} action="nomoney" />
     <div style={{position: 'absolute', left: 148, top: 857, width: 784, minHeight: 197, boxSizing: 'border-box', borderRadius: '32px 32px 8px 32px', border: `2px solid ${gold}`, backgroundColor: night, padding: '25px 32px', fontSize: 44, lineHeight: 1.65, whiteSpace: 'pre-line', opacity: bubble, scale: 0.94 + 0.06 * state.bubble, transformOrigin: '85% 100%'}}>
       {typed}<span style={{opacity: state.typedCharacters < state.totalCharacters ? 0.55 : 0}}>▍</span>
     </div>

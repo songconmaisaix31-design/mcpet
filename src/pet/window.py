@@ -23,6 +23,7 @@ from .preferences import PetPreferences
 from .characters import CHARACTER_IDS, load_character
 from .identity import DEFAULT_CHARACTER
 from .skins import validate_skin
+from .cetapet import ACTIONS as CETAPET_ACTIONS, require_pose
 from ..agent_local import data_lock
 
 DEFAULT_SIZE = 180
@@ -378,14 +379,17 @@ class PetWindow(QWidget):
 
     def play_action(self, state: str, *, loop: bool = False) -> None:
         if (self.sheet is None
-                or state not in ("frying", "outfit")
+                or state not in ({"frying", "outfit"} | set(CETAPET_ACTIONS))
                 or state not in self.sheet.meta.get("animations", {})):
             raise SpriteLoadError("此角色没有该动作")
         target_skin = None
+        if state in CETAPET_ACTIONS:
+            require_pose(state)
+            loop = True  # 原始姿态只有一帧，保持到用户切换或停止。
         if self.character_id == "deepseek":
             if state == "frying":
                 self.set_skin("maimai")
-            else:
+            elif state == "outfit":
                 target_skin = "maimai" if self.skin_id == "default" else "default"
                 state = "outfit" if target_skin == "maimai" else "outfit-default"
                 loop = False
@@ -661,7 +665,7 @@ class PetWindow(QWidget):
                 if saved.get("pending_skin_id"):
                     self.set_skin(saved["pending_skin_id"])
                 return
-            if action in ("frying", "outfit"):
+            if action in ({"frying", "outfit"} | set(CETAPET_ACTIONS)):
                 self.play_action(action, loop=saved.get("action_loop") is True)
             elif action == "sleeping":
                 self.set_resting(True)

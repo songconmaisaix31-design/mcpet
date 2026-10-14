@@ -30,8 +30,9 @@
     "dev": "remotion studio",
     "measure": "tsx scripts/voice.ts && tsx scripts/measure.ts",
     "skins": "tsx scripts/skins.ts",
+    "import:cetapet": "tsx scripts/cetapet.ts",
     "prepare": "npm run skins && npm run measure && tsx scripts/audio.ts",
-    "test": "tsx --test scripts/behavior.test.ts scripts/skins.test.ts",
+    "test": "tsx --test scripts/behavior.test.ts scripts/skins.test.ts scripts/cetapet.test.ts",
     "build": "remotion bundle",
     "upgrade": "remotion upgrade",
     "lint": "eslint src scripts && tsc"

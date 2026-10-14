@@ -38,3 +38,7 @@ opencode.json
 # Remotion 技能通过上游安装，固定版本见 skills-lock.json。
 .claude/skills/remotion-*/
 .agents/skills/remotion-*/
+
+# 早期姿态为用户本地导入素材，不进入参赛发行包。
+assets/cetapet/original/
+assets/cetapet/runtime/

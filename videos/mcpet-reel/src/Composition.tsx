@@ -5,6 +5,7 @@ import {worry} from './behaviors/worry';
 import {design} from './design';
 import {WorrySample} from './Worry';
 import {CastPreview} from './CastPreview';
+import {CeTaPetPreview} from './CeTaPetPreview';
 
 export const MyComposition = () => <><Composition
   id="WorrySample"
@@ -16,4 +17,5 @@ export const MyComposition = () => <><Composition
   calculateMetadata={() => ({durationInFrames: measure(worry, design.fps).durationInFrames})}
 />
   <Still id="CastPreview" component={CastPreview} width={design.width} height={design.height} />
+  <Still id="CeTaPetActions" component={CeTaPetPreview} width={design.width} height={design.height} />
 </>;
