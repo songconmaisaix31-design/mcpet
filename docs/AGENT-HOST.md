@@ -12,7 +12,7 @@ python -m src.agent_install
 
 默认 `--client generic` 只输出 `server_name` 和通用 stdio `server` 定义，不读取或修改宿主配置。
 把其中 `command` 和 `args` 填入任意支持 stdio 的 MCP 客户端；外层配置结构由该客户端决定。
-绝对启动器不依赖宿主的工作目录。21 个工具、7 个资源和服务端 prompt 均不依赖宿主品牌或 hooks。
+绝对启动器不依赖宿主的工作目录。21 个工具、动画与指南资源和服务端 prompt 均不依赖宿主品牌或 hooks。
 支持 MCP 工具调用的客户端可直接查询 `mcpet_reminders` / `mcpet_progress`；自动事件/提醒是可选适配。
 
 技能层见 [.agents/skills/mcpet/SKILL.md](../.agents/skills/mcpet/SKILL.md)。通用导出同时给出技能来源；
@@ -30,7 +30,7 @@ python -m src.agent_install --client claude --project "你的项目目录"
 在 McPet 仓库运行接入命令；`--project` 是以后使用原 Agent 的项目，不必进入 McPet 才能对话。
 `--client both` 可同时安装两份可选适配。原生安装器将当前 Python 和 McPet 路径写到
 项目配置，不修改全局账号、权限或其他 MCP 服务。移动 McPet 或切换 Python 后重跑安装器。
-当前机器的本仓库已生成这两份接入配置。Claude Code 的首次项目 MCP 信任由其原生流程处理。
+Claude Code 的首次项目 MCP 信任由其原生流程处理。
 已运行的宿主需要重开此项目会话以加载新配置。
 
 仅 Agent 模式的依赖不含 Qt；完整旧桌面兼容依赖仍在 `requirements.txt`。

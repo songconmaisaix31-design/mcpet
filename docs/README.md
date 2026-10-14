@@ -1,11 +1,13 @@
 # 文档索引
 
-当前默认入口是在原 Agent 会话中运行 McPet MCP 服务。
+新用户先读[完整使用指南](USER-GUIDE.md)：下载安装、桌面操作、Agent 接入、账号配置与常见问题。
+当前默认命令入口为原 Agent 中的 MCP 服务；显示桌宠使用发行包 `Start-Pet.vbs` 或显式 `--desktop`。
 
 ## 使用与开发
 
 | 文档 | 内容 |
 |---|---|
+| [完整使用指南](USER-GUIDE.md) | 安装、菜单、Agent 接入、账号配置、餐饮流程、提醒、更新与常见问题 |
 | [Agent 使用说明](AGENT-HOST.md) | 通用 MCP stdio 接入、可选宿主适配、21 项工具及动画资源 |
 | [Agent 技能层](AGENT-SKILL.md) | 可发现的 McPet 技能、通用/原生安装、确认流程与验证 |
 | [首发召唤小抄](RELEASE-QUICKSTART.md) | v0.1.0 Windows 便携包与通用 Agent 包 |
