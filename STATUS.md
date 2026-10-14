@@ -1,8 +1,10 @@
 # McPet 开发状态
 
-更新日期：2026-10-14。仓库：`songconmaisaix31-design/mcpet`。本次整理基线为 `461c969`，工作分支为 `main`。`codex/docs-readme-guide-20261014` 已通过普通合并 `dc98ebd` 进入主分支。接管说明见 [HANDOFF.md](HANDOFF.md)。
+更新日期：2026-10-15。仓库：`songconmaisaix31-design/mcpet`。工作分支为 `main`。公开试用阶段 SOURCE 为 `fff7298`，普通合并为 `095ef1b`；此前文档整理基线为 `461c969`，普通合并为 `dc98ebd`。接管说明见 [HANDOFF.md](HANDOFF.md)。
 
 ## 发行与开发版本
+
+最新源码已提供[免 Token 在线试用](docs/PUBLIC-TRIAL.md)，两家的真实试用凭证经用户明确确认公开；长期使用请配置自己的 Token，个人配置优先。源码的真实 HTTP、stdio、配置保存/读取与验证包启动通过，v0.1.0 已上传下载包保持原版本。用户要求的 `assets/banner.svg` 横幅等待原照片或本机路径，尚未生成。
 
 | 项目 | 当前状态 | 证据 |
 |---|---|---|
