@@ -53,5 +53,7 @@ git diff --check
 保留现有目录与使用的技术，跨轨修改交 Handoff。按阶段 commit，最终分支 push，普通合并，
 不 force push 或覆盖公共历史。不要删除队友分支、worktree 或无法解释的文件。
 
-本机生成的宿主路径配置、真实凭证和个人运行数据不入库。只整理能解释来源的缓存，
+本机生成的宿主路径配置、个人凭证和个人运行数据不入库；`.env.trial` 是用户明确公开的试用凭证。只整理能解释来源的缓存，
 保留首失败与待验证记录。素材保留 SOURCE、许可证和 [来源说明](assets/CREDITS.md)。
+
+公开试用凭证的实际验证使用 `scripts/verify_trial_credentials.py`，命令与结果见[试用说明](docs/PUBLIC-TRIAL.md)。该验证调用真实 HTTP 和 MCP stdio，构建并解压验证包；不执行旧 mock 用例。

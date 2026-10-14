@@ -8,10 +8,11 @@ dist/
 .pytest_cache/
 .mypy_cache/
 
-# 真实凭证：绝不入库
+# 本机个人凭证不入库；.env.trial 为用户明确公开的试用凭证。
 .env
 .env.*
 !.env.example
+!.env.trial
 
 # 本机运行数据（营养台账、订单审计、日志）——含个人信息，不入库
 data/

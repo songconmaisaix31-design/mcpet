@@ -12,6 +12,7 @@
 | [Agent 使用说明](AGENT-HOST.md) | 通用 MCP stdio 接入、可选宿主适配、21 项工具及动画资源 |
 | [Agent 技能层](AGENT-SKILL.md) | 可发现的 McPet 技能、通用/原生安装、确认流程与验证 |
 | [首发召唤小抄](RELEASE-QUICKSTART.md) | v0.1.0 Windows 便携包与通用 Agent 包 |
+| [免 Token 在线试用](PUBLIC-TRIAL.md) | 公开试用配置、个人配置优先与实际连接验证 |
 | [宠物菜单与瑞幸](PET-MENU-LUCKIN.md) | 右键菜单、气泡交互、时间/条件触发及瑞幸官方接入 |
 | [本地动作演示](PORTABLE-AGENT-DEMO.md) | 原视频与透明动画预览、通用客户端验证 |
 | [DeepSeek 娘动作与皮肤](DEEPSEEK-SKINS.md) | 短循环、双向换装、持久皮肤及桌宠播放验证 |
