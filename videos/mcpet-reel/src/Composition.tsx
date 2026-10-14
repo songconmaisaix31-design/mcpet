@@ -1,0 +1,21 @@
+import {Composition, Still} from 'remotion';
+import timeline from '../timeline.json';
+import {measure} from './behavior';
+import {worry} from './behaviors/worry';
+import {design} from './design';
+import {WorrySample} from './Worry';
+import {CastPreview} from './CastPreview';
+import {CeTaPetPreview} from './CeTaPetPreview';
+
+export const MyComposition = () => <><Composition
+  id="WorrySample"
+  component={WorrySample}
+  durationInFrames={timeline.durationInFrames}
+  fps={design.fps}
+  width={design.width}
+  height={design.height}
+  calculateMetadata={() => ({durationInFrames: measure(worry, design.fps).durationInFrames})}
+/>
+  <Still id="CastPreview" component={CastPreview} width={design.width} height={design.height} />
+  <Still id="CeTaPetActions" component={CeTaPetPreview} width={design.width} height={design.height} />
+</>;

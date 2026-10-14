@@ -55,10 +55,10 @@ def create_server(service=None):
         return await invoke("status")
 
     @server.tool(annotations=local)
-    async def mcpet_pet(action: Literal["idle", "working", "thinking", "greet", "happy", "sleeping", "eating", "frying", "outfit", "stop"] = "idle",
+    async def mcpet_pet(action: Literal["idle", "working", "thinking", "greet", "happy", "sleeping", "eating", "frying", "outfit", "stop", "ceta_nothing", "ceta_eat", "ceta_think", "ceta_pickup", "ceta_touch", "ceta_nomoney", "ceta_cheerup", "ceta_true", "ceta_wrong"] = "idle",
                         character_id: Literal["", "maimai", "deepseek"] = "", loop: bool = False,
                         skin_id: Literal["", "default", "maimai"] = "") -> dict[str, Any]:
-        """切角色、动作或持久皮肤。DeepSeek 娘 default/maimai 随时切换；换装一次切到另一套，炸薯条穿麦麦套装。"""
+        """切角色、动作或持久皮肤。DeepSeek 娘可切 default/maimai；本地导入后可用 ceta_* 九种早期姿态，保持到停止。"""
         return await invoke("pet", action, character_id, loop, skin_id)
 
     @server.tool(annotations=read)
@@ -183,6 +183,21 @@ def create_server(service=None):
     def deepseek_maimai_skin() -> bytes:
         from .agent_service import ASSETS
         return (ASSETS / "deepseek-skins/maimai/idle.gif").read_bytes()
+
+    @server.resource("mcpet://pose/deepseek/cetapet/{action}", mime_type="image/png")
+    def cetapet_pose(action: str) -> bytes:
+        from .pet.cetapet import require_pose
+        return require_pose(action).read_bytes()
+
+    @server.resource("mcpet://recordings/deepseek", mime_type="application/json")
+    def deepseek_recordings() -> str:
+        from .pet.recordings import catalog
+        return json.dumps(catalog(), ensure_ascii=False)
+
+    @server.resource("mcpet://recording/deepseek/{skin}/{action}/{size}", mime_type="image/gif")
+    def deepseek_recording(skin: str, action: str, size: int) -> bytes:
+        from .pet.recordings import image_path
+        return image_path(skin, action, size).read_bytes()
 
     @server.resource("mcpet://guide", mime_type="text/plain")
     def guide() -> str:

@@ -4,6 +4,7 @@ from pathlib import Path
 from .spritesheet import AnimationSheet, SpriteLoadError, SpriteSheet
 from .skins import validate_skin
 from .identity import CHARACTER_NAMES
+from . import cetapet
 
 CHARACTER_IDS = tuple(CHARACTER_NAMES)
 ASSETS = Path(__file__).resolve().parents[2] / "assets"
@@ -22,6 +23,9 @@ def load_character(character_id: str, skin_id: str = "default") -> SpriteSheet:
     if character_id == "deepseek":
         base = AnimationSheet(ASSETS / ("dsh-deepseek" if skin_id == "default" else "deepseek-skins/maimai"))
         sheet = AnimationSheet(ASSETS / "deepseek-actions", base_sheet=base)
+        legacy = cetapet.ROOT / "runtime"
+        if (legacy / "manifest.json").is_file():
+            sheet = AnimationSheet(legacy, base_sheet=sheet)
         sheet.meta.update(character_id="deepseek", skin_id=skin_id)
         return sheet
     directory = ASSETS / "longniang"

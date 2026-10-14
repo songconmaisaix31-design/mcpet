@@ -1,0 +1,40 @@
+{
+  "schema": 1,
+  "stage": "worry-sample",
+  "fps": 30,
+  "width": 1080,
+  "height": 1920,
+  "rhythm": {
+    "stiffness": 100,
+    "damping": 12,
+    "typingRate": 8
+  },
+  "durationInFrames": 207,
+  "behaviors": [
+    {
+      "actor": "Pet",
+      "verb": "worry",
+      "start": 0,
+      "durationInFrames": 207,
+      "enterPose": {
+        "x": 745,
+        "y": 1240,
+        "heading": "front",
+        "expression": "curious",
+        "scale": 1,
+        "rotation": 0
+      },
+      "exitPose": {
+        "x": 710,
+        "y": 1240,
+        "heading": "front",
+        "expression": "focus",
+        "scale": 1,
+        "rotation": 0
+      },
+      "events": {
+        "alarm": 8
+      }
+    }
+  ]
+}

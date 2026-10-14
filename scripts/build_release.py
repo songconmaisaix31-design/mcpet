@@ -21,7 +21,7 @@ def release_files():
         for path in sorted((ROOT / "assets" / name).rglob("*")):
             if path.is_file() and (path.suffix in {".png", ".gif", ".webp", ".webm", ".json", ".md"} or path.name == "LICENSE"):
                 yield path
-    for name in ("requirements-agent.txt", "requirements.txt", ".env.example", "assets/CREDITS.md",
+    for name in ("requirements-agent.txt", "requirements.txt", ".env.example", "assets/CREDITS.md", "assets/cetapet/actions.json", "assets/cetapet/SOURCE.md",
                  "docs/AGENT-HOST-INSTRUCTIONS.md", "scripts/agent_host.py", "scripts/agent_hook.py"):
         yield ROOT / name
 
@@ -54,7 +54,7 @@ def main():
                    "--copy-metadata", "jsonschema", "--copy-metadata", "referencing"]
         for folder in sorted(ASSET_DIRS):
             command += ["--add-data", f"{ROOT / 'assets' / folder}:assets/{folder}"]
-        for relative in ("assets/CREDITS.md", "docs/AGENT-HOST-INSTRUCTIONS.md", ".agents/skills/mcpet",
+        for relative in ("assets/CREDITS.md", "assets/cetapet/actions.json", "assets/cetapet/SOURCE.md", "docs/AGENT-HOST-INSTRUCTIONS.md", ".agents/skills/mcpet",
                          "integrations/opencode", "scripts/agent_hook.py"):
             path = ROOT / relative
             destination = relative if path.is_dir() else str(Path(relative).parent).replace("\\", "/")

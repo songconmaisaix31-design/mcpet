@@ -20,10 +20,11 @@ from .nutrition.ledger import NutritionLedger
 from .pet.preferences import PetPreferences
 from .pet.skins import SKINS, validate_skin
 from .pet.identity import DEFAULT_CHARACTER, CHARACTER_NAMES
+from .pet.cetapet import ACTIONS as CETAPET_ACTIONS, require_pose
 
 ASSETS = config.PROJECT_ROOT / "assets"
 CHARACTERS = CHARACTER_NAMES
-ACTIONS = {"idle", "working", "thinking", "greet", "happy", "sleeping", "eating", "frying", "outfit"}
+ACTIONS = {"idle", "working", "thinking", "greet", "happy", "sleeping", "eating", "frying", "outfit"} | set(CETAPET_ACTIONS)
 
 
 def public(value):
@@ -109,11 +110,15 @@ class AgentService:
             character = character_id or prefs.get("character_id", DEFAULT_CHARACTER)
             if character not in CHARACTERS:
                 raise ValueError("未知角色")
+            if action in CETAPET_ACTIONS:
+                if character != "deepseek":
+                    raise ValueError("这套姿态是鲸鲸的小衣柜哦")
+                require_pose(action)
             skin = skin_id or (prefs.get("deepseek_skin_id", prefs.get("skin_id", "default")) if character == "deepseek" else "default")
             validate_skin(character, skin)
             prefs.update(character_id=character, action="idle" if action == "stop" else action,
                          resting=action == "sleeping", skin_id=skin,
-                         action_loop=bool(loop and action == "frying"), pet_command_at=time.time())
+                         action_loop=bool(action in CETAPET_ACTIONS or (loop and action == "frying")), pet_command_at=time.time())
             prefs.pop("action_until", None)
             prefs.pop("pending_skin_id", None)
             prefs.pop("action_animation", None)
@@ -134,10 +139,25 @@ class AgentService:
 
     @staticmethod
     def animation_info(character, action, skin="default"):
+        from .pet.recordings import info
+        recording = info(skin, action) if character == "deepseek" else None
+        result = AgentService._original_animation_info(character, action, skin)
+        if recording:
+            if "uri" not in result:
+                result.update(recording)
+            result["recording"] = recording
+        return result
+
+    @staticmethod
+    def _original_animation_info(character, action, skin="default"):
         if character == "maimai" and action in {"frying", "outfit"}:
             return {"uri": f"mcpet://animation/maimai/{action}", "mime_type": "image/gif",
                     "duration_seconds": 10.16, "rendering": "宿主支持图像资源时可展示；不创建播放窗口"}
         if character == "deepseek":
+            if action in CETAPET_ACTIONS:
+                return {"uri": f"mcpet://pose/deepseek/cetapet/{action}", "mime_type": "image/png",
+                        "kind": "pose", "label": CETAPET_ACTIONS[action]["label"],
+                        "rendering": "鲸鲸的原始姿态图；桌宠会保持到切换或停止"}
             if action in {"frying", "outfit", "outfit-default"}:
                 return {"uri": f"mcpet://animation/deepseek/{action}", "mime_type": "image/gif",
                         "duration_seconds": 2.40 if action == "frying" else 3.84,

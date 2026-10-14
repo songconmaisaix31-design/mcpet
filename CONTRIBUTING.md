@@ -1,6 +1,6 @@
 # 开发与验证
 
-先读 [README](README.md)、[项目 Agent 约定](AGENTS.md) 与本次任务相关计划。
+先读 [开发交接](HANDOFF.md)、[当前状态](STATUS.md)、[README](README.md)、[执行协议](AGENTS.md) 与本次任务相关计划。
 当前默认运行在原 Agent；目录与兼容入口见 [仓库结构](docs/REPOSITORY.md)。
 
 ## 环境
@@ -14,6 +14,9 @@ python -m pip install -r requirements.txt
 
 素材离线转换另需 Pillow、numpy、opencv-python 和 FFmpeg，按各素材 SOURCE 说明安装；
 这些不是 Agent 服务运行依赖。
+
+GIF 录制及 `tests/test_deepseek_recordings.py` 另需 Pillow：`python -m pip install Pillow`。
+该工具使用现有 Qt 显示帧导出，素材说明见 [GIF 小相册](assets/deepseek-recordings/SOURCE.md)。
 
 配置示例见 [.env.example](.env.example)。测试不需要真实模型 Key 或麦当劳 Token。
 `tests/conftest.py` 默认隔离本机数据目录并使用 Qt offscreen；现有测试共享 Qt fixture，
@@ -47,7 +50,7 @@ git diff --check
 ## 修改和提交
 
 小任务单 Agent；并行仅用于可按互斥文件路径拆开的任务，并遵守用户的 Orca 轨道协议。
-保留现有目录与技术栈，跨轨修改交 Handoff。按阶段 commit，最终分支 push，普通合并，
+保留现有目录与使用的技术，跨轨修改交 Handoff。按阶段 commit，最终分支 push，普通合并，
 不 force push 或覆盖公共历史。不要删除队友分支、worktree 或无法解释的文件。
 
 本机生成的宿主路径配置、真实凭证和个人运行数据不入库。只整理能解释来源的缓存，
