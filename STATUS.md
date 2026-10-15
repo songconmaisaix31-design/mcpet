@@ -1,8 +1,10 @@
 # McPet 开发状态
 
-更新日期：2026-10-15。仓库：`songconmaisaix31-design/mcpet`。工作分支为 `main`。公开试用阶段 SOURCE 为 `fff7298`，普通合并为 `095ef1b`；此前文档整理基线为 `461c969`，普通合并为 `dc98ebd`。接管说明见 [HANDOFF.md](HANDOFF.md)。
+更新日期：2026-10-15。仓库：`songconmaisaix31-design/mcpet`。工作分支为 `codex/bubble-demo-20261015`，本轮基线 `1be6592`。公开试用阶段 SOURCE 为 `fff7298`，普通合并为 `095ef1b`；此前文档整理基线为 `461c969`，普通合并为 `dc98ebd`。接管说明见 [HANDOFF.md](HANDOFF.md)。
 
 ## 发行与开发版本
+
+桌宠气泡已整理为连续圆角背景，通知、输入、按钮和滚动区域统一；拖动桌宠保留报告滚动位置。[本轮实际操作录屏](videos/mcpet-desktop/README.md)采用用户文案与阶跃星辰 TTS，成片为 1080×1920 / 65.12 秒。49 项适用检查、4 项 Windows 原生气泡检查通过；五项既有动画断言在基线复现。视频保存在本机，尚未发布或更新发行包。
 
 最新源码已提供[免 Token 在线试用](docs/PUBLIC-TRIAL.md)，两家的真实试用凭证经用户明确确认公开；长期使用请配置自己的 Token，个人配置优先。源码的真实 HTTP、stdio、配置保存/读取与验证包启动通过，v0.1.0 已上传下载包保持原版本。用户要求的 `assets/banner.svg` 横幅等待原照片或本机路径，尚未生成。
 
@@ -60,7 +62,11 @@
 
 当前分支与其他工作树的实时状态用 `git status -sb`、`git worktree list`、`git branch -vv` 查询。保留历史分支与工作树，原始验收记录在 [companion](docs/companion/README.md)。
 
-## 本轮验证
+## 气泡与竖屏录屏验证（2026-10-15）
+
+适用测试 49 项通过，Windows 原生气泡检查 4 项通过；编译与 diff 检查通过。computer-use 实际检查了设置、输入、优惠查询与报告滚动。成片 1080×1920 / 25 fps / 65.12 秒，H.264 与 AAC 完整解码通过。范围、命令与五项既有动画失败见[本轮记录](videos/mcpet-desktop/README.md)。
+
+## README 与状态整理验证（2026-10-14）
 
 文档与展示素材验证使用本仓库 `.venv`，Python 3.13.13、MCP 1.30.0、PySide6 6.12.0、Pillow 12.3.0；Markdown 使用 markdown-it-py 解析。中间脚本与数据位于已忽略的 `.tmp-test-data/docs-readme/`。
 

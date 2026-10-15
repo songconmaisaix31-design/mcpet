@@ -13,7 +13,7 @@ from collections.abc import Sequence
 
 from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal, QEventLoop
 from PySide6.QtGui import QFont, QPixmap
-from PySide6.QtWidgets import QApplication, QLabel, QMenu, QVBoxLayout, QWidget, QPushButton, QLineEdit, QScrollArea, QSizePolicy
+from PySide6.QtWidgets import QApplication, QLabel, QMenu, QVBoxLayout, QWidget, QFrame, QPushButton, QLineEdit, QScrollArea, QSizePolicy
 from .menu import populate_menu
 
 from .spritesheet import AnimationSheet, ScaledAnimationFrames, SpriteLoadError, SpriteSheet
@@ -61,36 +61,59 @@ def resolve_frame_hold(sheet: SpriteSheet | None, state: str) -> int:
 
 
 class Bubble(QWidget):
-    """气泡。跟随桌宠窗口上沿，纯展示，不抢焦点。"""
+    """跟随桌宠的通知、输入和确认气泡。"""
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent, Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
-        self.label = QLabel(self)
-        self.label.setWordWrap(True)
-        self.label.setFont(QFont("Microsoft YaHei UI", 10))
-        self.label.setStyleSheet(
-            "QLabel{background:#FFF8E7;color:#3A2A12;border:1px solid #E0B24C;"
-            "border-radius:10px;padding:8px 10px;}"
-        )
-        self.label.setMaximumWidth(260)
-        self.label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.setFont(QFont("Microsoft YaHei UI", 10))
+        self.setStyleSheet("""
+            QFrame#bubbleSurface { background:#FFF8E7; border:0; border-radius:14px; }
+            QLabel#bubbleText { background:transparent; color:#3A2A12; border:0; padding:0; }
+            QScrollArea#bubbleScroll, QWidget#bubbleControls { background:transparent; border:0; }
+            QScrollBar:vertical { background:transparent; width:5px; margin:0; }
+            QScrollBar::handle:vertical { background:#CDBB98; border-radius:2px; min-height:24px; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background:transparent; }
+            QPushButton { background:#F1E6CF; color:#3A2A12; border:0; border-radius:8px; padding:7px 10px; }
+            QPushButton:hover { background:#E8D8B6; }
+            QPushButton:pressed { background:#DCCDAB; }
+            QPushButton:focus { border:1px solid #9C7536; padding:6px 9px; }
+            QPushButton#bubbleCancel { background:transparent; color:#756448; }
+            QPushButton#bubbleCancel:hover { background:#F1E6CF; }
+            QLineEdit { background:#FFFFFF; color:#3A2A12; border:1px solid #E2D5B9;
+                        border-radius:8px; padding:7px 9px; selection-background-color:#E8D8B6; }
+            QLineEdit:focus { border-color:#9C7536; }
+        """)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(2)
+        self.surface = QFrame(self)
+        self.surface.setObjectName("bubbleSurface")
+        layout.addWidget(self.surface)
+        self.surface_layout = QVBoxLayout(self.surface)
+        self.surface_layout.setContentsMargins(14, 12, 14, 12)
+        self.surface_layout.setSpacing(10)
+        self.label = QLabel(self.surface)
+        self.label.setObjectName("bubbleText")
+        self.label.setWordWrap(True)
+        self.label.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        self.label.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         self.setFixedWidth(260)
-        self.scroll = QScrollArea(self)
+        self.scroll = QScrollArea(self.surface)
+        self.scroll.setObjectName("bubbleScroll")
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QScrollArea.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.scroll.viewport().setAutoFillBackground(False)
         self.scroll.setWidget(self.label)
-        layout.addWidget(self.scroll)
-        self.controls = QWidget(self)
+        self.surface_layout.addWidget(self.scroll)
+        self.controls = QWidget(self.surface)
+        self.controls.setObjectName("bubbleControls")
         self.controls_layout = QVBoxLayout(self.controls)
-        self.controls_layout.setContentsMargins(4, 0, 4, 4)
-        layout.addWidget(self.controls)
+        self.controls_layout.setContentsMargins(0, 0, 0, 0)
+        self.controls_layout.setSpacing(6)
+        self.surface_layout.addWidget(self.controls)
         self.controls.hide()
         self.interacting = False
         self._loop = None
@@ -102,12 +125,19 @@ class Bubble(QWidget):
     def show_text(self, text: str, anchor: QWidget) -> None:
         if not self.interacting:
             self.label.setText(text)
+            self.scroll.verticalScrollBar().setValue(0)
         self.position(anchor)
 
     def position(self, anchor):
-        height = self.label.heightForWidth(240)
-        self.scroll.setFixedHeight(min(190, max(48, height + 8)))
-        self.adjustSize()
+        self.ensurePolished()
+        margins = self.surface_layout.contentsMargins()
+        width = self.width() - margins.left() - margins.right()
+        height = self.label.heightForWidth(width)
+        if height > 190:
+            width -= self.scroll.verticalScrollBar().sizeHint().width()
+            height = self.label.heightForWidth(width)
+        self.scroll.setFixedHeight(min(190, max(self.label.fontMetrics().height(), height)))
+        self.setFixedHeight(self.surface.sizeHint().height())
         x = anchor.x() + anchor.width() // 2 - self.width() // 2
         y = anchor.y() - self.height() - 6
         if y < anchor.screen().availableGeometry().top():
@@ -127,6 +157,7 @@ class Bubble(QWidget):
             return None
         self.interacting = True
         self.label.setText(text)
+        self.scroll.verticalScrollBar().setValue(0)
         self.result = None
         self.buttons = []
         self.input = None
@@ -146,6 +177,7 @@ class Bubble(QWidget):
             self.controls_layout.addWidget(button)
             self.buttons.append(button)
         cancel = QPushButton("取消", self.controls)
+        cancel.setObjectName("bubbleCancel")
         cancel.clicked.connect(lambda: self._finish())
         self.controls_layout.addWidget(cancel)
         self.buttons.append(cancel)
@@ -680,7 +712,7 @@ class PetWindow(QWidget):
         if hasattr(self, "_save_timer"):
             self._save_timer.start(500)
         if hasattr(self, "bubble") and self.bubble.isVisible():
-            self.bubble.show_text(self.bubble.label.text(), self)
+            self.bubble.position(self)
 
     def showEvent(self, event):  # noqa: N802
         super().showEvent(event)
