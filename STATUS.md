@@ -1,6 +1,20 @@
 # McPet 开发状态
 
-更新日期：2026-10-15。仓库：`songconmaisaix31-design/mcpet`。工作分支为 `codex/bubble-demo-20261015`，本轮基线 `1be6592`。公开试用阶段 SOURCE 为 `fff7298`，普通合并为 `095ef1b`；此前文档整理基线为 `461c969`，普通合并为 `dc98ebd`。接管说明见 [HANDOFF.md](HANDOFF.md)。
+更新日期：2026-10-17。仓库：`songconmaisaix31-design/mcpet`。工作分支为 `codex/deepseek-persona-20261017`，本轮基线 `3dee5ae`。气泡与视频阶段分支为 `codex/bubble-demo-20261015`，对应基线 `1be6592`。公开试用阶段 SOURCE 为 `fff7298`，普通合并为 `095ef1b`；此前文档整理基线为 `461c969`，普通合并为 `dc98ebd`。接管说明见 [HANDOFF.md](HANDOFF.md)。
+
+## DeepSeek 人格接入（2026-10-17）
+
+用户已确认接入 McPet 桌面气泡和持续聊天。[人格包原文](.agents/skills/deepseek-persona/SKILL.md)已保存；`jp-persona-engine` 的路径、来源或本次实现范围仍待用户回答。桌面接入、双字段输出、每八轮重注入、关系阶段、称呼记忆、DeepSleep 与人格场景验收尚未实现。现有桌面没有连接 `src/chat/dialog.py`，气泡使用内置回复。
+
+验证：
+
+```powershell
+python -X utf8 C:/Users/DW/AppData/Roaming/orca/codex-accounts/2a305740-3098-46da-a63f-2d9e42ae9d72/home/skills/.system/skill-creator/scripts/quick_validate.py .agents/skills/deepseek-persona
+.\.venv\Scripts\python.exe -X utf8 -m pytest tests/test_chat.py tests/test_bubble_layout.py tests/test_pet_menu.py tests/test_pet_behavior.py -q --basetemp=.tmp-test-data/persona-baseline
+git diff --check
+```
+
+技能格式校验通过；现有适用测试 **49 passed / 10.22 秒**；diff 检查通过。本轮未修改运行代码，尚未运行人格的真实模型、百轮对话与桌面接入验收。
 
 ## 发行与开发版本
 

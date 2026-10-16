@@ -1,10 +1,12 @@
 # McPet 开发交接
 
-更新日期：2026-10-15。先读本文件与 [STATUS.md](STATUS.md)，再读 [AGENTS.md](AGENTS.md)、用户当前任务及对应计划 / 验收记录。
+更新日期：2026-10-17。先读本文件与 [STATUS.md](STATUS.md)，再读 [AGENTS.md](AGENTS.md)、用户当前任务及对应计划 / 验收记录。
 
 ## 当前任务与交付
 
-本轮桌宠气泡与竖屏实际操作视频见 [录屏说明](videos/mcpet-desktop/README.md)。工作分支为 `codex/bubble-demo-20261015`，基线 `1be6592`。气泡使用连续圆角背景，输入、按钮和滚动区域统一样式；移动桌宠保留报告滚动位置。成片使用用户提供的文案、实际桌面录屏与阶跃星辰 `step-tts-2`，1080×1920、65.12 秒；发布文案见 [POST](videos/mcpet-desktop/POST.md)。49 项适用检查、4 项 Windows 原生气泡检查通过；五项既有动画断言在修改前基线复现。视频与语音保存在忽略目录，尚未发布或重建发行包。
+用户要求注入 [DeepSeek 人格包](.agents/skills/deepseek-persona/SKILL.md)，并确认范围为 McPet 桌面气泡和持续聊天。工作分支为 `codex/deepseek-persona-20261017`，基线 `3dee5ae`。用户提供的技能原文已保存并通过格式校验；桌面接入尚未完成。当前桌面使用内置回复，既有 `src/chat/dialog.py` 未接入 `MonsterApp`。人格依赖的 `jp-persona-engine` 在仓库与已安装技能中未找到，已询问用户提供路径或来源，或确认本次一并实现，仍待回答。关系阶段判定等宿主规则保持未决定。当前聊天、气泡、菜单和行为基线为 49 项测试通过，尚未执行人格的真实模型与场景验收。
+
+2026-10-15 桌宠气泡与竖屏实际操作视频见 [录屏说明](videos/mcpet-desktop/README.md)。对应工作分支为 `codex/bubble-demo-20261015`，基线 `1be6592`。气泡使用连续圆角背景，输入、按钮和滚动区域统一样式；移动桌宠保留报告滚动位置。成片使用用户提供的文案、实际桌面录屏与阶跃星辰 `step-tts-2`，1080×1920、65.12 秒；发布文案见 [POST](videos/mcpet-desktop/POST.md)。49 项适用检查、4 项 Windows 原生气泡检查通过；五项既有动画断言在修改前基线复现。视频与语音保存在忽略目录，尚未发布或重建发行包。
 
 新增[免 Token 在线试用](docs/PUBLIC-TRIAL.md)：用户明确确认将麦当劳与瑞幸两枚真实 Token 一起公开，`.env.trial` 已提交，个人环境变量或本机配置优先。SOURCE 为 `fff7298803d974d2401e633457fcd170a36ddb04`，工作分支 `codex/public-trial-20261015` 已推送并通过普通合并 `095ef1b` 进入 main。真实连接、stdio、个人配置优先级和解压验证包启动通过；公开 v0.1.0 下载包保持原版本。
 
