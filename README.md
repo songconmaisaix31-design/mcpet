@@ -1,5 +1,11 @@
 # McPet 🐳
 
+> **[Anything Universe](https://github.com/songconmaisaix31-design#anything-universe)** · *Tools for agents. Room for anything.*
+>
+> 桌面入口：陪你工作、查看 Agent 状态，并通过 MCP 连接日常工具。
+>
+> 同系列：[swarm-anything](https://github.com/songconmaisaix31-design/swarm-anything) · [blockchain-anything](https://github.com/songconmaisaix31-design/blockchain-anything)
+
 **余额有人盯，进度有人陪，干饭有人喊。**
 
 McPet 是一只陪你工作的桌宠：看看 Agent 的会话状态和本机用量，提醒吃饭、喝咖啡，帮你查询麦当劳优惠与瑞幸商品。新用户默认由 DeepSeek 娘陪伴，也可以切换 ChatGPT 娘、给鲸鲸换上麦麦套装。
