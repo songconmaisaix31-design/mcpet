@@ -1,151 +1,188 @@
-# McPet 🐳
+<div align="center">
 
-> **[Anything Universe](https://github.com/songconmaisaix31-design#anything-universe)** · *Tools for agents. Room for anything.*
->
-> 桌面入口：陪你工作、查看 Agent 状态，并通过 MCP 连接日常工具。
->
-> 同系列：[swarm-anything](https://github.com/songconmaisaix31-design/swarm-anything) · [blockchain-anything](https://github.com/songconmaisaix31-design/blockchain-anything)
+# McPet
 
-**余额有人盯，进度有人陪，干饭有人喊。**
+A desktop pet that watches your agent sessions, your local token usage, and your lunch.
 
-McPet 是一只陪你工作的桌宠：看看 Agent 的会话状态和本机用量，提醒吃饭、喝咖啡，帮你查询麦当劳优惠与瑞幸商品。新用户默认由 DeepSeek 娘陪伴，也可以切换 ChatGPT 娘、给鲸鲸换上麦麦套装。
+一只桌宠：盯着 Agent 会话、本机用量，还有你的饭点。
 
-在桌面上，右键宠物打开菜单，选择和结果显示在气泡里；在 Agent 中，直接用正在聊的会话操作 McPet，沿用宿主的模型与计费。
+[![Release](https://img.shields.io/badge/release-v0.1.0-2E8B57.svg)](https://github.com/songconmaisaix31-design/mcpet/releases/tag/v0.1.0)
+[![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](requirements-agent.txt)
+[![Platform](https://img.shields.io/badge/platform-Windows%20x64-0078D4.svg)](docs/RELEASE-QUICKSTART.md)
 
-[下载 v0.1.0](https://github.com/songconmaisaix31-design/mcpet/releases/tag/v0.1.0) · [完整使用指南](docs/USER-GUIDE.md) · [发行包快速开始](docs/RELEASE-QUICKSTART.md) · [反馈问题](https://github.com/songconmaisaix31-design/mcpet/issues)
+<img src="docs/media/deepseek/default-idle.gif" width="150" alt="DeepSeek 娘待机动画 / DeepSeek pet idle animation" />
+<img src="docs/media/deepseek/default-working.gif" width="150" alt="DeepSeek 娘忙碌工作动画 / DeepSeek pet working animation" />
+<img src="docs/media/deepseek/maimai-idle.gif" width="150" alt="DeepSeek 娘麦麦套装待机动画 / McDonalds outfit idle animation" />
 
-## 和鲸鲸见个面
+<sub>GIFs shipped in this repository under `docs/media/deepseek/`; sources and licenses are listed in `docs/media/deepseek/SOURCE.md`.<br/>动画文件就在本仓库 `docs/media/deepseek/` 下；来源与许可见 `docs/media/deepseek/SOURCE.md`。</sub>
 
-| 待机陪伴 | 忙碌工作 | 思考泡泡 |
-|:---:|:---:|:---:|
-| <img src="docs/media/deepseek/default-idle.gif" width="160" alt="DeepSeek 娘默认套装待机动画"> | <img src="docs/media/deepseek/default-working.gif" width="160" alt="DeepSeek 娘忙碌工作动画"> | <img src="docs/media/deepseek/default-thinking.gif" width="160" alt="DeepSeek 娘思考泡泡动画"> |
-| **麦麦套装** | **炸薯条** | **换上麦麦套装** |
-| <img src="docs/media/deepseek/maimai-idle.gif" width="160" alt="DeepSeek 娘麦麦套装待机动画"> | <img src="docs/media/deepseek/default-frying.gif" width="160" alt="DeepSeek 娘炸薯条循环动画"> | <img src="docs/media/deepseek/default-outfit.gif" width="160" alt="DeepSeek 娘换上麦麦套装动画"> |
+</div>
 
-<details>
-<summary>展开更多动作：挥手、庆祝、吃饭、睡觉与双向换装</summary>
+> **How to read this page / 怎么读这页**
+> English first, then the same content in Chinese — not a summary, not a separate half. Tables keep both languages in one cell.
+> 每段英文在前、同一内容的中文紧跟在后；不是摘要，也没有单独的"中文版"。表格把两种语言放进同一格。
 
-| 元气挥手 | 开心庆祝 | 吃饭 |
-|:---:|:---:|:---:|
-| <img src="docs/media/deepseek/default-greet.gif" width="160" alt="DeepSeek 娘挥手动画"> | <img src="docs/media/deepseek/default-happy.gif" width="160" alt="DeepSeek 娘庆祝动画"> | <img src="docs/media/deepseek/default-eating.gif" width="160" alt="DeepSeek 娘吃饭动画"> |
-| **睡觉** | **垂头叹气** | **换回默认套装** |
-| <img src="docs/media/deepseek/default-sleeping.gif" width="160" alt="DeepSeek 娘睡觉动画"> | <img src="docs/media/deepseek/default-error.gif" width="160" alt="DeepSeek 娘叹气动画"> | <img src="docs/media/deepseek/default-outfit-default.gif" width="160" alt="DeepSeek 娘换回默认套装动画"> |
-| **向左跑** | **向右跑** | **麦麦套装右向状态** |
-| <img src="docs/media/deepseek/default-run-left.gif" width="160" alt="DeepSeek 娘向左跑动画"> | <img src="docs/media/deepseek/default-run-right.gif" width="160" alt="DeepSeek 娘向右跑动画"> | <img src="docs/media/deepseek/maimai-run-right.gif" width="160" alt="麦麦套装穿装待机镜像动画"> |
+---
 
-麦麦套装的右向状态使用穿装待机的镜像。业务别名及缺少独立素材的状态使用对应已有动画，完整对应关系见[相册说明](assets/deepseek-recordings/SOURCE.md)。
+## At a glance · 一眼看懂
 
-</details>
-
-<details>
-<summary>展开早期鲸鲸九姿态（静态画面，使用时需本机导入）</summary>
-
-| 待机 | 吃饭 | 思考 |
-|:---:|:---:|:---:|
-| <img src="docs/media/deepseek/default-ceta_nothing.gif" width="160" alt="早期鲸鲸待机静态姿态"> | <img src="docs/media/deepseek/default-ceta_eat.gif" width="160" alt="早期鲸鲸吃饭静态姿态"> | <img src="docs/media/deepseek/default-ceta_think.gif" width="160" alt="早期鲸鲸思考静态姿态"> |
-| **被提起来** | **摸摸回应** | **余额告急** |
-| <img src="docs/media/deepseek/default-ceta_pickup.gif" width="160" alt="早期鲸鲸被提起静态姿态"> | <img src="docs/media/deepseek/default-ceta_touch.gif" width="160" alt="早期鲸鲸摸摸回应静态姿态"> | <img src="docs/media/deepseek/default-ceta_nomoney.gif" width="160" alt="早期鲸鲸余额告急静态姿态"> |
-| **元气登场** | **成功** | **失败** |
-| <img src="docs/media/deepseek/default-ceta_cheerup.gif" width="160" alt="早期鲸鲸登场静态姿态"> | <img src="docs/media/deepseek/default-ceta_true.gif" width="160" alt="早期鲸鲸成功静态姿态"> | <img src="docs/media/deepseek/default-ceta_wrong.gif" width="160" alt="早期鲸鲸失败静态姿态"> |
-
-导入步骤和素材权利说明见[早期姿态来源](assets/cetapet/SOURCE.md)。
-
-</details>
-
-图片来自用户提供的 GIF 动作全集，按实际不同画面展示 15 段动画与 9 张单帧姿态。[展示副本与来源](docs/media/deepseek/SOURCE.md)。
-
-## 可以做什么
-
-| 功能 | 使用方式 |
+| | |
 |---|---|
-| 桌面陪伴 | 拖动、触摸、闲逛、休息；通过托盘隐藏、恢复或退出 |
-| 角色与换装 | 切换 DeepSeek 娘 / ChatGPT 娘；保存默认套装 / 麦麦套装，播放炸薯条和换装动作 |
-| 工作状态 | 查看已接入日志的会话进度、等待输入和错误；由后台活动驱动宠物动作 |
-| 用量与余额 | 查看本机 token 台账、Orca 缓存额度及已配置的 DeepSeek 官方余额，标明来源和更新时间 |
-| 麦当劳 | 查询优惠券、门店和实时报价，明确确认后领券、生成订单或申请撤单 |
-| 瑞幸咖啡 | 选择门店、商品与规格，预览实付价，确认生成订单，查询取餐码与订单状态 |
-| 营养记录 | 查询餐品营养，确认实际食用份数后记账，查看今日汇总 |
-| 定时提醒 | 默认 11:30 饭点、15:00 咖啡时间；按设置进行只读查询与提醒 |
+| **Problem<br/>问题** | A long agent run looks the same whether it is working, waiting for input, or already errored — and the token bill lives in yet another window.<br/>长时间运行的 Agent，在工作、等输入、已经出错这三种状态下看起来一样；而 token 账单又在另一个窗口里。 |
+| **Fix<br/>做法** | A desktop pet + an MCP server over one shared data directory: session state drives the animation, a local ledger tracks usage, reminders fire on a schedule.<br/>桌宠加一个 MCP 服务，共用同一份数据目录：会话状态驱动动作，本机台账记录用量，提醒按时触发。 |
+| **Cost<br/>代价** | Python 3.10+ and PySide6 for the desktop; the agent path only needs `requirements-agent.txt`. Dining features need McDonald's / Luckin tokens.<br/>桌面要 Python 3.10+ 与 PySide6；只走 Agent 路径只需 `requirements-agent.txt`。餐饮功能需要麦当劳/瑞幸凭据。 |
+| **Not<br/>不是** | Not a hosted service, not a model provider, not an ordering bot that pays for you.<br/>不是托管服务，不是模型提供方，也不是替你付款的下单机器人。 |
 
-最新源码内置公开试用凭证，无需填写 MCP Token 就能试用麦当劳、瑞幸在线查询。试用操作使用共享账号；长期使用请配置自己的两家 Token，自己的配置优先。角色与皮肤可离线使用；进度和用量需要可读取的日志或宿主事件。订单生成后，由你进入品牌渠道完成付款。
+## What it does · 能做什么
 
-## 快速开始
+| Feature · 功能 | Desktop entry · 桌面入口 | Say this to the agent · 对 Agent 说 |
+|---|---|---|
+| Companion & skins<br/>陪伴与换装 | Character & actions → default / McD outfit | "DeepSeek 娘穿麦麦套装" |
+| Session state<br/>会话状态 | Sessions & quota → session progress | "用 McPet 看当前会话状态" |
+| Usage & balance<br/>用量与余额 | Sessions & quota → local ledger, Orca cache, DeepSeek balance | "余额还有多少" |
+| McDonald's<br/>麦当劳 | McDonald's → coupons, store, live quote | "今天有什么麦当劳优惠？先查一下" |
+| Luckin coffee<br/>瑞幸 | Luckin → store, item, spec, preview price | "选一杯拿铁，先预览价格" |
+| Nutrition ledger<br/>营养记账 | Nutrition → pick item, confirm servings | "查询巨无霸营养，我吃了 1.5 份" |
+| Reminders<br/>定时提醒 | Settings → time & location → lunch / coffee | "饭点改成 12:15" |
 
-### Windows：下载后启动桌宠
+Every order, coupon claim and ledger write shows a concrete summary first and waits for explicit confirmation. The default order guardrails are 100 CNY per order and 3 orders per day, re-checked at confirmation time.
 
-1. 下载 [McPet-v0.1.0-windows-x64.zip](https://github.com/songconmaisaix31-design/mcpet/releases/download/v0.1.0/McPet-v0.1.0-windows-x64.zip)。
-2. 解压完整文件夹，双击 **`Start-Pet.vbs`**。
-3. 右键宠物，试试「角色与动作 → 麦麦套装」，或「设置 → 查看设置」。
+每一次领券、下单和记账都先展示具体摘要，等明确确认后才执行。默认订单护栏是单笔 100 元、每日 3 单，确认时再复核金额。
 
-便携包内置运行环境。保留 `McPet.exe`、`_internal` 和启动脚本的相对位置；直接双击 `McPet.exe` 会进入 MCP 服务模式。启动脚本不可用时，在解压目录运行：
+## The problem · 问题在哪
 
-```powershell
-.\McPet.exe --desktop
+An agent session is a black box with a progress bar:
+
+```text
+agent  ──▶ working?          (no output for 6 minutes)
+       ──▶ waiting for input? (a prompt is on screen)
+       ──▶ stopped?           (idle / Stop)
 ```
 
-首次使用不需要填写模型 Key。v0.1.0 下载包仍需自行填写餐饮凭证；最新源码已支持免 Token 在线试用。长期使用请在「设置 → 账号凭证」中填写自己的麦当劳、瑞幸 Token，余额查询按需配置，详见[账号设置](docs/USER-GUIDE.md#账号与本机配置)。
+`idle` and `Stop` are session states, not success. The pet shows the state it can actually read from logs or host events, and keeps unreadable fields unknown instead of guessing.
 
-### Agent：接入正在使用的会话
+Agent 会话是个带进度条的盲盒：
 
-宿主需要支持 **MCP stdio**。下载 [通用 Agent 包](https://github.com/songconmaisaix31-design/mcpet/releases/download/v0.1.0/McPet-v0.1.0-agent.zip)，解压后在其目录运行；已有源码也可使用同样命令：
+```text
+agent  ──▶ 在工作？        （六分钟没有输出）
+       ──▶ 在等输入？      （屏幕上有提示）
+       ──▶ 已停止？        （idle / Stop）
+```
+
+`idle` 与 `Stop` 是会话状态，不是成功。桌宠只显示它真能从日志或宿主事件读到的东西，读不到的字段保持未知。
+
+## The idea · 思路
+
+| Noun · 名词 | Path · 路径 | Rule · 规则 |
+|---|---|---|
+| **Pet** | `src/pet/`, `src/main.py --desktop` | Animation follows real state; a missing sprite falls back to an existing action rather than a broken frame.<br/>动作跟随真实状态；缺素材时回落到已有动作，不出现破图。 |
+| **Host** | `src/agent_mcp.py`, `src/agent_install.py` | The MCP server is started by the host over stdio; the desktop pet is a separate process on the same data directory.<br/>MCP 服务由宿主以 stdio 启动；桌宠是另一个进程，共用同一份数据目录。 |
+| **Progress** | `src/progress/`, `src/agentbridge/` | Session progress comes from readable logs and host events only; `idle` is not success.<br/>会话进度只来自可读日志与宿主事件；`idle` 不等于成功。 |
+| **Guard** | `src/mcd_mcp/`, `src/luckin.py` | Order, claim and ledger writes require an explicit confirmation step.<br/>下单、领券与记账都需要显式确认步骤。 |
+| **Ledger** | `src/metering/`, `src/accounts/` | Every number carries its source and update time; unknown stays unknown.<br/>每个数字都带来源与更新时间；未知保持未知。 |
+
+## Quickstart · 快速开始
+
+### 1. Portable release (no Python needed) · 便携包（免装 Python）
+
+Download [McPet-v0.1.0-windows-x64.zip](https://github.com/songconmaisaix31-design/mcpet/releases/download/v0.1.0/McPet-v0.1.0-windows-x64.zip), unzip the whole folder and double-click `Start-Pet.vbs`. If the launcher misbehaves, run `.\McPet.exe --desktop` in that folder.
+
+下载 [McPet-v0.1.0-windows-x64.zip](https://github.com/songconmaisaix31-design/mcpet/releases/download/v0.1.0/McPet-v0.1.0-windows-x64.zip)，解压整个文件夹后双击 `Start-Pet.vbs`。启动脚本不可用时，在解压目录运行 `.\McPet.exe --desktop`。
+
+### 2. Connect your agent · 接入 Agent
+
+The host needs MCP stdio support. From the agent package directory, or from a source checkout:
+
+宿主需要支持 MCP stdio。在 Agent 包目录或源码目录运行：
 
 ```powershell
 python -m pip install -r requirements-agent.txt
 python -m src.agent_install
 ```
 
-需要 Python 3.10+。将输出的 `server.command` 和 `server.args` 填入宿主的 MCP 设置，服务名填 `mcpet`，传输方式选择 stdio；重新加载会话并完成宿主的信任流程。然后说：
+Put the printed `server.command` / `server.args` into the host's MCP settings, name it `mcpet`, transport `stdio`. Portable-package users can run `.\McPet.exe --install` for the same output.
 
-> 用 McPet 查看当前角色和设置。切到 DeepSeek 娘，穿麦麦套装。
+把输出的 `server.command` / `server.args` 填进宿主的 MCP 设置，服务名 `mcpet`，传输方式 `stdio`。便携包用户可运行 `.\McPet.exe --install` 得到同样的连接信息。
 
-Windows 便携包用户可运行 `.\McPet.exe --install` 导出同样的连接设置。MCP 服务由宿主启动；桌宠通过 `Start-Pet.vbs` 单独启动。两者使用相同的数据目录时，Agent 的动作和皮肤指令会传给已运行的桌宠。
-
-技能安装、通用配置示例及 OpenCode / Claude Code 的可选原生适配见[Agent 接入步骤](docs/USER-GUIDE.md#在-agent-中使用)。
-
-### 源码：运行桌面版
+### 3. From source · 从源码运行
 
 ```powershell
-git clone https://github.com/songconmaisaix31-design/mcpet.git
-cd mcpet
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m src.main --desktop
 ```
 
-桌面版使用 Python / PySide6。macOS、Linux 可使用通用 Agent 接入；桌面环境和托盘兼容性尚未完整验收。各平台虚拟环境命令见[使用指南](docs/USER-GUIDE.md#从源码运行)。
+Regression checks used by this repository:
 
-## 日常使用
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/test_deepseek_skins.py tests/test_agent_host.py tests/test_guards.py -q
+.\.venv\Scripts\python.exe -m compileall -q src scripts tests
+```
 
-| 想做什么 | 桌面入口 | 在 Agent 中可以这样说 |
-|---|---|---|
-| 给鲸鲸换衣服 | 角色与动作 → 默认套装 / 麦麦套装 | 「DeepSeek 娘穿麦麦套装」 |
-| 看工作状态 | 会话与额度 → 会话进度 | 「用 McPet 看当前会话状态」 |
-| 查优惠 | 麦当劳 → 查优惠券 | 「今天有什么麦当劳优惠？先查一下」 |
-| 选咖啡 | 瑞幸咖啡 → 查找 / 选择门店 | 「帮我查附近瑞幸，选一杯拿铁，先预览价格」 |
-| 记录午餐 | 营养台账 → 选择餐品 / 记账 | 「查询巨无霸营养，我吃了 1.5 份」 |
-| 改提醒 | 设置 → 时间与位置 → 饭点 / 咖啡时间 | 「饭点改成 12:15，咖啡时间改成 15:30」 |
+The commands above are copied from [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/USER-GUIDE.md](docs/USER-GUIDE.md); none of them were re-run while writing this page.
 
-领券、下单、撤单和营养记账都会先展示具体摘要，再取得明确确认。默认订单护栏为单笔 100 元、每日 3 单；确认时还会复核金额。遇到 `delivery_unknown`，先到官方 App 核对订单，停止重复提交。
+以上命令抄自 [CONTRIBUTING.md](CONTRIBUTING.md) 与 [docs/USER-GUIDE.md](docs/USER-GUIDE.md)；写这页时没有重跑任何一条。
 
-## 当前版本与使用边界
+## Documentation · 文档
 
-- **现行发行是 v0.1.0 Python/Qt 版。** Tauri 2、原创默认形象和系统密钥链的参赛版本处于 M0 阶段，进度见 [M0 报告](docs/contest/M0-REPORT.md)。个人凭证保存在本机 `.env`；公开试用凭证位于源码 `.env.trial`。
-- 早期鲸鲸九姿态和全动作 GIF 相册属于后续源码功能，需要[本机导入或录制](docs/USER-GUIDE.md#可选动作与-gif-相册)，v0.1.0 发行包不附带这些本机文件。
-- 本机用量只反映读取到的日志；厂商额度、余额和币种按各来源分别显示。未知数据保持未知，idle / Stop 表示会话状态，任务成功需要明确完成证据。
-- 桌面定时提醒依赖桌宠运行；Agent 自动提醒依赖宿主活动。终端内 GIF 播放取决于宿主的图像资源能力。
-- 真实账号订单、付款及完整宿主对话仍待人工验收；旧桌面心跳、前台性能和部分素材测试仍有历史 RED。各项范围见[验证记录](docs/README.md#当前交付记录)。
-
-## 文档与反馈
-
-| 文档 | 内容 |
+| Doc · 文档 | Read it when · 什么场景读它 |
 |---|---|
-| [完整使用指南](docs/USER-GUIDE.md) | 安装、菜单、Agent 接入、账号配置、餐饮流程、更新与常见问题 |
-| [发行包快速开始](docs/RELEASE-QUICKSTART.md) | Windows 便携包和通用 Agent 包的首次启动 |
-| [Agent 技术说明](docs/AGENT-HOST.md) / [技能说明](docs/AGENT-SKILL.md) | 工具、资源、宿主事件和技能复制 |
-| [开发与验证](CONTRIBUTING.md) / [仓库结构](docs/REPOSITORY.md) | 开发环境、目录、测试命令与提交约定 |
-| [开发交接](HANDOFF.md) / [当前状态](STATUS.md) | 接管入口、分支归属、已实现功能、阶段进度与待验收事项 |
-| [全部文档](docs/README.md) | 功能说明、素材说明和历史验收记录 |
+| [docs/USER-GUIDE.md](docs/USER-GUIDE.md) | You need install, menus, account setup, dining flows, FAQ.<br/>需要安装、菜单、账号配置、餐饮流程与常见问题。 |
+| [docs/RELEASE-QUICKSTART.md](docs/RELEASE-QUICKSTART.md) | First launch of the Windows portable or agent package.<br/>首次启动 Windows 便携包或 Agent 包。 |
+| [docs/AGENT-HOST.md](docs/AGENT-HOST.md) | You are wiring the MCP host: tools, resources, host events.<br/>在接 MCP 宿主：工具、资源、宿主事件。 |
+| [docs/AGENT-SKILL.md](docs/AGENT-SKILL.md) | You want the portable skill copy and its references.<br/>需要可移植技能副本与其引用文件。 |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | You are changing code: env setup, checks, commit rules.<br/>要改代码：环境、检查、提交规则。 |
+| [STATUS.md](STATUS.md) | You need current progress, branch ownership, unverified items.<br/>需要当前进度、分支归属、待验收事项。 |
+| [assets/CREDITS.md](assets/CREDITS.md) | You are reusing art or reference code — read the per-asset licenses first.<br/>要复用素材或参考代码——先看各自的许可。 |
 
-遇到问题可提交 [GitHub Issue](https://github.com/songconmaisaix31-design/mcpet/issues)，附上版本、系统、运行入口、复现步骤和脱敏后的错误信息；请先查阅[常见问题](docs/USER-GUIDE.md#常见问题)。
+## Repository layout · 仓库结构
 
-角色、动作与参考代码的来源和授权分别记录在[素材来源](assets/CREDITS.md)，各素材目录保留相应说明和许可证。本项目为社区开发作品；品牌信息、餐品价格与供应情况以官方渠道为准。[参赛声明](CONTEST_DECLARATION.md)。
+```text
+mcpet/
+├── src/
+│   ├── pet/            # desktop pet window, sprites, behaviour
+│   ├── agent_mcp.py    # MCP stdio server for the host
+│   ├── agent_install.py# prints server.command / server.args
+│   ├── progress/       # session state from logs + host events
+│   ├── metering/       # local token ledger
+│   ├── accounts/       # read-only quota / balance sources
+│   ├── mcd_mcp/        # McDonald's client, business rules, order guard
+│   ├── nutrition/      # local nutrition ledger
+│   └── schedule/       # reminders
+├── .agents/skills/     # portable agent skill source
+├── assets/             # sprites, GIFs, credits
+├── docs/               # user guide, agent docs, release notes, media
+├── integrations/       # optional native adapters (OpenCode)
+├── scripts/            # release build, asset import, diagnostics
+└── tests/              # 38 pytest files
+```
+
+## Status · 状态
+
+Shipped release: **v0.1.0**, Python/Qt, Windows x64 portable. The Tauri 2 + original-art redesign is still at M0 ([docs/contest/M0-REPORT.md](docs/contest/M0-REPORT.md)). Source is 70 Python modules; tests are 38 files.
+
+现行发行：**v0.1.0**，Python/Qt，Windows x64 便携包。Tauri 2 与原创形象的重做仍在 M0（[docs/contest/M0-REPORT.md](docs/contest/M0-REPORT.md)）。源码 70 个 Python 模块；测试 38 个文件。
+
+Known limits, stated rather than hidden:
+
+- The v0.1.0 download still needs your own McDonald's / Luckin tokens; token-free trial only works from current source (`.env.trial`).
+- macOS and Linux desktop/tray compatibility has not been fully accepted; only the agent path is cross-platform today.
+- Desktop reminders need the pet running; agent reminders need host activity.
+- `python -m pytest -q` has known open failures in legacy desktop and foreground-performance items; the curated regression set is the one the repo claims.
+- No CI workflow exists in this repository, so nothing is checked automatically on push.
+- Real-account orders, payments and full host conversations still need human acceptance.
+
+边界写出来而不是藏起来：
+
+- v0.1.0 下载包仍需自备麦当劳/瑞幸凭据；免 Token 试用只在当前源码（`.env.trial`）可用。
+- macOS、Linux 的桌面与托盘兼容性尚未完整验收；目前只有 Agent 路径是跨平台的。
+- 桌面提醒依赖桌宠运行；Agent 提醒依赖宿主活动。
+- `python -m pytest -q` 在旧桌面与前台性能相关项上仍有已知失败；仓库只对整理出的回归集作承诺。
+- 本仓库没有 CI 工作流，push 时不会自动检查。
+- 真实账号下单、付款与完整宿主对话仍需人工验收。
+
+## License · 许可
+
+This repository declares **no project-wide license** at its root — there is no top-level LICENSE file. Per-asset and per-reference licenses are recorded in [assets/CREDITS.md](assets/CREDITS.md); the only LICENSE file in the tree is `assets/dsh-deepseek/LICENSE`, which covers that asset only. Treat the code as all-rights-reserved until the author states otherwise.
+
+本仓库根目录**没有项目级许可**——没有顶层 LICENSE 文件。各素材与参考代码的许可记录在 [assets/CREDITS.md](assets/CREDITS.md)；树内唯一的 LICENSE 是 `assets/dsh-deepseek/LICENSE`，只覆盖该素材。在作者另行声明前，代码按保留所有权利对待。
